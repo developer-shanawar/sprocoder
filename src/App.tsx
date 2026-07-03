@@ -22,8 +22,8 @@ import AdminAuth from "./components/AdminAuth";
 import UserProfile from "./components/UserProfile";
 
 export default function App() {
-  // Navigation tabs: home, articles, about, contact, admin-auth, admin, profile
-  const [currentTab, setCurrentTab] = useState<"home" | "articles" | "about" | "contact" | "admin-auth" | "admin" | "profile">("home");
+  // Navigation tabs: home, articles, about, privacy, terms, contact, admin-auth, admin, profile
+  const [currentTab, setCurrentTab] = useState<"home" | "articles" | "about" | "privacy" | "terms" | "contact" | "admin-auth" | "admin" | "profile">("home");
 
   // User auth state
   const [currentUser, setCurrentUser] = useState<UserAccount | null>(() => {
@@ -143,6 +143,16 @@ export default function App() {
       unsubIcon();
     };
   }, []);
+
+  // Keep selectedPost updated with real-time comments / views / likes from allPosts
+  useEffect(() => {
+    if (selectedPost) {
+      const latest = allPosts.find((p) => p.id === selectedPost.id);
+      if (latest) {
+        setSelectedPost(latest);
+      }
+    }
+  }, [allPosts, selectedPost?.id]);
 
   // Filter posts based on query, selected category, and active view
   const filteredPosts = allPosts.filter((post) => {
@@ -282,28 +292,67 @@ export default function App() {
     }
   };
 
-  // Comment insertion
+  // Comment insertion with username support
   const handleAddComment = async (post: BlogPost, text: string) => {
     const authorName = currentUser ? currentUser.name : "Guest Coder";
-    const authorAvatar = `https://api.dicebear.com/7.x/pixel-art/svg?seed=${encodeURIComponent(authorName)}`;
+    const authorAvatar = currentUser?.avatarUrl || `https://api.dicebear.com/7.x/pixel-art/svg?seed=${encodeURIComponent(authorName)}`;
+    const authorUsername = currentUser?.username || "";
 
     const newComment: Comment = {
       id: "c_" + Date.now(),
       author: authorName,
       avatar: authorAvatar,
+      username: authorUsername,
+      content: text,
+      date: new Date().toLocaleDateString("en-US", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" }),
+      replies: []
+    };
+
+    try {
+      const existingComments = post.comments ? [...post.comments] : [];
+      const updatedComments = [...existingComments, newComment];
+
+      await update(ref(db, `${DB_PATHS.ARTICLES}/${post.id}`), {
+        comments: updatedComments
+      });
+    } catch (err) {
+      console.error("Failed to add comment:", err);
+    }
+  };
+
+  // Reply insertion under specific comment ID
+  const handleAddReply = async (post: BlogPost, commentId: string, text: string) => {
+    const authorName = currentUser ? currentUser.name : "Guest Coder";
+    const authorAvatar = currentUser?.avatarUrl || `https://api.dicebear.com/7.x/pixel-art/svg?seed=${encodeURIComponent(authorName)}`;
+    const authorUsername = currentUser?.username || "";
+
+    const newReply = {
+      id: "r_" + Date.now(),
+      author: authorName,
+      avatar: authorAvatar,
+      username: authorUsername,
       content: text,
       date: new Date().toLocaleDateString("en-US", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })
     };
 
     try {
       const existingComments = post.comments ? [...post.comments] : [];
-      const updatedComments = [newComment, ...existingComments];
+      const updatedComments = existingComments.map((comment) => {
+        if (comment.id === commentId) {
+          const replies = comment.replies ? [...comment.replies] : [];
+          return {
+            ...comment,
+            replies: [...replies, newReply]
+          };
+        }
+        return comment;
+      });
 
       await update(ref(db, `${DB_PATHS.ARTICLES}/${post.id}`), {
         comments: updatedComments
       });
     } catch (err) {
-      console.error(err);
+      console.error("Failed to add reply:", err);
     }
   };
 
@@ -346,9 +395,11 @@ export default function App() {
             onClose={() => setSelectedPost(null)}
             isBookmarked={currentUser?.savedArticles?.includes(selectedPost.id) || false}
             onToggleBookmark={() => handleToggleBookmark(selectedPost)}
-            isLiked={false}
+            isLiked={currentUser?.likedArticles?.includes(selectedPost.id) || false}
             onLike={() => handleLikeArticle(selectedPost)}
             onAddComment={(text) => handleAddComment(selectedPost, text)}
+            onAddReply={(commentId, text) => handleAddReply(selectedPost, commentId, text)}
+            currentUser={currentUser}
           />
         ) : (
           <>
@@ -590,14 +641,14 @@ export default function App() {
           </div>
         )}
 
-        {/* VIEW 3: ABOUT PAGE */}
+        {/* VIEW 3: ABOUT PAGE (SEPARATE PAGE!) */}
         {currentTab === "about" && (
           <div className="max-w-3xl mx-auto space-y-8 animate-in fade-in duration-300" id="about-view-container">
             <div className="bg-white/40 backdrop-blur-lg border border-white/60 rounded-[32px] p-6 sm:p-10 text-purple-950 space-y-6 shadow-xl relative overflow-hidden">
               <div className="absolute top-0 right-0 w-48 h-48 bg-purple-500/15 rounded-full filter blur-2xl pointer-events-none" />
 
               <div className="text-center space-y-2">
-                <div className="w-12 h-12 bg-purple-600 text-white rounded-2xl flex items-center justify-center mx-auto shadow-lg shadow-purple-200">
+                <div className="w-12 h-12 bg-purple-600 text-white rounded-2xl flex items-center justify-center mx-auto shadow-lg shadow-purple-200 animate-pulse">
                   <ShieldCheck className="w-6 h-6" />
                 </div>
                 <h1 className="text-3xl font-black text-purple-950 tracking-tight">
@@ -608,34 +659,58 @@ export default function App() {
                 </p>
               </div>
 
-              <div className="space-y-4 text-sm leading-relaxed text-gray-700 whitespace-pre-line text-justify font-sans">
+              <div className="space-y-4 text-sm leading-relaxed text-gray-700 whitespace-pre-line text-justify font-sans border-t border-purple-100/50 pt-6">
                 {aboutContent || "S pro coder is a bespoke digital platform supplying high-end tech tutorials and AI articles."}
               </div>
+            </div>
+          </div>
+        )}
 
-              <div className="border-t border-purple-100 pt-6 space-y-4">
-                <h3 className="font-extrabold text-xs text-purple-950 uppercase tracking-widest">
-                  Legal Declarations & Guidelines
-                </h3>
+        {/* VIEW 3.1: PRIVACY POLICY (SEPARATE PAGE!) */}
+        {currentTab === "privacy" && (
+          <div className="max-w-3xl mx-auto space-y-8 animate-in fade-in duration-300" id="privacy-view-container">
+            <div className="bg-white/40 backdrop-blur-lg border border-white/60 rounded-[32px] p-6 sm:p-10 text-purple-950 space-y-6 shadow-xl relative overflow-hidden">
+              <div className="absolute top-0 right-0 w-48 h-48 bg-indigo-500/15 rounded-full filter blur-2xl pointer-events-none" />
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 text-xs">
-                  <div className="p-4 rounded-2xl bg-purple-50/50 border border-purple-100 space-y-2">
-                    <h4 className="font-extrabold text-purple-950 uppercase">
-                      Privacy Policy
-                    </h4>
-                    <p className="text-gray-600 leading-relaxed text-justify">
-                      {privacyPolicy || "Your records are held securely inside real-time Firebase Authentication protocols."}
-                    </p>
-                  </div>
-
-                  <div className="p-4 rounded-2xl bg-purple-50/50 border border-purple-100 space-y-2">
-                    <h4 className="font-extrabold text-purple-950 uppercase">
-                      Terms & Conditions
-                    </h4>
-                    <p className="text-gray-600 leading-relaxed text-justify">
-                      {termsAndConditions || "All custom files built using our templates carry open-source MIT copyrights."}
-                    </p>
-                  </div>
+              <div className="text-center space-y-2">
+                <div className="w-12 h-12 bg-indigo-600 text-white rounded-2xl flex items-center justify-center mx-auto shadow-lg shadow-indigo-200">
+                  <ShieldCheck className="w-6 h-6" />
                 </div>
+                <h1 className="text-3xl font-black text-purple-950 tracking-tight">
+                  Privacy Policy Guidelines
+                </h1>
+                <p className="text-xs text-indigo-600 font-mono font-bold tracking-wider uppercase">
+                  SECURE DATA • PRIVACY • INTEGRITY
+                </p>
+              </div>
+
+              <div className="space-y-4 text-sm leading-relaxed text-gray-700 whitespace-pre-line text-justify font-sans border-t border-purple-100/50 pt-6">
+                {privacyPolicy || "Your records are held securely inside real-time Firebase Authentication protocols. S pro coder does not sell, distribute, or expose user records."}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* VIEW 3.2: TERMS & CONDITIONS (SEPARATE PAGE!) */}
+        {currentTab === "terms" && (
+          <div className="max-w-3xl mx-auto space-y-8 animate-in fade-in duration-300" id="terms-view-container">
+            <div className="bg-white/40 backdrop-blur-lg border border-white/60 rounded-[32px] p-6 sm:p-10 text-purple-950 space-y-6 shadow-xl relative overflow-hidden">
+              <div className="absolute top-0 right-0 w-48 h-48 bg-purple-500/15 rounded-full filter blur-2xl pointer-events-none" />
+
+              <div className="text-center space-y-2">
+                <div className="w-12 h-12 bg-purple-600 text-white rounded-2xl flex items-center justify-center mx-auto shadow-lg shadow-purple-200">
+                  <ShieldCheck className="w-6 h-6" />
+                </div>
+                <h1 className="text-3xl font-black text-purple-950 tracking-tight">
+                  Terms and Conditions of Use
+                </h1>
+                <p className="text-xs text-purple-600 font-mono font-bold tracking-wider uppercase">
+                  USAGE AGREEMENT • COPYRIGHTS • LIABILITY
+                </p>
+              </div>
+
+              <div className="space-y-4 text-sm leading-relaxed text-gray-700 whitespace-pre-line text-justify font-sans border-t border-purple-100/50 pt-6">
+                {termsAndConditions || "All custom files built using our templates carry open-source MIT copyrights. By using our guides, you accept responsibility for your implementation."}
               </div>
             </div>
           </div>

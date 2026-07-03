@@ -1,9 +1,20 @@
+export interface Reply {
+  id: string;
+  author: string;
+  avatar: string;
+  content: string;
+  date: string;
+  username?: string;
+}
+
 export interface Comment {
   id: string;
   author: string;
   avatar: string;
   content: string;
   date: string;
+  username?: string;
+  replies?: Reply[];
 }
 
 export interface BlogPost {
@@ -38,6 +49,8 @@ export interface UserAccount {
   email: string;
   registeredAt: string;
   lastLogin: string;
+  username?: string; // e.g. @shanawar
+  avatarUrl?: string; // profile picture URL
   savedArticles?: string[]; // list of post ids
   likedArticles?: string[]; // list of liked post ids
   history?: HistoryEntry[]; // list of reading logs

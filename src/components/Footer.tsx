@@ -2,8 +2,8 @@ import React from "react";
 import { Youtube, Github, Linkedin, Twitter, Sparkles } from "lucide-react";
 
 interface FooterProps {
-  currentTab: "home" | "articles" | "about" | "contact" | "admin-auth" | "admin" | "profile";
-  setCurrentTab: (tab: "home" | "articles" | "about" | "contact" | "admin-auth" | "admin" | "profile") => void;
+  currentTab: "home" | "articles" | "about" | "privacy" | "terms" | "contact" | "admin-auth" | "admin" | "profile";
+  setCurrentTab: (tab: "home" | "articles" | "about" | "privacy" | "terms" | "contact" | "admin-auth" | "admin" | "profile") => void;
   isAdminAuthenticated: boolean;
 }
 
@@ -102,16 +102,20 @@ export default function Footer({ currentTab, setCurrentTab, isAdminAuthenticated
             <ul className="space-y-2 text-xs">
               <li>
                 <button 
-                  onClick={() => setCurrentTab("about")} 
-                  className="text-slate-300 hover:text-white transition-all text-left block cursor-pointer"
+                  onClick={() => setCurrentTab("privacy")} 
+                  className={`text-slate-300 hover:text-white transition-all text-left block cursor-pointer ${
+                    currentTab === "privacy" ? "text-purple-400 font-bold font-mono" : ""
+                  }`}
                 >
                   Privacy Policy Guidelines
                 </button>
               </li>
               <li>
                 <button 
-                  onClick={() => setCurrentTab("about")} 
-                  className="text-slate-300 hover:text-white transition-all text-left block cursor-pointer"
+                  onClick={() => setCurrentTab("terms")} 
+                  className={`text-slate-300 hover:text-white transition-all text-left block cursor-pointer ${
+                    currentTab === "terms" ? "text-purple-400 font-bold font-mono" : ""
+                  }`}
                 >
                   Terms and Conditions of Use
                 </button>

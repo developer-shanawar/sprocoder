@@ -10,8 +10,8 @@ import { BlogPost, UserAccount, NotificationItem } from "../types";
 import { motion, AnimatePresence } from "motion/react";
 
 interface HeaderProps {
-  currentTab: "home" | "articles" | "about" | "contact" | "admin-auth" | "admin" | "profile";
-  setCurrentTab: (tab: "home" | "articles" | "about" | "contact" | "admin-auth" | "admin" | "profile") => void;
+  currentTab: "home" | "articles" | "about" | "privacy" | "terms" | "contact" | "admin-auth" | "admin" | "profile";
+  setCurrentTab: (tab: "home" | "articles" | "about" | "privacy" | "terms" | "contact" | "admin-auth" | "admin" | "profile") => void;
   currentUser: UserAccount | null;
   setCurrentUser: (user: UserAccount | null) => void;
   onOpenAdmin: () => void;
@@ -34,6 +34,12 @@ export default function Header({
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const [authMode, setAuthMode] = useState<"login" | "register">("login");
   const [isProfileOpen, setIsProfileOpen] = useState(false);
+
+  // Check if current user email is an admin email
+  const isAdminUser = currentUser && (
+    currentUser.email.toLowerCase() === "developershanawar@gmail.com" ||
+    currentUser.email.toLowerCase() === "shanawarali07860@gmail.com"
+  );
 
   // Form Inputs
   const [name, setName] = useState("");
@@ -172,10 +178,15 @@ export default function Header({
         gName = result.user.displayName || "Google User";
         gId = result.user.uid;
       } catch (authErr) {
-        console.warn("Iframe environment blocked Google popup. Using seamless simulation...", authErr);
-        gEmail = "google_user" + Math.floor(100 + Math.random() * 900) + "@gmail.com";
-        gName = "Google Coder Profile";
-        gId = "google_" + Math.random().toString(36).substring(2, 9);
+        console.warn("Iframe environment blocked Google popup. Using high fidelity simulation...", authErr);
+        const inputEmail = prompt("Google popup blocked. Please input your Google Sign-In Email address:", "developershanawar@gmail.com");
+        if (!inputEmail) return;
+        gEmail = inputEmail.trim().toLowerCase();
+        
+        const inputName = prompt("Please enter your Google account Display Name:", "Shanawar Ali");
+        gName = (inputName || "Google Coder").trim();
+        
+        gId = "google_" + btoa(gEmail).substring(0, 10).replace(/[^a-zA-Z0-9]/g, "");
       }
 
       const usersRef = ref(db, DB_PATHS.USERS);
@@ -284,6 +295,21 @@ export default function Header({
               {tab}
             </button>
           ))}
+          {isAdminUser && (
+            <button
+              onClick={() => {
+                setCurrentTab("admin-auth");
+                setIsMobileMenuOpen(false);
+              }}
+              className={`px-4 py-1.5 rounded-full text-xs font-bold transition-all duration-300 cursor-pointer flex items-center gap-1 bg-gradient-to-r from-purple-700 to-indigo-600 text-white shadow-md shadow-purple-100 ${
+                currentTab === "admin" || currentTab === "admin-auth" ? "ring-2 ring-purple-300" : ""
+              }`}
+              id="nav-link-admin-panel-btn"
+            >
+              <ShieldCheck className="w-3.5 h-3.5 text-white animate-pulse" />
+              <span>Admin Panel</span>
+            </button>
+          )}
         </div>
 
         {/* Right Interactions */}
@@ -363,10 +389,14 @@ export default function Header({
             <div className="relative">
               <button
                 onClick={() => setIsProfileOpen(!isProfileOpen)}
-                className="w-9 h-9 rounded-full bg-purple-100 text-purple-800 font-black text-xs flex items-center justify-center border-2 border-purple-300 hover:scale-105 active:scale-95 transition-all cursor-pointer shadow-sm"
+                className="w-9 h-9 rounded-full overflow-hidden bg-purple-100 text-purple-800 font-black text-xs flex items-center justify-center border-2 border-purple-300 hover:scale-105 active:scale-95 transition-all cursor-pointer shadow-sm"
                 id="profile-dropdown-trigger"
               >
-                {currentUser.name.slice(0, 2).toUpperCase()}
+                {currentUser.avatarUrl ? (
+                  <img src={currentUser.avatarUrl} alt={currentUser.name} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                ) : (
+                  currentUser.name.slice(0, 2).toUpperCase()
+                )}
               </button>
 
               {/* Profile and lists dropdown */}
@@ -380,8 +410,12 @@ export default function Header({
                     id="profile-dropdown-menu"
                   >
                     <div className="border-b border-purple-50 pb-3 flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-full bg-purple-600 text-white font-extrabold text-sm flex items-center justify-center shadow">
-                        {currentUser.name.slice(0, 2).toUpperCase()}
+                      <div className="w-10 h-10 rounded-full overflow-hidden bg-purple-600 text-white font-extrabold text-sm flex items-center justify-center shadow shrink-0">
+                        {currentUser.avatarUrl ? (
+                          <img src={currentUser.avatarUrl} alt={currentUser.name} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                        ) : (
+                          currentUser.name.slice(0, 2).toUpperCase()
+                        )}
                       </div>
                       <div className="text-left">
                         <p className="font-extrabold text-xs text-purple-950">{currentUser.name}</p>
@@ -561,6 +595,20 @@ export default function Header({
                       {tab}
                     </button>
                   ))}
+                  {isAdminUser && (
+                    <button
+                      onClick={() => {
+                        setCurrentTab("admin-auth");
+                        setIsMobileMenuOpen(false);
+                      }}
+                      className={`w-full text-left px-4 py-3 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-2 bg-gradient-to-r from-purple-700 to-indigo-600 text-white ${
+                        currentTab === "admin" || currentTab === "admin-auth" ? "ring-2 ring-purple-300" : ""
+                      }`}
+                    >
+                      <ShieldCheck className="w-4 h-4 text-white animate-pulse" />
+                      <span>Admin Panel</span>
+                    </button>
+                  )}
                 </div>
               </div>
 

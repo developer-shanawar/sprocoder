@@ -31,6 +31,7 @@ export default function AdminPanel({ onClose, categories, setCategories, onLogou
   const [thumbnailUrl, setThumbnailUrl] = useState("");
   const [likes, setLikes] = useState(0);
   const [savesCount, setSavesCount] = useState(0);
+  const [tagsInput, setTagsInput] = useState("");
   const [isUploading, setIsUploading] = useState(false);
   const [uploadError, setUploadError] = useState("");
 
@@ -204,6 +205,10 @@ export default function AdminPanel({ onClose, categories, setCategories, onLogou
         articleId = newArtRef.key as string;
       }
 
+      const parsedTags = tagsInput.trim()
+        ? tagsInput.split(",").map((t) => t.trim().replace(/^#/, "").toLowerCase()).filter(Boolean)
+        : [category.toLowerCase(), "tech", "coding"];
+
       const articlePayload: BlogPost = {
         id: articleId as string,
         title: title.trim(),
@@ -211,7 +216,7 @@ export default function AdminPanel({ onClose, categories, setCategories, onLogou
         category,
         content: content.trim(),
         readTime: `${Math.max(1, Math.ceil(content.split(/\s+/).length / 200))} min read`,
-        tags: [category.toLowerCase(), "tech", "coding"],
+        tags: parsedTags,
         excerpt: tagline.trim() || content.trim().slice(0, 150) + "...",
         author: "Admin - S pro coder",
         date: editingArticle?.date || new Date().toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" }),
@@ -241,6 +246,7 @@ export default function AdminPanel({ onClose, categories, setCategories, onLogou
       setTagline("");
       setCategory("");
       setContent("");
+      setTagsInput("");
       setThumbnailUrl("");
       setLikes(0);
       setSavesCount(0);
@@ -259,6 +265,7 @@ export default function AdminPanel({ onClose, categories, setCategories, onLogou
     setTagline(post.tagline);
     setCategory(post.category);
     setContent(post.content);
+    setTagsInput(post.tags ? post.tags.join(", ") : "");
     setThumbnailUrl(post.thumbnailUrl);
     setLikes(post.likes);
     setSavesCount(post.savesCount || 0);
@@ -469,6 +476,7 @@ export default function AdminPanel({ onClose, categories, setCategories, onLogou
                         setTagline("");
                         setCategory("");
                         setContent("");
+                        setTagsInput("");
                         setThumbnailUrl("");
                         setLikes(0);
                         setSavesCount(0);
@@ -522,7 +530,7 @@ export default function AdminPanel({ onClose, categories, setCategories, onLogou
                     </select>
                   </div>
 
-                  {/* Image Upload/Link */}
+                   {/* Image Upload/Link */}
                   <div className="space-y-1">
                     <label className="text-[10px] font-bold text-purple-900 uppercase tracking-wider block">
                       Thumbnail Image URL (or upload below)
@@ -533,6 +541,21 @@ export default function AdminPanel({ onClose, categories, setCategories, onLogou
                       value={thumbnailUrl}
                       onChange={(e) => setThumbnailUrl(e.target.value)}
                       className="w-full px-3 py-2 rounded-xl border border-purple-200 bg-white text-xs focus:outline-none focus:border-purple-500"
+                    />
+                  </div>
+
+                  {/* SEO Hashtags & Keywords */}
+                  <div className="space-y-1 md:col-span-2">
+                    <label className="text-[10px] font-bold text-purple-900 uppercase tracking-wider block">
+                      SEO Hashtags & Keywords (comma-separated, without '#')
+                    </label>
+                    <input 
+                      type="text" 
+                      placeholder="e.g. promptengineering, gemini, llm, nextjs, ai"
+                      value={tagsInput}
+                      onChange={(e) => setTagsInput(e.target.value)}
+                      className="w-full px-3 py-2 rounded-xl border border-purple-200 bg-white text-xs focus:outline-none focus:border-purple-500 font-mono"
+                      id="seo-tags-input"
                     />
                   </div>
                 </div>

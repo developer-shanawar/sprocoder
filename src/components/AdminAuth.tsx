@@ -2,7 +2,8 @@ import React, { useState } from "react";
 import { KeyRound, ShieldAlert, AlertCircle, ArrowLeft, RefreshCw } from "lucide-react";
 import { motion } from "motion/react";
 import { ref, get } from "firebase/database";
-import { db } from "../firebase";
+import { db, auth } from "../firebase";
+import { signInWithEmailAndPassword } from "firebase/auth";
 
 interface AdminAuthProps {
   onSuccess: () => void;
@@ -21,20 +22,31 @@ export default function AdminAuth({ onSuccess, onCancel }: AdminAuthProps) {
     setError("");
     setLoading(true);
 
-    const targetEmail = "shanawarali07860@gmail.com";
-    const targetPassword = "Shanawarali@07860";
+    const targetEmail1 = "shanawarali07860@gmail.com";
+    const targetPassword1 = "Shanawarali@07860";
+    
+    const targetEmail2 = "developershanawar@gmail.com";
     const targetPin = "07860";
 
+    const inputEmail = email.trim().toLowerCase();
+
     try {
-      // Look up if any custom overrides are defined in firebase database, otherwise default to target
+      let verified = false;
+
+      // Check PIN first - PIN is required for all admin entries
+      if (pin.trim() !== targetPin) {
+        setError("Invalid security PIN code.");
+        setLoading(false);
+        return;
+      }
+
+      // 1. Check custom overrides from Database
       const adminSettingsRef = ref(db, "settings/adminAuth");
       const snapshot = await get(adminSettingsRef);
-      
-      let verified = false;
       if (snapshot.exists()) {
         const data = snapshot.val();
         if (
-          email.trim() === data.email &&
+          inputEmail === data.email?.toLowerCase() &&
           password === data.password &&
           pin === data.pin
         ) {
@@ -42,14 +54,21 @@ export default function AdminAuth({ onSuccess, onCancel }: AdminAuthProps) {
         }
       }
 
-      // Fallback or main standard credentials
+      // 2. Check hardcoded admin developershanawar@gmail.com OR shanawarali07860@gmail.com
       if (!verified) {
-        if (
-          email.trim() === targetEmail &&
-          password === targetPassword &&
-          pin === targetPin
-        ) {
+        if (inputEmail === targetEmail1 && password === targetPassword1) {
           verified = true;
+        } else if (inputEmail === targetEmail2) {
+          // Attempt Firebase Auth sign-in with input password for developershanawar@gmail.com
+          try {
+            await signInWithEmailAndPassword(auth, inputEmail, password);
+            verified = true;
+          } catch (authErr: any) {
+            console.warn("Firebase Auth admin verify failed:", authErr);
+            setError("Incorrect password for admin user in Firebase Auth.");
+            setLoading(false);
+            return;
+          }
         }
       }
 
@@ -58,9 +77,9 @@ export default function AdminAuth({ onSuccess, onCancel }: AdminAuthProps) {
       } else {
         setError("Invalid Admin email, password, or security PIN code.");
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error(err);
-      setError("Database connection error. Please try again.");
+      setError(err.message || "Database connection error. Please try again.");
     } finally {
       setLoading(false);
     }
