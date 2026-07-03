@@ -1,0 +1,50 @@
+{
+  "project_name": "S pro coder",
+  "dashboard_type": "Administrative Control Deck & CMS Panel",
+  "rtdb_paths": {
+    "articles": "posts",
+    "categories": "categories",
+    "pages_legal": "pages",
+    "website_icon": "settings/logoIconUrl",
+    "contact_messages": "messages",
+    "users": "users",
+    "notifications": "notifications"
+  },
+  "admin_credentials_instructions": {
+    "username": "admin@sprocoder.com",
+    "passcode": "7860",
+    "security_pin": "5566",
+    "storage_key": "spro_admin_auth"
+  },
+  "markdown_content_formatter": {
+    "links": {
+      "syntax": "[Word to Highlight](https://yourlink.com)",
+      "example": "Read our latest [AI Coding Tutorial](https://sprocoder.com/ai-tutorial) for deep learning guidelines."
+    },
+    "embedded_images": {
+      "syntax": "![Image Description](https://image-url.com/photo.jpg)",
+      "example": "Below is our architecture map:\n![System Architecture](https://i.ibb.co/example-architecture.png)"
+    }
+  },
+  "youtube_embed_instructions": {
+    "field": "youtubeEmbedCode",
+    "input_type": "YouTube Embed iframe or URL link",
+    "how_to_get_embed_code": [
+      "1. Go to any YouTube video in your browser.",
+      "2. Click the 'Share' button beneath the video.",
+      "3. Choose 'Embed' from the share modal.",
+      "4. Copy the entire HTML block starting with '<iframe ...></iframe>'.",
+      "5. Paste this iframe code directly into the YouTube segment inside the Admin Dashboard."
+    ],
+    "video_limit": "Supports displaying up to 5 custom videos on the home page left panel."
+  },
+  "website_branding_setup": {
+    "upload_method": "ImgBB Host API Integration",
+    "configuration": {
+      "api_endpoint": "https://api.imgbb.com/1/upload",
+      "key": "cbccbe81da0dbe0ea13b4c9e832f05ba"
+    },
+    "behavior": "When you upload your logo or icon inside the Pages section of the Admin Dashboard, it gets hosted on ImgBB, and the live link is automatically saved to 'settings/logoIconUrl' in the Firebase Realtime Database. The entire header, footer, and mobile drawer logos update in real time."
+  },
+  "ai_generation_prompt": "Create a fully functional React/TypeScript CMS Admin Dashboard component styled with Tailwind CSS Frosted Glass theme. The component must include: 1) Authentication panel using Email & Password or a 4-digit security PIN; 2) Tabs for 'Articles' (create, edit with title, category, thumbnail upload, rich text Markdown editor supporting word links and embedded images, delete); 3) 'Categories' (manage list of up to 10 unique tech tags); 4) 'YouTube Feed' (edit links/embed iframe codes for 1-5 videos displayed on home); 5) 'Pages Editor' (edit dynamic content for About, Privacy, Terms, and upload brand logo via ImgBB API); and 6) Real-time database sync using Firebase onValue/set hooks."
+}

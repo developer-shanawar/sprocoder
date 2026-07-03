@@ -1,7 +1,8 @@
 import React, { useState } from "react";
-import { Heart, Bookmark, Calendar, Clock, User, MessageSquare, Send, ArrowLeft } from "lucide-react";
+import { Heart, Bookmark, Calendar, Clock, User, MessageSquare, Send, ArrowLeft, Eye } from "lucide-react";
 import { BlogPost, Comment } from "../types";
 import { motion } from "motion/react";
+import Markdown from "react-markdown";
 
 interface ArticleDetailViewProps {
   post: BlogPost;
@@ -77,6 +78,10 @@ export default function ArticleDetailView({
               <User className="w-3.5 h-3.5 text-purple-500" />
               <span>Published by {post.author}</span>
             </span>
+            <span className="flex items-center gap-1.5">
+              <Eye className="w-3.5 h-3.5 text-purple-500" />
+              <span>{post.views || 0} Views</span>
+            </span>
           </div>
         </div>
 
@@ -97,8 +102,43 @@ export default function ArticleDetailView({
           {/* Main Article Body */}
           <div className="lg:col-span-8 space-y-6">
             <article className="prose prose-purple max-w-none text-purple-950">
-              <div className="text-sm sm:text-base leading-relaxed space-y-5 whitespace-pre-line text-slate-800 text-justify">
-                {post.content}
+              <div className="text-sm sm:text-base leading-relaxed text-slate-800 text-justify">
+                <Markdown
+                  components={{
+                    p: ({ children }) => <p className="mb-4 leading-relaxed text-slate-800 text-justify">{children}</p>,
+                    a: ({ href, children }) => (
+                      <a 
+                        href={href} 
+                        target="_blank" 
+                        rel="noopener noreferrer" 
+                        className="text-purple-600 font-bold hover:text-purple-850 underline decoration-purple-400 decoration-2 transition-colors cursor-pointer"
+                      >
+                        {children}
+                      </a>
+                    ),
+                    img: ({ src, alt }) => (
+                      <img 
+                        src={src} 
+                        alt={alt} 
+                        className="w-full max-h-[400px] object-cover rounded-2xl border border-purple-100 my-4 shadow-sm"
+                        referrerPolicy="no-referrer"
+                      />
+                    ),
+                    h1: ({ children }) => <h1 className="text-xl font-bold text-purple-950 mt-6 mb-2">{children}</h1>,
+                    h2: ({ children }) => <h2 className="text-lg font-bold text-purple-950 mt-5 mb-2">{children}</h2>,
+                    h3: ({ children }) => <h3 className="text-base font-bold text-purple-950 mt-4 mb-1">{children}</h3>,
+                    ul: ({ children }) => <ul className="list-disc pl-5 mb-4 space-y-1">{children}</ul>,
+                    ol: ({ children }) => <ol className="list-decimal pl-5 mb-4 space-y-1">{children}</ol>,
+                    li: ({ children }) => <li className="text-slate-800">{children}</li>,
+                    blockquote: ({ children }) => (
+                      <blockquote className="border-l-4 border-purple-500 pl-4 italic text-slate-600 my-4 bg-purple-50/50 py-1.5 pr-2 rounded-r-xl">
+                        {children}
+                      </blockquote>
+                    )
+                  }}
+                >
+                  {post.content}
+                </Markdown>
               </div>
             </article>
 

@@ -1,5 +1,5 @@
 import React from "react";
-import { Heart, Bookmark, ArrowRight, Sparkles, Star } from "lucide-react";
+import { Heart, Bookmark, ArrowRight, Sparkles, Star, Eye } from "lucide-react";
 import { BlogPost } from "../types";
 
 interface HeroSectionProps {
@@ -100,6 +100,11 @@ export default function HeroSection({
               <Bookmark className={`w-4 h-4 ${isBookmarked ? "fill-white" : ""}`} />
               <span>{isBookmarked ? "Saved" : "Save"}</span>
             </button>
+
+            <span className="p-2 rounded-xl flex items-center gap-1.5 text-xs font-bold border border-purple-100 bg-white/60 text-purple-950">
+              <Eye className="w-4 h-4 text-purple-500" />
+              <span>{post.views || 0}</span>
+            </span>
           </div>
 
           <button

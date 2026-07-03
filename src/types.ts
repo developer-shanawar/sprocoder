@@ -19,6 +19,7 @@ export interface BlogPost {
   date: string;
   likes: number;
   savesCount: number; // Added to support saved article counts
+  views?: number; // Added to support article views count
   thumbnailUrl: string; // Dynamic thumbnail URL (ImgBB support)
   isAiGenerated?: boolean;
   comments?: Comment[];
@@ -38,6 +39,7 @@ export interface UserAccount {
   registeredAt: string;
   lastLogin: string;
   savedArticles?: string[]; // list of post ids
+  likedArticles?: string[]; // list of liked post ids
   history?: HistoryEntry[]; // list of reading logs
 }
 

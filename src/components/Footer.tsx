@@ -2,8 +2,8 @@ import React from "react";
 import { Youtube, Github, Linkedin, Twitter, Sparkles } from "lucide-react";
 
 interface FooterProps {
-  currentTab: "home" | "articles" | "about" | "contact" | "admin-auth" | "admin";
-  setCurrentTab: (tab: "home" | "articles" | "about" | "contact" | "admin-auth" | "admin") => void;
+  currentTab: "home" | "articles" | "about" | "contact" | "admin-auth" | "admin" | "profile";
+  setCurrentTab: (tab: "home" | "articles" | "about" | "contact" | "admin-auth" | "admin" | "profile") => void;
   isAdminAuthenticated: boolean;
 }
 
@@ -91,16 +91,6 @@ export default function Footer({ currentTab, setCurrentTab, isAdminAuthenticated
                   </button>
                 </li>
               ))}
-              <li>
-                <button
-                  onClick={() => setCurrentTab(isAdminAuthenticated ? "admin" : "admin-auth")}
-                  className={`text-slate-300 hover:text-purple-400 font-bold transition-all cursor-pointer ${
-                    currentTab === "admin" || currentTab === "admin-auth" ? "text-purple-400" : ""
-                  }`}
-                >
-                  Admin Portal Access
-                </button>
-              </li>
             </ul>
           </div>
 

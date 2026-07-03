@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import { 
   Heart, Bookmark, MessageSquare, Sparkles, Calendar, Clock, 
   User, ChevronRight, Plus, Check, BookOpen, Send, X, Zap, 
-  Flame, Globe, Star, RefreshCw, Search, ShieldCheck 
+  Flame, Globe, Star, RefreshCw, Search, ShieldCheck, Eye
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { db, DB_PATHS } from "./firebase";
@@ -19,10 +19,11 @@ import ContactForm from "./components/ContactForm";
 import YouTubeShowcase from "./components/YouTubeShowcase";
 import ArticleDetailView from "./components/ArticleDetailView";
 import AdminAuth from "./components/AdminAuth";
+import UserProfile from "./components/UserProfile";
 
 export default function App() {
-  // Navigation tabs: home, articles, about, contact, admin-auth, admin
-  const [currentTab, setCurrentTab] = useState<"home" | "articles" | "about" | "contact" | "admin-auth" | "admin">("home");
+  // Navigation tabs: home, articles, about, contact, admin-auth, admin, profile
+  const [currentTab, setCurrentTab] = useState<"home" | "articles" | "about" | "contact" | "admin-auth" | "admin" | "profile">("home");
 
   // User auth state
   const [currentUser, setCurrentUser] = useState<UserAccount | null>(() => {
@@ -157,7 +158,18 @@ export default function App() {
 
   // Selected article reading and history log push
   const handleSelectPost = async (post: BlogPost) => {
-    setSelectedPost(post);
+    // Increment views in the database
+    const currentViews = post.views || 0;
+    const updatedPost = { ...post, views: currentViews + 1 };
+    setSelectedPost(updatedPost);
+
+    try {
+      await update(ref(db, `${DB_PATHS.ARTICLES}/${post.id}`), {
+        views: currentViews + 1
+      });
+    } catch (err) {
+      console.error("Failed to increment views:", err);
+    }
 
     // If a user is registered and logged in, push to their reading history
     if (currentUser) {
@@ -225,15 +237,48 @@ export default function App() {
     }
   };
 
-  // Like article
+  // Like article toggle (User can like and unlike an article once)
   const handleLikeArticle = async (post: BlogPost) => {
+    if (!currentUser) {
+      alert("Please login/register on the top right to like this article.");
+      return;
+    }
+
+    const likedList = currentUser.likedArticles ? [...currentUser.likedArticles] : [];
+    const isLiked = likedList.includes(post.id);
+
+    let updatedList: string[];
+    let delta = 0;
+
+    if (isLiked) {
+      // Unlike
+      updatedList = likedList.filter((id) => id !== post.id);
+      delta = -1;
+    } else {
+      // Like
+      updatedList = [...likedList, post.id];
+      delta = 1;
+    }
+
     try {
-      const currentLikes = post.likes || 0;
-      await update(ref(db, `${DB_PATHS.ARTICLES}/${post.id}`), {
-        likes: currentLikes + 1
+      // 1. Update user profile with liked list
+      await update(ref(db, `${DB_PATHS.USERS}/${currentUser.id}`), {
+        likedArticles: updatedList
       });
+
+      // 2. Update article's likes count
+      const currentLikes = post.likes || 0;
+      const finalLikes = Math.max(0, currentLikes + delta);
+      await update(ref(db, `${DB_PATHS.ARTICLES}/${post.id}`), {
+        likes: finalLikes
+      });
+
+      // 3. Update active read selectedPost if reading
+      if (selectedPost && selectedPost.id === post.id) {
+        setSelectedPost({ ...selectedPost, likes: finalLikes });
+      }
     } catch (err) {
-      console.error(err);
+      console.error("Failed to toggle like:", err);
     }
   };
 
@@ -339,7 +384,7 @@ export default function App() {
                         : "bg-white/40 border-white/60 text-purple-950 hover:bg-white/80"
                     }`}
                   >
-                    🚀 All Tech Articles
+                    All Tech Articles
                   </button>
 
                   {categories.map((cat) => (
@@ -352,7 +397,7 @@ export default function App() {
                           : "bg-white/40 border-white/60 text-purple-950 hover:bg-white/80"
                       }`}
                     >
-                      💡 {cat}
+                      {cat}
                     </button>
                   ))}
                 </div>
@@ -415,6 +460,10 @@ export default function App() {
                             <span className="flex items-center gap-0.5 text-[10px] font-bold text-gray-500">
                               <Bookmark className="w-3.5 h-3.5 text-purple-600 fill-purple-600/10" />
                               <span>{post.savesCount || 0}</span>
+                            </span>
+                            <span className="flex items-center gap-0.5 text-[10px] font-bold text-gray-500" title="Views">
+                              <Eye className="w-3.5 h-3.5 text-purple-500" />
+                              <span>{post.views || 0}</span>
                             </span>
                           </div>
                         </div>
@@ -596,6 +645,23 @@ export default function App() {
         {currentTab === "contact" && (
           <div className="max-w-2xl mx-auto animate-in fade-in duration-300" id="contact-view-container">
             <ContactForm />
+          </div>
+        )}
+
+        {/* VIEW 4.5: USER SOCIAL MEDIA PROFILE */}
+        {currentTab === "profile" && (
+          <div className="max-w-4xl mx-auto animate-in fade-in duration-300" id="profile-view-container">
+            <UserProfile 
+              currentUser={currentUser}
+              setCurrentUser={setCurrentUser}
+              allPosts={allPosts}
+              onSelectPost={(post) => handleSelectPost(post)}
+              onLogout={() => {
+                setCurrentUser(null);
+                localStorage.removeItem("spro_user");
+                setCurrentTab("home");
+              }}
+            />
           </div>
         )}
 

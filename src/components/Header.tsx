@@ -10,8 +10,8 @@ import { BlogPost, UserAccount, NotificationItem } from "../types";
 import { motion, AnimatePresence } from "motion/react";
 
 interface HeaderProps {
-  currentTab: "home" | "articles" | "about" | "contact" | "admin-auth" | "admin";
-  setCurrentTab: (tab: "home" | "articles" | "about" | "contact" | "admin-auth" | "admin") => void;
+  currentTab: "home" | "articles" | "about" | "contact" | "admin-auth" | "admin" | "profile";
+  setCurrentTab: (tab: "home" | "articles" | "about" | "contact" | "admin-auth" | "admin" | "profile") => void;
   currentUser: UserAccount | null;
   setCurrentUser: (user: UserAccount | null) => void;
   onOpenAdmin: () => void;
@@ -429,40 +429,63 @@ export default function Header({
                         <span>Read History</span>
                       </p>
                       <div className="space-y-1 max-h-32 overflow-y-auto pr-1 text-left">
-                        {currentUser.history && currentUser.history.length > 0 ? (
-                          currentUser.history.map((entry, idx) => {
-                            const post = allPosts.find((p) => p.id === entry.articleId);
-                            return (
-                              <div
-                                key={idx}
-                                onClick={() => {
-                                  if (post) {
-                                    onSelectPost(post);
-                                    setIsProfileOpen(false);
-                                  }
-                                }}
-                                className="text-[10px] p-1.5 rounded-lg hover:bg-purple-50 transition-all cursor-pointer"
-                              >
-                                <p className="font-semibold text-purple-950 truncate">{entry.title}</p>
-                                <p className="text-[8px] text-gray-400 font-mono">Viewed: {entry.date} at {entry.time}</p>
-                              </div>
-                            );
-                          })
-                        ) : (
-                          <p className="text-[9px] text-gray-400">No viewing history recorded yet.</p>
-                        )}
+                        {(() => {
+                          const historyArray = currentUser.history 
+                            ? (Array.isArray(currentUser.history) 
+                              ? currentUser.history 
+                              : Object.values(currentUser.history)) 
+                            : [];
+                          const sortedHistory = [...historyArray].reverse();
+
+                          if (sortedHistory.length > 0) {
+                            return sortedHistory.map((entry: any, idx: number) => {
+                              const post = allPosts.find((p) => p.id === entry.articleId);
+                              return (
+                                <div
+                                  key={idx}
+                                  onClick={() => {
+                                    if (post) {
+                                      onSelectPost(post);
+                                      setIsProfileOpen(false);
+                                    }
+                                  }}
+                                  className="text-[10px] p-1.5 rounded-lg hover:bg-purple-50 transition-all cursor-pointer"
+                                >
+                                  <p className="font-semibold text-purple-950 truncate">{entry.title}</p>
+                                  <p className="text-[8px] text-gray-400 font-mono">Viewed: {entry.date} at {entry.time}</p>
+                                </div>
+                              );
+                            });
+                          } else {
+                            return <p className="text-[9px] text-gray-400">No viewing history recorded yet.</p>;
+                          }
+                        })()}
                       </div>
                     </div>
 
-                    {/* Logout Button */}
-                    <button
-                      onClick={handleLogout}
-                      className="w-full py-2 rounded-xl text-xs font-bold text-red-600 hover:bg-red-50 transition-colors flex items-center justify-center gap-1 cursor-pointer border border-red-100"
-                      id="logout-btn"
-                    >
-                      <LogOut className="w-3.5 h-3.5" />
-                      <span>Disconnect Session</span>
-                    </button>
+                    {/* View Social Profile Page & Logout Buttons */}
+                    <div className="grid grid-cols-2 gap-2 border-t border-purple-50 pt-3">
+                      <button
+                        onClick={() => {
+                          setCurrentTab("profile");
+                          setIsProfileOpen(false);
+                        }}
+                        className="py-2 px-1 rounded-xl text-[11px] font-bold bg-purple-50 text-purple-700 hover:bg-purple-100 transition-colors flex items-center justify-center gap-1 cursor-pointer border border-purple-100"
+                        id="view-profile-btn"
+                      >
+                        <User className="w-3.5 h-3.5" />
+                        <span>View Profile</span>
+                      </button>
+
+                      <button
+                        onClick={handleLogout}
+                        className="py-2 px-1 rounded-xl text-[11px] font-bold text-red-600 hover:bg-red-50 transition-colors flex items-center justify-center gap-1 cursor-pointer border border-red-100"
+                        id="logout-btn"
+                      >
+                        <LogOut className="w-3.5 h-3.5" />
+                        <span>Sign Out</span>
+                      </button>
+                    </div>
                   </motion.div>
                 )}
               </AnimatePresence>
