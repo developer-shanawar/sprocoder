@@ -17,17 +17,26 @@ import AdminPanel from "./components/AdminPanel";
 import HeroSection from "./components/HeroSection";
 import ContactForm from "./components/ContactForm";
 import YouTubeShowcase from "./components/YouTubeShowcase";
-import ArticleDetailModal from "./components/ArticleDetailModal";
+import ArticleDetailView from "./components/ArticleDetailView";
+import AdminAuth from "./components/AdminAuth";
 
 export default function App() {
-  // Navigation tabs: home, articles, about, contact
-  const [currentTab, setCurrentTab] = useState<"home" | "articles" | "about" | "contact">("home");
+  // Navigation tabs: home, articles, about, contact, admin-auth, admin
+  const [currentTab, setCurrentTab] = useState<"home" | "articles" | "about" | "contact" | "admin-auth" | "admin">("home");
 
   // User auth state
   const [currentUser, setCurrentUser] = useState<UserAccount | null>(() => {
     const cached = localStorage.getItem("spro_user");
     return cached ? JSON.parse(cached) : null;
   });
+
+  // Admin auth state
+  const [isAdminAuthenticated, setIsAdminAuthenticated] = useState<boolean>(() => {
+    return localStorage.getItem("spro_admin_auth") === "true";
+  });
+
+  // Dynamic Website logo icon URL
+  const [websiteIconUrl, setWebsiteIconUrl] = useState<string>("");
 
   // Database Synced states
   const [allPosts, setAllPosts] = useState<BlogPost[]>([]);
@@ -44,9 +53,6 @@ export default function App() {
 
   // Active reading article
   const [selectedPost, setSelectedPost] = useState<BlogPost | null>(null);
-
-  // Admin access state
-  const [isAdminOpen, setIsAdminOpen] = useState(false);
 
   // Ambient lighting parameters (Frosted Glass aesthetics)
   const glowHex = "#a855f7"; // Soft Lavendar Purple Light
@@ -121,10 +127,19 @@ export default function App() {
       }
     });
 
+    // Sync Website Icon Logo
+    const iconRef = ref(db, "settings/websiteIcon");
+    const unsubIcon = onValue(iconRef, (snapshot) => {
+      if (snapshot.exists()) {
+        setWebsiteIconUrl(snapshot.val());
+      }
+    });
+
     return () => {
       unsubPosts();
       unsubCat();
       unsubPages();
+      unsubIcon();
     };
   }, []);
 
@@ -271,16 +286,29 @@ export default function App() {
         }}
         currentUser={currentUser}
         setCurrentUser={setCurrentUser}
-        onOpenAdmin={() => setIsAdminOpen(true)}
+        onOpenAdmin={() => setCurrentTab(isAdminAuthenticated ? "admin" : "admin-auth")}
         allPosts={allPosts}
         onSelectPost={(post) => handleSelectPost(post)}
+        websiteIconUrl={websiteIconUrl}
       />
 
       {/* PRIMARY WORKSPACE MAIN ROUTER */}
       <main className="relative z-10 w-full max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 mt-28 flex-grow">
         
-        {/* VIEW 1: HOME PAGE */}
-        {currentTab === "home" && (
+        {selectedPost ? (
+          <ArticleDetailView 
+            post={selectedPost}
+            onClose={() => setSelectedPost(null)}
+            isBookmarked={currentUser?.savedArticles?.includes(selectedPost.id) || false}
+            onToggleBookmark={() => handleToggleBookmark(selectedPost)}
+            isLiked={false}
+            onLike={() => handleLikeArticle(selectedPost)}
+            onAddComment={(text) => handleAddComment(selectedPost, text)}
+          />
+        ) : (
+          <>
+            {/* VIEW 1: HOME PAGE */}
+            {currentTab === "home" && (
           <div className="space-y-10 animate-in fade-in duration-300" id="home-view-container">
             {/* Top Featured Hero article */}
             {allPosts.length > 0 && (
@@ -571,40 +599,55 @@ export default function App() {
           </div>
         )}
 
+        {/* VIEW 5: ADMIN AUTHENTICATION */}
+        {currentTab === "admin-auth" && (
+          <AdminAuth 
+            onSuccess={() => {
+              setIsAdminAuthenticated(true);
+              localStorage.setItem("spro_admin_auth", "true");
+              setCurrentTab("admin");
+            }}
+            onCancel={() => setCurrentTab("home")}
+          />
+        )}
+
+        {/* VIEW 6: ADMIN PANEL CONTROL DECK (Full Page!) */}
+        {currentTab === "admin" && (
+          isAdminAuthenticated ? (
+            <AdminPanel 
+              onClose={() => setCurrentTab("home")}
+              categories={categories}
+              setCategories={setCategories}
+              onLogout={() => {
+                setIsAdminAuthenticated(false);
+                localStorage.removeItem("spro_admin_auth");
+                setCurrentTab("home");
+              }}
+            />
+          ) : (
+            <div className="p-8 text-center bg-white/35 backdrop-blur-md border border-purple-100 rounded-[28px] max-w-md mx-auto space-y-4">
+              <p className="text-sm font-bold text-purple-950">Administrative Authorization Required.</p>
+              <button 
+                onClick={() => setCurrentTab("admin-auth")}
+                className="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white font-bold rounded-xl text-xs transition-colors cursor-pointer"
+              >
+                Authenticate Control Deck
+              </button>
+            </div>
+          )
+        )}
+
+          </>
+        )}
+
       </main>
 
       {/* FOOTER COMPONENT */}
       <Footer 
         currentTab={currentTab}
         setCurrentTab={setCurrentTab}
-        onOpenAdmin={() => setIsAdminOpen(true)}
+        isAdminAuthenticated={isAdminAuthenticated}
       />
-
-      {/* ARTICLE READER LIGHTBOX MODAL */}
-      <AnimatePresence>
-        {selectedPost && (
-          <ArticleDetailModal 
-            post={selectedPost}
-            onClose={() => setSelectedPost(null)}
-            isBookmarked={currentUser?.savedArticles?.includes(selectedPost.id) || false}
-            onToggleBookmark={() => handleToggleBookmark(selectedPost)}
-            isLiked={false}
-            onLike={() => handleLikeArticle(selectedPost)}
-            onAddComment={(text) => handleAddComment(selectedPost, text)}
-          />
-        )}
-      </AnimatePresence>
-
-      {/* ADMIN CONTROL PANEL DIALOG MODAL */}
-      <AnimatePresence>
-        {isAdminOpen && (
-          <AdminPanel 
-            onClose={() => setIsAdminOpen(false)}
-            categories={categories}
-            setCategories={setCategories}
-          />
-        )}
-      </AnimatePresence>
 
     </div>
   );

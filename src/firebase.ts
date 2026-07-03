@@ -1,5 +1,6 @@
 import { initializeApp, getApp, getApps } from "firebase/app";
 import { getDatabase, ref, set, onValue, push, update, remove, get } from "firebase/database";
+import { getAuth } from "firebase/auth";
 
 const firebaseConfig = {
   apiKey: "AIzaSyBeC6EfenQDUE_ZAYzwcDQ7GkWdK-SpScQ",
@@ -14,6 +15,7 @@ const firebaseConfig = {
 // Initialize Firebase safely
 const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
 export const db = getDatabase(app);
+export const auth = getAuth(app);
 
 // Helper keys for Realtime Database Paths
 export const DB_PATHS = {

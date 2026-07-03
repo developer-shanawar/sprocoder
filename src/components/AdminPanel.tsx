@@ -11,9 +11,10 @@ interface AdminPanelProps {
   onClose: () => void;
   categories: string[];
   setCategories: React.Dispatch<React.SetStateAction<string[]>>;
+  onLogout?: () => void;
 }
 
-export default function AdminPanel({ onClose, categories, setCategories }: AdminPanelProps) {
+export default function AdminPanel({ onClose, categories, setCategories, onLogout }: AdminPanelProps) {
   const [activeTab, setActiveTab] = useState<"users" | "articles" | "categories" | "messages" | "pages">("articles");
   const [loading, setLoading] = useState(false);
 
@@ -44,6 +45,11 @@ export default function AdminPanel({ onClose, categories, setCategories }: Admin
   const [privacyPolicy, setPrivacyPolicy] = useState("");
   const [termsAndConditions, setTermsAndConditions] = useState("");
   const [saveSuccess, setSaveSuccess] = useState(false);
+
+  // Website Icon State
+  const [websiteIcon, setWebsiteIcon] = useState("");
+  const [isUploadingIcon, setIsUploadingIcon] = useState(false);
+  const [iconUploadError, setIconUploadError] = useState("");
 
   // Load Admin Data from RTDB
   useEffect(() => {
@@ -96,6 +102,14 @@ export default function AdminPanel({ onClose, categories, setCategories }: Admin
       }
     });
 
+    // 5. Load Website Icon (Once)
+    const iconRef = ref(db, "settings/websiteIcon");
+    get(iconRef).then((snapshot) => {
+      if (snapshot.exists()) {
+        setWebsiteIcon(snapshot.val());
+      }
+    });
+
     return () => {
       unsubUsers();
       unsubArticles();
@@ -131,6 +145,41 @@ export default function AdminPanel({ onClose, categories, setCategories }: Admin
       setUploadError("Failed to communicate with ImgBB API.");
     } finally {
       setIsUploading(false);
+    }
+  };
+
+  // Handle Website Icon ImgBB upload
+  const handleIconUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setIsUploadingIcon(true);
+    setIconUploadError("");
+    
+    const formData = new FormData();
+    formData.append("image", file);
+
+    try {
+      const response = await fetch("https://api.imgbb.com/1/upload?key=95bfa2c260a52e93433daf349259e043", {
+        method: "POST",
+        body: formData,
+      });
+
+      const resJson = await response.json();
+      if (resJson && resJson.success) {
+        const url = resJson.data.url;
+        setWebsiteIcon(url);
+        // Save to Firebase RTDB immediately
+        await set(ref(db, "settings/websiteIcon"), url);
+        alert("Website Logo icon updated and saved successfully!");
+      } else {
+        setIconUploadError("ImgBB upload failed.");
+      }
+    } catch (err) {
+      console.error(err);
+      setIconUploadError("Failed to communicate with ImgBB API.");
+    } finally {
+      setIsUploadingIcon(false);
     }
   };
 
@@ -299,8 +348,8 @@ export default function AdminPanel({ onClose, categories, setCategories }: Admin
   };
 
   return (
-    <div className="fixed inset-0 z-[110] bg-slate-950/80 backdrop-blur-md overflow-y-auto p-4 md:p-8 flex items-start justify-center">
-      <div className="bg-white/95 rounded-[36px] w-full max-w-5xl border border-white shadow-2xl p-6 md:p-8 space-y-6 text-purple-950 animate-in fade-in zoom-in duration-300" id="admin-panel-container">
+    <div className="space-y-6 animate-in fade-in duration-300" id="admin-panel-root">
+      <div className="bg-white/40 backdrop-blur-lg border border-white/60 rounded-[36px] p-6 md:p-8 space-y-6 text-purple-950 shadow-xl" id="admin-panel-container">
         
         {/* Header */}
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between border-b border-purple-100 pb-4 gap-4">
@@ -315,13 +364,24 @@ export default function AdminPanel({ onClose, categories, setCategories }: Admin
               S pro coder Control Deck
             </h1>
           </div>
-          <button
-            onClick={onClose}
-            className="px-5 py-2 rounded-full border border-purple-200 text-xs font-bold hover:bg-purple-100 active:scale-95 transition-all text-purple-800 cursor-pointer"
-            id="admin-close-btn"
-          >
-            Exit Control Deck ✕
-          </button>
+          <div className="flex items-center gap-2">
+            {onLogout && (
+              <button
+                onClick={onLogout}
+                className="px-5 py-2 rounded-full border border-red-200 text-xs font-bold hover:bg-red-50 active:scale-95 transition-all text-red-600 cursor-pointer bg-white"
+                id="admin-logout-btn"
+              >
+                Log Out Admin
+              </button>
+            )}
+            <button
+              onClick={onClose}
+              className="px-5 py-2 rounded-full border border-purple-200 text-xs font-bold hover:bg-purple-100 active:scale-95 transition-all text-purple-800 cursor-pointer bg-white"
+              id="admin-close-btn"
+            >
+              Exit Control Deck ✕
+            </button>
+          </div>
         </div>
 
         {/* Tab Navigation */}
@@ -803,7 +863,59 @@ export default function AdminPanel({ onClose, categories, setCategories }: Admin
           {/* TAB 5: PAGES MANAGER */}
           {activeTab === "pages" && (
             <div className="space-y-6 animate-in fade-in duration-200" id="tab-pages-content">
-              <div className="flex items-center justify-between border-b border-purple-100 pb-2">
+              
+              {/* Site Logo Branding Settings */}
+              <div className="p-5 rounded-2xl bg-purple-50/70 border border-purple-100 space-y-4">
+                <h4 className="text-xs font-black text-purple-950 uppercase tracking-wider flex items-center gap-1.5">
+                  <Upload className="w-4 h-4 text-purple-600" />
+                  <span>Website Branding Logo Icon</span>
+                </h4>
+                <p className="text-[10px] text-gray-500 leading-normal">
+                  Upload your website logo icon from here. Once uploaded, it will automatically update the logo icon shown in the navigation menu bar of the page!
+                </p>
+
+                <div className="p-3 bg-white rounded-xl border border-dashed border-purple-200 flex flex-col sm:flex-row items-center justify-between gap-3">
+                  <div className="text-left">
+                    <p className="text-[11px] font-bold text-purple-950">
+                      Upload Logo to ImgBB Cloud
+                    </p>
+                    <p className="text-[9px] text-gray-400">
+                      Supports PNG, JPG, SVG, GIF.
+                    </p>
+                  </div>
+                  <div>
+                    {isUploadingIcon ? (
+                      <span className="text-[10px] text-purple-600 font-semibold flex items-center gap-1">
+                        <RefreshCw className="w-3 h-3 animate-spin" />
+                        <span>Uploading Logo...</span>
+                      </span>
+                    ) : (
+                      <input 
+                        type="file" 
+                        accept="image/*"
+                        onChange={handleIconUpload}
+                        className="text-[10px] text-purple-700 bg-purple-100 hover:bg-purple-200 font-bold py-1 px-3.5 rounded-lg border-0 cursor-pointer"
+                      />
+                    )}
+                  </div>
+                </div>
+
+                {iconUploadError && (
+                  <p className="text-[10px] text-red-600 font-bold">{iconUploadError}</p>
+                )}
+
+                {websiteIcon && (
+                  <div className="flex items-center gap-3 p-2.5 bg-white border border-purple-100 rounded-xl max-w-sm">
+                    <img src={websiteIcon} alt="Website Logo Icon" className="w-10 h-10 rounded-xl object-cover border border-purple-100 shadow-sm" />
+                    <div>
+                      <p className="text-[10px] text-emerald-600 font-black">✓ Logo Icon Configured & Live</p>
+                      <p className="text-[9px] text-gray-400 truncate max-w-[200px]">{websiteIcon}</p>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              <div className="flex items-center justify-between border-b border-purple-100 pb-2 pt-2">
                 <div>
                   <h3 className="text-xs font-black text-purple-950 uppercase tracking-wider">
                     Pages & Legal Markdown Editor
