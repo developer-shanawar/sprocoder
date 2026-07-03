@@ -1,0 +1,652 @@
+import React, { useState, useEffect } from "react";
+import { 
+  Bell, Menu, X, User, LogIn, LogOut, Heart, History, Bookmark, 
+  Sparkles, ShieldCheck, Mail, Lock, Check, KeyRound, AlertCircle 
+} from "lucide-react";
+import { db, DB_PATHS } from "../firebase";
+import { ref, set, get, update, push, onValue } from "firebase/database";
+import { BlogPost, UserAccount, NotificationItem } from "../types";
+import { motion, AnimatePresence } from "motion/react";
+
+interface HeaderProps {
+  currentTab: "home" | "articles" | "about" | "contact";
+  setCurrentTab: (tab: "home" | "articles" | "about" | "contact") => void;
+  currentUser: UserAccount | null;
+  setCurrentUser: (user: UserAccount | null) => void;
+  onOpenAdmin: () => void;
+  allPosts: BlogPost[];
+  onSelectPost: (post: BlogPost) => void;
+}
+
+export default function Header({
+  currentTab,
+  setCurrentTab,
+  currentUser,
+  setCurrentUser,
+  onOpenAdmin,
+  allPosts,
+  onSelectPost
+}: HeaderProps) {
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
+  const [authMode, setAuthMode] = useState<"login" | "register">("login");
+  const [isProfileOpen, setIsProfileOpen] = useState(false);
+
+  // Form Inputs
+  const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [authError, setAuthError] = useState("");
+
+  // Notifications
+  const [notifications, setNotifications] = useState<NotificationItem[]>([]);
+  const [isNotifOpen, setIsNotifOpen] = useState(false);
+
+  // Live Sync Notifications from DB
+  useEffect(() => {
+    const notifRef = ref(db, DB_PATHS.NOTIFICATIONS);
+    const unsub = onValue(notifRef, (snapshot) => {
+      if (snapshot.exists()) {
+        const data = snapshot.val();
+        const list: NotificationItem[] = Object.values(data);
+        // Sort newest first
+        list.sort((a, b) => b.id.localeCompare(a.id));
+        setNotifications(list);
+      } else {
+        setNotifications([]);
+      }
+    });
+    return () => unsub();
+  }, []);
+
+  const handleAuthSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setAuthError("");
+
+    if (!email.trim() || !password.trim()) {
+      setAuthError("Email and Password are required.");
+      return;
+    }
+
+    if (authMode === "register" && !name.trim()) {
+      setAuthError("Please specify your full name.");
+      return;
+    }
+
+    try {
+      const usersRef = ref(db, DB_PATHS.USERS);
+      const snapshot = await get(usersRef);
+      const allUsers: Record<string, any> = snapshot.exists() ? snapshot.val() : {};
+
+      if (authMode === "register") {
+        // Registration Flow
+        // Check if user exists
+        const emailExists = Object.values(allUsers).some((u: any) => u.email.toLowerCase() === email.trim().toLowerCase());
+        if (emailExists) {
+          setAuthError("This email address is already registered.");
+          return;
+        }
+
+        const userId = "user_" + Math.random().toString(36).substring(2, 9);
+        const newUser: UserAccount = {
+          id: userId,
+          name: name.trim(),
+          email: email.trim().toLowerCase(),
+          registeredAt: new Date().toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" }),
+          lastLogin: new Date().toLocaleString()
+        };
+
+        // Save to Firebase DB
+        await set(ref(db, `${DB_PATHS.USERS}/${userId}`), newUser);
+        
+        // Push secure registration log
+        const logRef = push(ref(db, `logs/registrations`));
+        await set(logRef, { userId, email: email.trim(), date: new Date().toLocaleString() });
+
+        setCurrentUser(newUser);
+        localStorage.setItem("spro_user", JSON.stringify(newUser));
+        setIsAuthModalOpen(false);
+        alert(`Welcome aboard, ${newUser.name}! Your account has been registered successfully.`);
+      } else {
+        // Login Flow
+        const matchingUser = Object.values(allUsers).find(
+          (u: any) => u.email.toLowerCase() === email.trim().toLowerCase()
+        );
+
+        if (!matchingUser) {
+          setAuthError("No registered profile matches this email.");
+          return;
+        }
+
+        // Update login count & timestamp
+        const updatedUser: UserAccount = {
+          ...matchingUser,
+          lastLogin: new Date().toLocaleString()
+        };
+
+        await update(ref(db, `${DB_PATHS.USERS}/${matchingUser.id}`), {
+          lastLogin: updatedUser.lastLogin
+        });
+
+        setCurrentUser(updatedUser);
+        localStorage.setItem("spro_user", JSON.stringify(updatedUser));
+        setIsAuthModalOpen(false);
+      }
+      
+      // Reset fields
+      setName("");
+      setEmail("");
+      setPassword("");
+    } catch (err) {
+      console.error(err);
+      setAuthError("Database lookup failed. Please try again.");
+    }
+  };
+
+  // Simulated Google Sign in
+  const handleGoogleSignIn = async () => {
+    try {
+      const gEmail = "google_user" + Math.floor(100 + Math.random() * 900) + "@gmail.com";
+      const gName = "Google Coder Profile";
+      const usersRef = ref(db, DB_PATHS.USERS);
+      const snapshot = await get(usersRef);
+      const allUsers: Record<string, any> = snapshot.exists() ? snapshot.val() : {};
+
+      const existing = Object.values(allUsers).find((u: any) => u.email === gEmail);
+      let targetUser: UserAccount;
+
+      if (existing) {
+        targetUser = {
+          ...existing,
+          lastLogin: new Date().toLocaleString()
+        };
+        await update(ref(db, `${DB_PATHS.USERS}/${existing.id}`), {
+          lastLogin: targetUser.lastLogin
+        });
+      } else {
+        const userId = "google_" + Math.random().toString(36).substring(2, 9);
+        targetUser = {
+          id: userId,
+          name: gName,
+          email: gEmail,
+          registeredAt: new Date().toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" }),
+          lastLogin: new Date().toLocaleString()
+        };
+        await set(ref(db, `${DB_PATHS.USERS}/${userId}`), targetUser);
+      }
+
+      setCurrentUser(targetUser);
+      localStorage.setItem("spro_user", JSON.stringify(targetUser));
+      setIsAuthModalOpen(false);
+      alert(`Google Authentication successful! Welcome, ${targetUser.name}.`);
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const handleLogout = () => {
+    setCurrentUser(null);
+    localStorage.removeItem("spro_user");
+    setIsProfileOpen(false);
+    alert("Securely logged out from S pro coder.");
+  };
+
+  const markAllNotificationsAsRead = async () => {
+    try {
+      const updates: Record<string, any> = {};
+      notifications.forEach((notif) => {
+        updates[`${DB_PATHS.NOTIFICATIONS}/${notif.id}/isRead`] = true;
+      });
+      await update(ref(db), updates);
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const unreadCount = notifications.filter((n) => !n.isRead).length;
+
+  return (
+    <>
+      <nav className="fixed top-4 left-1/2 -translate-x-1/2 w-[92%] max-w-6xl z-40 bg-white/35 backdrop-blur-xl border border-white/60 rounded-[28px] px-4 md:px-6 py-3 shadow-lg flex items-center justify-between transition-all" id="floating-nav-bar">
+        {/* Logo and Slogan */}
+        <div 
+          onClick={() => setCurrentTab("home")}
+          className="flex items-center gap-2 cursor-pointer group"
+          id="nav-logo"
+        >
+          <div className="w-9 h-9 rounded-2xl bg-gradient-to-tr from-purple-600 via-purple-500 to-indigo-400 flex items-center justify-center text-white font-extrabold text-sm shadow-md shadow-purple-200 group-hover:scale-105 transition-transform duration-300">
+            SP
+          </div>
+          <div className="text-left">
+            <h1 className="font-sans font-black text-purple-950 text-sm md:text-base tracking-tight leading-none">
+              S pro coder
+            </h1>
+            <p className="text-[9px] font-mono font-bold text-purple-600 tracking-wider">
+              TECH & AI HUB
+            </p>
+          </div>
+        </div>
+
+        {/* Desktop Links */}
+        <div className="hidden md:flex items-center gap-1.5" id="nav-links-desktop">
+          {(["home", "articles", "about", "contact"] as const).map((tab) => (
+            <button
+              key={tab}
+              onClick={() => {
+                setCurrentTab(tab);
+                setIsMobileMenuOpen(false);
+              }}
+              className={`px-4 py-1.5 rounded-full text-xs font-bold capitalize transition-all duration-300 cursor-pointer ${
+                currentTab === tab 
+                  ? "bg-purple-600 text-white shadow-sm shadow-purple-100" 
+                  : "text-purple-950/80 hover:text-purple-700 hover:bg-purple-50/50"
+              }`}
+              id={`nav-link-${tab}`}
+            >
+              {tab}
+            </button>
+          ))}
+        </div>
+
+        {/* Right Interactions */}
+        <div className="flex items-center gap-2" id="nav-interactions">
+          
+          {/* Notifications Trigger */}
+          <div className="relative">
+            <button
+              onClick={() => {
+                setIsNotifOpen(!isNotifOpen);
+                if (!isNotifOpen) {
+                  markAllNotificationsAsRead();
+                }
+              }}
+              className="p-2.5 rounded-full hover:bg-purple-100 text-purple-950/90 relative cursor-pointer"
+              title="Notifications"
+              id="notif-bell-btn"
+            >
+              <Bell className="w-4 h-4" />
+              {unreadCount > 0 && (
+                <span className="absolute top-1 right-1 w-4 h-4 bg-red-500 text-white rounded-full text-[9px] font-bold flex items-center justify-center animate-bounce">
+                  {unreadCount}
+                </span>
+              )}
+            </button>
+
+            {/* Notifications Dropdown Panel */}
+            <AnimatePresence>
+              {isNotifOpen && (
+                <motion.div
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: 10 }}
+                  className="absolute right-0 mt-3 w-80 bg-white/95 backdrop-blur-xl border border-purple-100 rounded-3xl p-4 shadow-xl z-50 text-purple-950 space-y-3 animate-in"
+                  id="notifications-dropdown"
+                >
+                  <div className="flex items-center justify-between border-b border-purple-100 pb-2">
+                    <h4 className="font-extrabold text-xs uppercase tracking-wider flex items-center gap-1">
+                      <Sparkles className="w-3.5 h-3.5 text-purple-600" />
+                      <span>S pro Alerts</span>
+                    </h4>
+                    <button 
+                      onClick={() => setIsNotifOpen(false)}
+                      className="text-[9px] text-gray-400 font-bold hover:text-purple-950"
+                    >
+                      Dismiss
+                    </button>
+                  </div>
+
+                  <div className="space-y-2 max-h-60 overflow-y-auto pr-1">
+                    {notifications.length > 0 ? (
+                      notifications.map((notif) => (
+                        <div 
+                          key={notif.id} 
+                          className={`p-2.5 rounded-xl border transition-all text-left ${
+                            notif.isRead ? "bg-white border-purple-50" : "bg-purple-50/70 border-purple-100 font-semibold"
+                          }`}
+                        >
+                          <p className="text-[11px] text-purple-950 leading-snug">{notif.title}</p>
+                          <p className="text-[10px] text-gray-500 leading-normal mt-0.5">{notif.body}</p>
+                          <span className="text-[8px] text-purple-400 font-mono block mt-1">{notif.date}</span>
+                        </div>
+                      ))
+                    ) : (
+                      <p className="text-[11px] text-gray-400 text-center py-4">
+                        No published notifications. New post updates will appear here!
+                      </p>
+                    )}
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
+
+          {/* Profile Details or Register/Login Buttons */}
+          {currentUser ? (
+            <div className="relative">
+              <button
+                onClick={() => setIsProfileOpen(!isProfileOpen)}
+                className="w-9 h-9 rounded-full bg-purple-100 text-purple-800 font-black text-xs flex items-center justify-center border-2 border-purple-300 hover:scale-105 active:scale-95 transition-all cursor-pointer shadow-sm"
+                id="profile-dropdown-trigger"
+              >
+                {currentUser.name.slice(0, 2).toUpperCase()}
+              </button>
+
+              {/* Profile and lists dropdown */}
+              <AnimatePresence>
+                {isProfileOpen && (
+                  <motion.div
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: 10 }}
+                    className="absolute right-0 mt-3 w-80 bg-white/95 backdrop-blur-xl border border-purple-100 rounded-3xl p-5 shadow-xl z-50 text-purple-950 space-y-4 animate-in"
+                    id="profile-dropdown-menu"
+                  >
+                    <div className="border-b border-purple-50 pb-3 flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-full bg-purple-600 text-white font-extrabold text-sm flex items-center justify-center shadow">
+                        {currentUser.name.slice(0, 2).toUpperCase()}
+                      </div>
+                      <div className="text-left">
+                        <p className="font-extrabold text-xs text-purple-950">{currentUser.name}</p>
+                        <p className="text-[10px] text-gray-500 truncate max-w-[180px]">{currentUser.email}</p>
+                        <span className="text-[8px] bg-emerald-100 text-emerald-800 font-extrabold px-1.5 py-0.5 rounded-full mt-1 inline-block">
+                          ACTIVE READER
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Bookmarked / Saved Articles List */}
+                    <div className="space-y-1.5">
+                      <p className="text-[10px] font-bold text-purple-900 uppercase tracking-widest flex items-center gap-1">
+                        <Bookmark className="w-3 h-3 text-purple-600" />
+                        <span>Saved Articles ({currentUser.savedArticles ? currentUser.savedArticles.length : 0})</span>
+                      </p>
+                      <div className="space-y-1 max-h-28 overflow-y-auto pr-1 text-left">
+                        {currentUser.savedArticles && currentUser.savedArticles.length > 0 ? (
+                          currentUser.savedArticles.map((artId) => {
+                            const post = allPosts.find((p) => p.id === artId);
+                            if (!post) return null;
+                            return (
+                              <div
+                                key={artId}
+                                onClick={() => {
+                                  onSelectPost(post);
+                                  setIsProfileOpen(false);
+                                }}
+                                className="text-[11px] p-1.5 rounded-lg hover:bg-purple-50 hover:text-purple-800 transition-all cursor-pointer font-semibold truncate"
+                              >
+                                {post.title}
+                              </div>
+                            );
+                          })
+                        ) : (
+                          <p className="text-[9px] text-gray-400">No saved articles yet.</p>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Viewing History list */}
+                    <div className="space-y-1.5 border-t border-purple-50 pt-3">
+                      <p className="text-[10px] font-bold text-purple-900 uppercase tracking-widest flex items-center gap-1">
+                        <History className="w-3 h-3 text-purple-600" />
+                        <span>Read History</span>
+                      </p>
+                      <div className="space-y-1 max-h-32 overflow-y-auto pr-1 text-left">
+                        {currentUser.history && currentUser.history.length > 0 ? (
+                          currentUser.history.map((entry, idx) => {
+                            const post = allPosts.find((p) => p.id === entry.articleId);
+                            return (
+                              <div
+                                key={idx}
+                                onClick={() => {
+                                  if (post) {
+                                    onSelectPost(post);
+                                    setIsProfileOpen(false);
+                                  }
+                                }}
+                                className="text-[10px] p-1.5 rounded-lg hover:bg-purple-50 transition-all cursor-pointer"
+                              >
+                                <p className="font-semibold text-purple-950 truncate">{entry.title}</p>
+                                <p className="text-[8px] text-gray-400 font-mono">Viewed: {entry.date} at {entry.time}</p>
+                              </div>
+                            );
+                          })
+                        ) : (
+                          <p className="text-[9px] text-gray-400">No viewing history recorded yet.</p>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Logout Button */}
+                    <button
+                      onClick={handleLogout}
+                      className="w-full py-2 rounded-xl text-xs font-bold text-red-600 hover:bg-red-50 transition-colors flex items-center justify-center gap-1 cursor-pointer border border-red-100"
+                      id="logout-btn"
+                    >
+                      <LogOut className="w-3.5 h-3.5" />
+                      <span>Disconnect Session</span>
+                    </button>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
+          ) : (
+            <button
+              onClick={() => {
+                setAuthMode("login");
+                setIsAuthModalOpen(true);
+              }}
+              className="px-4 py-1.5 rounded-full bg-purple-600 hover:bg-purple-700 text-white text-xs font-bold flex items-center gap-1 cursor-pointer transition-all active:scale-95 hover:shadow-md"
+              id="auth-trigger-btn"
+            >
+              <LogIn className="w-3.5 h-3.5" />
+              <span>Sign In</span>
+            </button>
+          )}
+
+          {/* Mobile Hamburguer Menu Button */}
+          <button
+            onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+            className="p-2.5 rounded-full hover:bg-purple-100 text-purple-950 md:hidden cursor-pointer"
+            id="mobile-menu-trigger"
+          >
+            {isMobileMenuOpen ? <X className="w-4 h-4" /> : <Menu className="w-4 h-4" />}
+          </button>
+        </div>
+      </nav>
+
+      {/* Mobile Drawer Navigation Sidebar */}
+      <AnimatePresence>
+        {isMobileMenuOpen && (
+          <div className="fixed inset-0 z-50 md:hidden flex justify-end">
+            {/* Backdrop */}
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setIsMobileMenuOpen(false)}
+              className="absolute inset-0 bg-slate-950/60 backdrop-blur-sm"
+            />
+            {/* Content Drawer */}
+            <motion.div
+              initial={{ x: "100%" }}
+              animate={{ x: 0 }}
+              exit={{ x: "100%" }}
+              className="relative w-72 h-full bg-white/95 backdrop-blur-xl border-l border-purple-100 p-6 flex flex-col justify-between text-purple-950 shadow-2xl"
+              id="mobile-drawer-container"
+            >
+              <div className="space-y-6">
+                <div className="flex items-center justify-between border-b border-purple-100 pb-4">
+                  <h3 className="font-sans font-black text-purple-950 text-sm">Navigation</h3>
+                  <button onClick={() => setIsMobileMenuOpen(false)} className="p-1 rounded-full hover:bg-purple-50">
+                    <X className="w-5 h-5 text-purple-900" />
+                  </button>
+                </div>
+
+                {/* Mobile Links */}
+                <div className="flex flex-col gap-2" id="nav-links-mobile">
+                  {(["home", "articles", "about", "contact"] as const).map((tab) => (
+                    <button
+                      key={tab}
+                      onClick={() => {
+                        setCurrentTab(tab);
+                        setIsMobileMenuOpen(false);
+                      }}
+                      className={`w-full text-left px-4 py-3 rounded-xl text-xs font-bold capitalize transition-all cursor-pointer ${
+                        currentTab === tab 
+                          ? "bg-purple-600 text-white shadow-sm" 
+                          : "text-purple-950 hover:bg-purple-50"
+                      }`}
+                    >
+                      {tab}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="border-t border-purple-100 pt-4 space-y-2">
+                <p className="text-[10px] text-gray-400 font-mono text-center">
+                  S pro coder mobile drawer active
+                </p>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* Login & Registration Form Dialog Modal */}
+      <AnimatePresence>
+        {isAuthModalOpen && (
+          <div className="fixed inset-0 z-[120] flex items-center justify-center p-4">
+            {/* Backdrop */}
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setIsAuthModalOpen(false)}
+              className="absolute inset-0 bg-slate-950/70 backdrop-blur-md"
+            />
+            {/* Box */}
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.95, opacity: 0 }}
+              className="bg-white/95 rounded-[32px] w-full max-w-sm overflow-hidden border border-white shadow-2xl relative z-10 text-purple-950 p-6 md:p-8 space-y-5"
+              id="auth-modal-dialog"
+            >
+              <div className="text-center space-y-1">
+                <h2 className="text-xl font-black text-purple-950 tracking-tight flex items-center justify-center gap-1.5">
+                  <KeyRound className="w-5 h-5 text-purple-600" />
+                  <span>{authMode === "login" ? "Welcome Back" : "Create Coder Profile"}</span>
+                </h2>
+                <p className="text-xs text-gray-500 leading-normal">
+                  {authMode === "login" 
+                    ? "Log in to view saved posts and write discussions." 
+                    : "Become a registered reader and save articles live!"
+                  }
+                </p>
+              </div>
+
+              {authError && (
+                <div className="p-3 bg-red-50 border border-red-200 rounded-xl text-[11px] text-red-600 font-bold flex items-center gap-1.5">
+                  <AlertCircle className="w-4 h-4 text-red-500 shrink-0" />
+                  <span>{authError}</span>
+                </div>
+              )}
+
+              {/* Form */}
+              <form onSubmit={handleAuthSubmit} className="space-y-3">
+                {authMode === "register" && (
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-bold text-purple-900 uppercase block">Full Name</label>
+                    <div className="relative">
+                      <input
+                        type="text"
+                        required
+                        placeholder="e.g. Shanawar Ali"
+                        value={name}
+                        onChange={(e) => setName(e.target.value)}
+                        className="w-full pl-9 pr-3 py-2 rounded-xl bg-purple-50/50 border border-purple-100 text-xs text-purple-950 focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-400/20"
+                      />
+                      <User className="absolute left-3 top-3 w-3.5 h-3.5 text-purple-400" />
+                    </div>
+                  </div>
+                )}
+
+                <div className="space-y-1">
+                  <label className="text-[10px] font-bold text-purple-900 uppercase block">Email Address</label>
+                  <div className="relative">
+                    <input
+                      type="email"
+                      required
+                      placeholder="user@domain.com"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      className="w-full pl-9 pr-3 py-2 rounded-xl bg-purple-50/50 border border-purple-100 text-xs text-purple-950 focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-400/20"
+                    />
+                    <Mail className="absolute left-3 top-3 w-3.5 h-3.5 text-purple-400" />
+                  </div>
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-[10px] font-bold text-purple-900 uppercase block">Secure Password</label>
+                  <div className="relative">
+                    <input
+                      type="password"
+                      required
+                      placeholder="••••••••"
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      className="w-full pl-9 pr-3 py-2 rounded-xl bg-purple-50/50 border border-purple-100 text-xs text-purple-950 focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-400/20"
+                    />
+                    <Lock className="absolute left-3 top-3 w-3.5 h-3.5 text-purple-400" />
+                  </div>
+                </div>
+
+                <button
+                  type="submit"
+                  className="w-full py-2.5 rounded-xl bg-purple-600 text-white font-bold text-xs hover:bg-purple-700 active:scale-95 transition-transform cursor-pointer"
+                >
+                  {authMode === "login" ? "Verify Credentials" : "Build My Account"}
+                </button>
+              </form>
+
+              {/* Google login simulation */}
+              <div className="border-t border-purple-100 pt-3 flex flex-col gap-2">
+                <button
+                  onClick={handleGoogleSignIn}
+                  className="w-full py-2 px-4 rounded-xl text-xs font-bold border border-purple-200 hover:bg-purple-50 transition-colors flex items-center justify-center gap-2 cursor-pointer text-purple-950"
+                >
+                  <svg className="w-3.5 h-3.5" viewBox="0 0 24 24">
+                    <path
+                      fill="#EA4335"
+                      d="M12.24 10.285V13.4h6.86c-.277 1.56-1.602 4.585-6.86 4.585-4.54 0-8.24-3.76-8.24-8.4s3.7-8.4 8.24-8.4c2.58 0 4.307 1.095 5.298 2.045l2.465-2.37C18.435 1.21 15.62 0 12.24 0 5.58 0 0 5.37 0 12s5.58 12 12.24 12c6.96 0 11.57-4.89 11.57-11.79 0-.795-.085-1.4-.187-1.925H12.24z"
+                    />
+                  </svg>
+                  <span>Authenticate with Google</span>
+                </button>
+
+                <p className="text-[10px] text-center text-gray-500">
+                  {authMode === "login" ? "New user?" : "Already registered?"}{" "}
+                  <button
+                    onClick={() => setAuthMode(authMode === "login" ? "register" : "login")}
+                    className="text-purple-600 font-bold hover:underline"
+                  >
+                    {authMode === "login" ? "Register now" : "Sign in instead"}
+                  </button>
+                </p>
+              </div>
+
+              {/* Close Button */}
+              <button
+                onClick={() => setIsAuthModalOpen(false)}
+                className="absolute top-3 right-3 p-1 rounded-full text-gray-400 hover:text-purple-950 cursor-pointer"
+              >
+                ✕
+              </button>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+    </>
+  );
+}

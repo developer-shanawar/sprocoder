@@ -1,0 +1,6 @@
+{
+  "name": "Glow Blog",
+  "description": "A high-quality, responsive blog featuring interactive articles and an AI post creator, framed in an ambient purple-glowing light aesthetics.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
