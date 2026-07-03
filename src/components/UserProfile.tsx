@@ -61,7 +61,7 @@ export default function UserProfile({
     formData.append("image", file);
 
     try {
-      const response = await fetch("https://api.imgbb.com/1/upload?key=cbccbe81da0dbe0ea13b4c9e832f05ba", {
+      const response = await fetch("https://api.imgbb.com/1/upload?key=95bfa2c260a52e93433daf349259e043", {
         method: "POST",
         body: formData,
       });

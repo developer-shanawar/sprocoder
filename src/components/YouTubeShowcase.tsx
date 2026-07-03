@@ -1,6 +1,8 @@
-import React, { useState } from "react";
-import { Play, Eye, Flame, Youtube, ExternalLink } from "lucide-react";
+import React, { useState, useEffect } from "react";
+import { Play, Eye, Flame, Youtube, ExternalLink, X } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
+import { ref, onValue } from "firebase/database";
+import { db } from "../firebase";
 
 interface VideoItem {
   id: string;
@@ -10,20 +12,31 @@ interface VideoItem {
   thumbnail: string;
   embedCode: string;
   channel: string;
+  link: string;
+}
+
+// Utility to parse YouTube video IDs
+function getYouTubeId(url: string): string {
+  if (!url) return "";
+  const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|\&v=)([^#\&\?]*).*/;
+  const match = url.match(regExp);
+  return (match && match[2].length === 11) ? match[2] : url.trim();
 }
 
 export default function YouTubeShowcase() {
   const [activeVideo, setActiveVideo] = useState<VideoItem | null>(null);
+  const [videos, setVideos] = useState<VideoItem[]>([]);
 
-  const videos: VideoItem[] = [
+  const defaultVideos: VideoItem[] = [
     {
       id: "vid-1",
       title: "Building full-stack AI applications in minutes using Gemini 3.5 & React",
       views: "124K views",
       duration: "14:20",
       thumbnail: "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&w=300&q=80",
-      embedCode: "dQw4w9WgXcQ", // Rickroll as safe placeholder or standard youtube id
-      channel: "S pro coder Studio"
+      embedCode: "dQw4w9WgXcQ",
+      channel: "S pro coder Studio",
+      link: "https://www.youtube.com/watch?v=dQw4w9WgXcQ"
     },
     {
       id: "vid-2",
@@ -32,9 +45,63 @@ export default function YouTubeShowcase() {
       duration: "22:05",
       thumbnail: "https://images.unsplash.com/photo-1550684848-fac1c5b4e853?auto=format&fit=crop&w=300&q=80",
       embedCode: "dQw4w9WgXcQ",
-      channel: "S pro coder Dev"
+      channel: "S pro coder Dev",
+      link: "https://www.youtube.com/watch?v=dQw4w9WgXcQ"
     }
   ];
+
+  useEffect(() => {
+    const videosRef = ref(db, "youtubeVideos");
+    const unsubscribe = onValue(videosRef, (snapshot) => {
+      if (snapshot.exists()) {
+        const data = snapshot.val();
+        let loadedVideos: VideoItem[] = [];
+        if (Array.isArray(data)) {
+          loadedVideos = data.filter(Boolean).map((v: any, index) => {
+            const embedCode = getYouTubeId(v.link || "");
+            return {
+              id: v.id || `vid-${index}`,
+              title: v.title || "Untitled Video",
+              views: v.views || "1K views",
+              duration: v.duration || "10:00",
+              embedCode: embedCode,
+              thumbnail: embedCode 
+                ? `https://img.youtube.com/vi/${embedCode}/0.jpg` 
+                : (v.thumbnail || "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&w=300&q=80"),
+              channel: v.channel || "S pro coder",
+              link: v.link || ""
+            };
+          });
+        } else if (typeof data === "object") {
+          loadedVideos = Object.keys(data).map((key) => {
+            const v = data[key];
+            const embedCode = getYouTubeId(v.link || "");
+            return {
+              id: key,
+              title: v.title || "Untitled Video",
+              views: v.views || "1K views",
+              duration: v.duration || "10:00",
+              embedCode: embedCode,
+              thumbnail: embedCode 
+                ? `https://img.youtube.com/vi/${embedCode}/0.jpg` 
+                : (v.thumbnail || "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&w=300&q=80"),
+              channel: v.channel || "S pro coder",
+              link: v.link || ""
+            };
+          });
+        }
+        // Slice up to 5 videos
+        setVideos(loadedVideos.slice(0, 5));
+      } else {
+        setVideos(defaultVideos);
+      }
+    }, (error) => {
+      console.error("Failed to fetch videos:", error);
+      setVideos(defaultVideos);
+    });
+
+    return () => unsubscribe();
+  }, []);
 
   return (
     <div className="p-5 rounded-3xl border border-white/40 bg-white/20 backdrop-blur-md shadow-sm space-y-4" id="youtube-showcase-container">
@@ -44,7 +111,7 @@ export default function YouTubeShowcase() {
           <span>S pro coder Tube</span>
         </h3>
         <span className="text-[9px] bg-red-500/10 text-red-600 font-bold px-2 py-0.5 rounded-full uppercase tracking-wider flex items-center gap-1">
-          <Flame className="w-2.5 h-2.5 text-red-500" />
+          <Flame className="w-2.5 h-2.5 text-red-500 animate-pulse" />
           <span>LATEST VIDEOS</span>
         </span>
       </div>
@@ -67,6 +134,7 @@ export default function YouTubeShowcase() {
                 src={vid.thumbnail}
                 alt={vid.title}
                 className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+                referrerPolicy="no-referrer"
               />
               <div className="absolute inset-0 bg-black/35 group-hover:bg-black/25 transition-all duration-300 flex items-center justify-center">
                 <div className="w-9 h-9 rounded-full bg-red-600 text-white flex items-center justify-center shadow-lg group-hover:scale-110 active:scale-95 transition-transform duration-300">
@@ -95,58 +163,79 @@ export default function YouTubeShowcase() {
         ))}
       </div>
 
-      {/* Video Lightbox Player */}
+      {/* Video Lightbox Player - Set high z-index and robust closing mechanics */}
       <AnimatePresence>
         {activeVideo && (
-          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+          <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md">
             <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               onClick={() => setActiveVideo(null)}
-              className="absolute inset-0 bg-black/80 backdrop-blur-md"
+              className="absolute inset-0 cursor-pointer"
             />
             <motion.div
               initial={{ scale: 0.95, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.95, opacity: 0 }}
-              className="bg-black rounded-3xl border border-white/20 w-full max-w-2xl overflow-hidden shadow-2xl relative z-10"
+              className="bg-zinc-950 rounded-[32px] border border-white/15 w-full max-w-2xl overflow-hidden shadow-2xl relative z-10"
               id="youtube-player-dialog"
+              onClick={(e) => e.stopPropagation()}
             >
+              {/* Header inside popup */}
               <div className="p-4 bg-zinc-900 border-b border-zinc-800 flex items-center justify-between text-white">
                 <div className="flex items-center gap-2">
-                  <Youtube className="w-5 h-5 text-red-500" />
+                  <Youtube className="w-5 h-5 text-red-500 fill-red-500 animate-pulse" />
                   <span className="text-xs font-bold line-clamp-1">{activeVideo.title}</span>
                 </div>
                 <button
                   onClick={() => setActiveVideo(null)}
-                  className="p-1 hover:bg-zinc-800 rounded-full text-zinc-400 hover:text-white transition-all"
+                  className="p-1.5 hover:bg-zinc-800 rounded-full text-zinc-400 hover:text-white transition-all cursor-pointer flex items-center justify-center"
+                  title="Close video modal"
+                  id="youtube-player-close-btn"
                 >
-                  ✕
+                  <X className="w-4 h-4" />
                 </button>
               </div>
+
               {/* Responsive Iframe Container */}
               <div className="relative aspect-video bg-black">
-                <iframe
-                  src={`https://www.youtube.com/embed/${activeVideo.embedCode}?autoplay=1`}
-                  title={activeVideo.title}
-                  frameBorder="0"
-                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                  allowFullScreen
-                  className="absolute top-0 left-0 w-full h-full"
-                />
+                {activeVideo.embedCode ? (
+                  <iframe
+                    src={`https://www.youtube.com/embed/${activeVideo.embedCode}?autoplay=1`}
+                    title={activeVideo.title}
+                    frameBorder="0"
+                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                    allowFullScreen
+                    className="absolute top-0 left-0 w-full h-full"
+                  />
+                ) : (
+                  <div className="absolute inset-0 flex items-center justify-center text-zinc-500 text-xs">
+                    Could not resolve YouTube Video ID.
+                  </div>
+                )}
               </div>
-              <div className="p-4 bg-zinc-900 flex justify-between items-center text-zinc-400 text-xs">
-                <span>Channel: {activeVideo.channel}</span>
-                <a
-                  href={`https://youtube.com/watch?v=${activeVideo.embedCode}`}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="flex items-center gap-1 hover:text-white transition-colors text-red-400 font-semibold"
-                >
-                  <span>Open YouTube</span>
-                  <ExternalLink className="w-3.5 h-3.5" />
-                </a>
+
+              {/* Footer and dynamic watch link */}
+              <div className="p-4 bg-zinc-900 flex flex-col sm:flex-row gap-3 justify-between items-center text-zinc-400 text-xs border-t border-zinc-800">
+                <span className="font-mono text-[10px] text-zinc-500">Channel: {activeVideo.channel} • {activeVideo.views}</span>
+                <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
+                  <a
+                    href={activeVideo.link || `https://youtube.com/watch?v=${activeVideo.embedCode}`}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-red-600 hover:bg-red-700 text-white font-bold transition-all text-xs shadow shadow-red-900/40 cursor-pointer"
+                  >
+                    <span>Watch on YouTube</span>
+                    <ExternalLink className="w-3.5 h-3.5" />
+                  </a>
+                  <button
+                    onClick={() => setActiveVideo(null)}
+                    className="px-4 py-2 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-zinc-200 hover:text-white font-bold transition-all text-xs cursor-pointer"
+                  >
+                    Close
+                  </button>
+                </div>
               </div>
             </motion.div>
           </div>

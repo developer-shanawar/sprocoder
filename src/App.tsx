@@ -356,6 +356,13 @@ export default function App() {
     }
   };
 
+  // Reset selectedPost if navigating away from home or articles
+  useEffect(() => {
+    if (currentTab !== "home" && currentTab !== "articles") {
+      setSelectedPost(null);
+    }
+  }, [currentTab]);
+
   return (
     <div className="min-h-screen bg-purple-50/20 text-purple-950 font-sans flex flex-col relative overflow-x-hidden pb-12">
       
@@ -377,6 +384,7 @@ export default function App() {
         setCurrentTab={(t) => {
           setCurrentTab(t);
           setSelectedCategory(null);
+          setSelectedPost(null);
         }}
         currentUser={currentUser}
         setCurrentUser={setCurrentUser}
@@ -389,7 +397,7 @@ export default function App() {
       {/* PRIMARY WORKSPACE MAIN ROUTER */}
       <main className="relative z-10 w-full max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 mt-28 flex-grow">
         
-        {selectedPost ? (
+        {(selectedPost && (currentTab === "home" || currentTab === "articles")) ? (
           <ArticleDetailView 
             post={selectedPost}
             onClose={() => setSelectedPost(null)}
@@ -786,7 +794,10 @@ export default function App() {
       {/* FOOTER COMPONENT */}
       <Footer 
         currentTab={currentTab}
-        setCurrentTab={setCurrentTab}
+        setCurrentTab={(t) => {
+          setCurrentTab(t);
+          setSelectedPost(null);
+        }}
         isAdminAuthenticated={isAdminAuthenticated}
       />
 

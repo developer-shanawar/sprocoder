@@ -1,11 +1,20 @@
 import React, { useState, useEffect } from "react";
 import { 
   Users, BookOpen, Layers, MessageSquare, Settings, 
-  Plus, Edit, Trash2, Heart, Bookmark, Eye, FileText, Upload, Save, Check, RefreshCw 
+  Plus, Edit, Trash2, Heart, Bookmark, Eye, FileText, Upload, Save, Check, RefreshCw,
+  Youtube
 } from "lucide-react";
 import { db, DB_PATHS } from "../firebase";
 import { ref, set, push, remove, get, update, onValue } from "firebase/database";
 import { BlogPost, UserAccount, ContactMessage } from "../types";
+
+// Utility to parse YouTube video IDs
+function getYouTubeId(url: string): string {
+  if (!url) return "";
+  const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|\&v=)([^#\&\?]*).*/;
+  const match = url.match(regExp);
+  return (match && match[2].length === 11) ? match[2] : url.trim();
+}
 
 interface AdminPanelProps {
   onClose: () => void;
@@ -15,7 +24,7 @@ interface AdminPanelProps {
 }
 
 export default function AdminPanel({ onClose, categories, setCategories, onLogout }: AdminPanelProps) {
-  const [activeTab, setActiveTab] = useState<"users" | "articles" | "categories" | "messages" | "pages">("articles");
+  const [activeTab, setActiveTab] = useState<"users" | "articles" | "categories" | "messages" | "pages" | "videos">("articles");
   const [loading, setLoading] = useState(false);
 
   // Users State
@@ -51,6 +60,17 @@ export default function AdminPanel({ onClose, categories, setCategories, onLogou
   const [websiteIcon, setWebsiteIcon] = useState("");
   const [isUploadingIcon, setIsUploadingIcon] = useState(false);
   const [iconUploadError, setIconUploadError] = useState("");
+
+  // Videos State (Max 5)
+  const [adminVideos, setAdminVideos] = useState<{
+    id: string;
+    title: string;
+    link: string;
+    channel: string;
+    duration: string;
+    views: string;
+  }[]>([]);
+  const [videoSaveSuccess, setVideoSaveSuccess] = useState(false);
 
   // Load Admin Data from RTDB
   useEffect(() => {
@@ -108,6 +128,47 @@ export default function AdminPanel({ onClose, categories, setCategories, onLogou
     get(iconRef).then((snapshot) => {
       if (snapshot.exists()) {
         setWebsiteIcon(snapshot.val());
+      }
+    });
+
+    // 6. Load Youtube Videos (Once)
+    const videosRef = ref(db, "youtubeVideos");
+    get(videosRef).then((snapshot) => {
+      const initial = Array.from({ length: 5 }, (_, i) => ({
+        id: `vid-${i + 1}`,
+        title: "",
+        link: "",
+        channel: "S pro coder Studio",
+        duration: "10:00",
+        views: "1K views"
+      }));
+
+      if (snapshot.exists()) {
+        const data = snapshot.val();
+        let loaded: any[] = [];
+        if (Array.isArray(data)) {
+          loaded = data.filter(Boolean);
+        } else if (typeof data === "object") {
+          loaded = Object.values(data);
+        }
+        
+        // Merge or replace initial values
+        const items = initial.map((item, index) => {
+          if (loaded[index]) {
+            return {
+              id: loaded[index].id || `vid-${index + 1}`,
+              title: loaded[index].title || "",
+              link: loaded[index].link || "",
+              channel: loaded[index].channel || "S pro coder Studio",
+              duration: loaded[index].duration || "10:00",
+              views: loaded[index].views || "1K views"
+            };
+          }
+          return item;
+        });
+        setAdminVideos(items);
+      } else {
+        setAdminVideos(initial);
       }
     });
 
@@ -354,6 +415,32 @@ export default function AdminPanel({ onClose, categories, setCategories, onLogou
     }
   };
 
+  // Save YouTube Videos Showcase settings
+  const handleSaveVideos = async () => {
+    setLoading(true);
+    setVideoSaveSuccess(false);
+    try {
+      const formatted = adminVideos.map((vid, idx) => {
+        return {
+          id: vid.id || `vid-${idx + 1}`,
+          title: vid.title.trim() || `Featured Video ${idx + 1}`,
+          link: vid.link.trim() || "",
+          channel: vid.channel.trim() || "S pro coder Studio",
+          duration: vid.duration.trim() || "10:00",
+          views: vid.views.trim() || "1K views"
+        };
+      });
+      await set(ref(db, "youtubeVideos"), formatted);
+      setVideoSaveSuccess(true);
+      setTimeout(() => setVideoSaveSuccess(false), 3050);
+    } catch (err) {
+      console.error(err);
+      alert("Failed to update YouTube videos.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <div className="space-y-6 animate-in fade-in duration-300" id="admin-panel-root">
       <div className="bg-white/40 backdrop-blur-lg border border-white/60 rounded-[36px] p-6 md:p-8 space-y-6 text-purple-950 shadow-xl" id="admin-panel-container">
@@ -451,6 +538,18 @@ export default function AdminPanel({ onClose, categories, setCategories, onLogou
           >
             <Settings className="w-4 h-4" />
             <span>Pages & Legal Editor</span>
+          </button>
+
+          <button
+            onClick={() => setActiveTab("videos")}
+            className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+              activeTab === "videos" 
+                ? "bg-purple-600 text-white shadow-md shadow-purple-100" 
+                : "hover:bg-purple-50 text-purple-800"
+            }`}
+          >
+            <Youtube className="w-4 h-4 text-red-500 fill-red-500" />
+            <span>YouTube Showcase</span>
           </button>
         </div>
 
@@ -1002,6 +1101,157 @@ export default function AdminPanel({ onClose, categories, setCategories, onLogou
                 >
                   <Save className="w-4 h-4" />
                   <span>{loading ? "Updating Server Page Configuration..." : "Save Pages Modifications"}</span>
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* TAB 6: VIDEOS MANAGER */}
+          {activeTab === "videos" && (
+            <div className="space-y-6 animate-in fade-in duration-200" id="tab-videos-content">
+              <div className="flex items-center justify-between border-b border-purple-100 pb-2">
+                <div>
+                  <h3 className="text-xs font-black text-purple-950 uppercase tracking-wider flex items-center gap-1.5">
+                    <Youtube className="w-4 h-4 text-red-500 fill-red-500" />
+                    <span>Manage YouTube Videos Showcase (Max 5)</span>
+                  </h3>
+                  <p className="text-[10px] text-gray-500">
+                    Directly paste your YouTube video links here. S pro coder will automatically extract the video ID and display the YouTube thumbnail!
+                  </p>
+                </div>
+                {videoSaveSuccess && (
+                  <span className="text-xs text-emerald-600 font-bold flex items-center gap-1 animate-bounce">
+                    <Check className="w-4 h-4" />
+                    <span>Videos Saved Successfully!</span>
+                  </span>
+                )}
+              </div>
+
+              <div className="space-y-6">
+                {adminVideos.map((vid, index) => (
+                  <div key={vid.id || index} className="p-4 rounded-2xl bg-purple-50/70 border border-purple-100 grid grid-cols-1 md:grid-cols-12 gap-4 items-start">
+                    {/* Thumbnail Preview */}
+                    <div className="md:col-span-3">
+                      <div className="aspect-video w-full rounded-xl bg-zinc-950 overflow-hidden relative border border-purple-200">
+                        {vid.link ? (
+                          <img 
+                            src={`https://img.youtube.com/vi/${getYouTubeId(vid.link)}/0.jpg`} 
+                            alt="Video preview" 
+                            className="w-full h-full object-cover"
+                            onError={(e) => {
+                              (e.target as HTMLImageElement).src = "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&w=300&q=80";
+                            }}
+                          />
+                        ) : (
+                          <div className="absolute inset-0 flex items-center justify-center text-[10px] text-zinc-400 text-center p-2">
+                            Enter YouTube Link
+                          </div>
+                        )}
+                        <div className="absolute bottom-1 right-1 bg-black/80 text-white font-mono text-[9px] px-1 rounded">
+                          {vid.duration || "10:00"}
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Editor Inputs */}
+                    <div className="md:col-span-9 grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+                      <div className="sm:col-span-2 space-y-1">
+                        <label className="text-[10px] font-bold text-purple-900 uppercase tracking-wider block">
+                          Video Title {index + 1}
+                        </label>
+                        <input 
+                          type="text"
+                          placeholder="e.g. Building full-stack AI applications in minutes using Gemini 3.5 & React"
+                          value={vid.title}
+                          onChange={(e) => {
+                            const updated = [...adminVideos];
+                            updated[index].title = e.target.value;
+                            setAdminVideos(updated);
+                          }}
+                          className="w-full px-3 py-1.5 rounded-lg border border-purple-200 bg-white"
+                        />
+                      </div>
+
+                      <div className="sm:col-span-2 space-y-1">
+                        <label className="text-[10px] font-bold text-purple-900 uppercase tracking-wider block">
+                          YouTube Video Link or ID
+                        </label>
+                        <input 
+                          type="text"
+                          placeholder="e.g. https://www.youtube.com/watch?v=dQw4w9WgXcQ"
+                          value={vid.link}
+                          onChange={(e) => {
+                            const updated = [...adminVideos];
+                            updated[index].link = e.target.value;
+                            setAdminVideos(updated);
+                          }}
+                          className="w-full px-3 py-1.5 rounded-lg border border-purple-200 bg-white font-mono"
+                        />
+                      </div>
+
+                      <div className="space-y-1">
+                        <label className="text-[10px] font-bold text-purple-900 uppercase tracking-wider block">
+                          Channel Name
+                        </label>
+                        <input 
+                          type="text"
+                          value={vid.channel}
+                          onChange={(e) => {
+                            const updated = [...adminVideos];
+                            updated[index].channel = e.target.value;
+                            setAdminVideos(updated);
+                          }}
+                          className="w-full px-3 py-1.5 rounded-lg border border-purple-200 bg-white"
+                        />
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-2">
+                        <div className="space-y-1">
+                          <label className="text-[10px] font-bold text-purple-900 uppercase tracking-wider block">
+                            Duration
+                          </label>
+                          <input 
+                            type="text"
+                            placeholder="14:20"
+                            value={vid.duration}
+                            onChange={(e) => {
+                              const updated = [...adminVideos];
+                              updated[index].duration = e.target.value;
+                              setAdminVideos(updated);
+                            }}
+                            className="w-full px-3 py-1.5 rounded-lg border border-purple-200 bg-white font-mono"
+                          />
+                        </div>
+
+                        <div className="space-y-1">
+                          <label className="text-[10px] font-bold text-purple-900 uppercase tracking-wider block">
+                            Views Count
+                          </label>
+                          <input 
+                            type="text"
+                            placeholder="124K views"
+                            value={vid.views}
+                            onChange={(e) => {
+                              const updated = [...adminVideos];
+                              updated[index].views = e.target.value;
+                              setAdminVideos(updated);
+                            }}
+                            className="w-full px-3 py-1.5 rounded-lg border border-purple-200 bg-white font-mono"
+                          />
+                        </div>
+                      </div>
+
+                    </div>
+                  </div>
+                ))}
+
+                <button 
+                  onClick={handleSaveVideos}
+                  disabled={loading}
+                  className="w-full bg-purple-600 hover:bg-purple-700 text-white font-bold text-xs py-2.5 rounded-xl cursor-pointer flex items-center justify-center gap-1.5 shadow-lg shadow-purple-100"
+                >
+                  <Save className="w-4 h-4" />
+                  <span>{loading ? "Saving to Database..." : "Save Showcase Videos"}</span>
                 </button>
               </div>
             </div>

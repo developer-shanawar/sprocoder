@@ -76,19 +76,20 @@ export default function ArticleDetailView({
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             onClick={() => setLightboxImg(null)}
-            className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-black/90 backdrop-blur-md cursor-zoom-out"
+            className="fixed inset-0 z-[100000] flex items-center justify-center p-4 bg-black/95 backdrop-blur-md cursor-zoom-out"
             id="image-lightbox-overlay"
           >
+            {/* Clear close button */}
             <button 
               onClick={(e) => {
                 e.stopPropagation();
                 setLightboxImg(null);
               }}
-              className="absolute top-6 right-6 p-3 rounded-full bg-white/10 hover:bg-white/20 text-white cursor-pointer transition-all hover:scale-115 active:scale-90"
+              className="absolute top-4 right-4 z-[100001] p-3 rounded-full bg-red-600 hover:bg-red-700 text-white border border-white/20 transition-all hover:scale-110 active:scale-90 flex items-center justify-center cursor-pointer shadow-lg"
               title="Close image popup"
               id="lightbox-close-btn"
             >
-              <X className="w-6 h-6" />
+              <X className="w-5 h-5" />
             </button>
             <motion.img 
               initial={{ scale: 0.95 }}
@@ -96,7 +97,7 @@ export default function ArticleDetailView({
               exit={{ scale: 0.95 }}
               src={lightboxImg} 
               alt="Expanded preview" 
-              className="max-w-full max-h-[85vh] rounded-3xl object-contain shadow-2xl border border-white/10"
+              className="max-w-full max-h-[90vh] rounded-2xl object-contain shadow-2xl border border-white/10"
               referrerPolicy="no-referrer"
               onClick={(e) => e.stopPropagation()}
             />
