@@ -21,7 +21,7 @@ export default function HeroSection({
 }: HeroSectionProps) {
   return (
     <div 
-      className="relative rounded-[36px] overflow-hidden border border-white/60 bg-white/35 backdrop-blur-xl shadow-xl flex flex-col md:flex-row transition-all duration-500 hover:border-purple-300 group"
+      className="relative rounded-[36px] overflow-hidden border-2 border-black bg-white/35 backdrop-blur-xl shadow-xl flex flex-col md:flex-row transition-all duration-500 group"
       id="hero-featured-container"
     >
       {/* Background ambient halo */}

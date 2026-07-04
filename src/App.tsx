@@ -13,17 +13,38 @@ import { INITIAL_POSTS } from "./data";
 // Modular Component Imports
 import Header from "./components/Header";
 import Footer from "./components/Footer";
-import AdminPanel from "./components/AdminPanel";
 import HeroSection from "./components/HeroSection";
-import ContactForm from "./components/ContactForm";
-import YouTubeShowcase from "./components/YouTubeShowcase";
-import ArticleDetailView from "./components/ArticleDetailView";
-import AdminAuth from "./components/AdminAuth";
-import UserProfile from "./components/UserProfile";
+
+// Lazy loaded components for split chunks and optimized load speed
+const AdminPanel = React.lazy(() => import("./components/AdminPanel"));
+const ContactForm = React.lazy(() => import("./components/ContactForm"));
+const YouTubeShowcase = React.lazy(() => import("./components/YouTubeShowcase"));
+const ArticleDetailView = React.lazy(() => import("./components/ArticleDetailView"));
+const AdminAuth = React.lazy(() => import("./components/AdminAuth"));
+const UserProfile = React.lazy(() => import("./components/UserProfile"));
+
+const LoadingSpinner = () => (
+  <div className="flex justify-center items-center py-16">
+    <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-purple-600"></div>
+  </div>
+);
 
 export default function App() {
-  // Navigation tabs: home, articles, about, privacy, terms, contact, admin-auth, admin, profile
-  const [currentTab, setCurrentTab] = useState<"home" | "articles" | "about" | "privacy" | "terms" | "contact" | "admin-auth" | "admin" | "profile">("home");
+  // Navigation tabs initialized from window.location.pathname dynamically
+  const [currentTab, setCurrentTab] = useState<"home" | "articles" | "about" | "privacy" | "terms" | "contact" | "admin-auth" | "admin" | "profile">(() => {
+    if (typeof window === "undefined") return "home";
+    const path = window.location.pathname;
+    if (path === "/blog" || path === "/articles") return "articles";
+    if (path === "/about-us" || path === "/about") return "about";
+    if (path === "/privacy-policy" || path === "/privacy") return "privacy";
+    if (path === "/terms-and-conditions" || path === "/terms") return "terms";
+    if (path === "/contact-us" || path === "/contact") return "contact";
+    if (path === "/profile") return "profile";
+    if (path === "/admin-auth") return "admin-auth";
+    if (path === "/admin") return "admin";
+    if (path.startsWith("/blog/") || path.startsWith("/articles/")) return "articles";
+    return "home";
+  });
 
   // User auth state
   const [currentUser, setCurrentUser] = useState<UserAccount | null>(() => {
@@ -718,17 +739,19 @@ export default function App() {
       <main className="relative z-10 w-full max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 mt-28 flex-grow">
         
         {(selectedPost && (currentTab === "home" || currentTab === "articles")) ? (
-          <ArticleDetailView 
-            post={selectedPost}
-            onClose={() => setSelectedPost(null)}
-            isBookmarked={currentUser?.savedArticles?.includes(selectedPost.id) || false}
-            onToggleBookmark={() => handleToggleBookmark(selectedPost)}
-            isLiked={currentUser?.likedArticles?.includes(selectedPost.id) || false}
-            onLike={() => handleLikeArticle(selectedPost)}
-            onAddComment={(text) => handleAddComment(selectedPost, text)}
-            onAddReply={(commentId, text) => handleAddReply(selectedPost, commentId, text)}
-            currentUser={currentUser}
-          />
+          <React.Suspense fallback={<LoadingSpinner />}>
+            <ArticleDetailView 
+              post={selectedPost}
+              onClose={() => setSelectedPost(null)}
+              isBookmarked={currentUser?.savedArticles?.includes(selectedPost.id) || false}
+              onToggleBookmark={() => handleToggleBookmark(selectedPost)}
+              isLiked={currentUser?.likedArticles?.includes(selectedPost.id) || false}
+              onLike={() => handleLikeArticle(selectedPost)}
+              onAddComment={(text) => handleAddComment(selectedPost, text)}
+              onAddReply={(commentId, text) => handleAddReply(selectedPost, commentId, text)}
+              currentUser={currentUser}
+            />
+          </React.Suspense>
         ) : (
           <>
             {/* VIEW 1: HOME PAGE */}
@@ -802,13 +825,14 @@ export default function App() {
                       <div 
                         key={post.id}
                         onClick={() => handleSelectPost(post)}
-                        className="group bg-white/40 backdrop-blur-lg border border-white/60 rounded-[28px] p-5 shadow-sm hover:shadow-md hover:border-purple-300 transition-all cursor-pointer space-y-3 relative overflow-hidden"
+                        className="group bg-white/45 border-2 border-black rounded-[28px] p-5 shadow-sm hover:shadow-md transition-all cursor-pointer space-y-3 relative overflow-hidden"
                       >
                         <div className="h-40 w-full rounded-2xl overflow-hidden relative">
                           <img 
                             src={post.thumbnailUrl} 
                             alt={post.title} 
                             className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+                            loading="lazy"
                           />
                           <span className="absolute top-3 left-3 text-[9px] bg-purple-950 text-white px-2.5 py-1 rounded-full font-bold uppercase tracking-widest">
                             {post.category}
@@ -878,7 +902,9 @@ export default function App() {
                 </div>
 
                 {/* YouTube Video Section */}
-                <YouTubeShowcase />
+                <React.Suspense fallback={<LoadingSpinner />}>
+                  <YouTubeShowcase />
+                </React.Suspense>
               </div>
 
             </div>
@@ -918,7 +944,7 @@ export default function App() {
                 <div 
                   key={post.id}
                   onClick={() => handleSelectPost(post)}
-                  className="group bg-white/40 backdrop-blur-lg border border-white/60 rounded-[28px] overflow-hidden p-4 shadow-sm hover:shadow-md hover:border-purple-300 transition-all cursor-pointer flex flex-col justify-between h-96"
+                  className="group bg-white/45 border-2 border-black rounded-[28px] overflow-hidden p-4 shadow-sm hover:shadow-md transition-all cursor-pointer flex flex-col justify-between h-96"
                 >
                   <div className="space-y-3">
                     <div className="h-40 w-full rounded-2xl overflow-hidden relative shrink-0">
@@ -926,6 +952,7 @@ export default function App() {
                         src={post.thumbnailUrl} 
                         alt={post.title} 
                         className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+                        loading="lazy"
                       />
                       <span className="absolute top-2.5 left-2.5 text-[8px] bg-purple-950 text-white px-2 py-0.5 rounded-full font-bold uppercase tracking-widest">
                         {post.category}
@@ -972,13 +999,8 @@ export default function App() {
         {/* VIEW 3: ABOUT PAGE (SEPARATE PAGE!) */}
         {currentTab === "about" && (
           <div className="max-w-3xl mx-auto space-y-8 animate-in fade-in duration-300" id="about-view-container">
-            <div className="bg-white/40 backdrop-blur-lg border border-white/60 rounded-[32px] p-6 sm:p-10 text-purple-950 space-y-6 shadow-xl relative overflow-hidden">
-              <div className="absolute top-0 right-0 w-48 h-48 bg-purple-500/15 rounded-full filter blur-2xl pointer-events-none" />
-
+            <div className="bg-white/45 border-2 border-black rounded-[32px] p-6 sm:p-10 text-purple-950 space-y-6 shadow-md relative overflow-hidden">
               <div className="text-center space-y-2">
-                <div className="w-12 h-12 bg-purple-600 text-white rounded-2xl flex items-center justify-center mx-auto shadow-lg shadow-purple-200 animate-pulse">
-                  <ShieldCheck className="w-6 h-6" />
-                </div>
                 <h1 className="text-3xl font-black text-purple-950 tracking-tight">
                   About S pro coder
                 </h1>
@@ -987,7 +1009,7 @@ export default function App() {
                 </p>
               </div>
 
-              <div className="space-y-4 text-sm leading-relaxed text-gray-700 whitespace-pre-line text-justify font-sans border-t border-purple-100/50 pt-6">
+              <div className="space-y-4 text-sm leading-relaxed text-gray-700 whitespace-pre-line text-justify font-sans border-t border-black pt-6">
                 {aboutContent || "S pro coder is a bespoke digital platform supplying high-end tech tutorials and AI articles."}
               </div>
             </div>
@@ -997,13 +1019,8 @@ export default function App() {
         {/* VIEW 3.1: PRIVACY POLICY (SEPARATE PAGE!) */}
         {currentTab === "privacy" && (
           <div className="max-w-3xl mx-auto space-y-8 animate-in fade-in duration-300" id="privacy-view-container">
-            <div className="bg-white/40 backdrop-blur-lg border border-white/60 rounded-[32px] p-6 sm:p-10 text-purple-950 space-y-6 shadow-xl relative overflow-hidden">
-              <div className="absolute top-0 right-0 w-48 h-48 bg-indigo-500/15 rounded-full filter blur-2xl pointer-events-none" />
-
+            <div className="bg-white/45 border-2 border-black rounded-[32px] p-6 sm:p-10 text-purple-950 space-y-6 shadow-md relative overflow-hidden">
               <div className="text-center space-y-2">
-                <div className="w-12 h-12 bg-indigo-600 text-white rounded-2xl flex items-center justify-center mx-auto shadow-lg shadow-indigo-200">
-                  <ShieldCheck className="w-6 h-6" />
-                </div>
                 <h1 className="text-3xl font-black text-purple-950 tracking-tight">
                   Privacy Policy Guidelines
                 </h1>
@@ -1012,7 +1029,7 @@ export default function App() {
                 </p>
               </div>
 
-              <div className="space-y-4 text-sm leading-relaxed text-gray-700 whitespace-pre-line text-justify font-sans border-t border-purple-100/50 pt-6">
+              <div className="space-y-4 text-sm leading-relaxed text-gray-700 whitespace-pre-line text-justify font-sans border-t border-black pt-6">
                 {privacyPolicy || "Your records are held securely inside real-time Firebase Authentication protocols. S pro coder does not sell, distribute, or expose user records."}
               </div>
             </div>
@@ -1022,13 +1039,8 @@ export default function App() {
         {/* VIEW 3.2: TERMS & CONDITIONS (SEPARATE PAGE!) */}
         {currentTab === "terms" && (
           <div className="max-w-3xl mx-auto space-y-8 animate-in fade-in duration-300" id="terms-view-container">
-            <div className="bg-white/40 backdrop-blur-lg border border-white/60 rounded-[32px] p-6 sm:p-10 text-purple-950 space-y-6 shadow-xl relative overflow-hidden">
-              <div className="absolute top-0 right-0 w-48 h-48 bg-purple-500/15 rounded-full filter blur-2xl pointer-events-none" />
-
+            <div className="bg-white/45 border-2 border-black rounded-[32px] p-6 sm:p-10 text-purple-950 space-y-6 shadow-md relative overflow-hidden">
               <div className="text-center space-y-2">
-                <div className="w-12 h-12 bg-purple-600 text-white rounded-2xl flex items-center justify-center mx-auto shadow-lg shadow-purple-200">
-                  <ShieldCheck className="w-6 h-6" />
-                </div>
                 <h1 className="text-3xl font-black text-purple-950 tracking-tight">
                   Terms and Conditions of Use
                 </h1>
@@ -1037,7 +1049,7 @@ export default function App() {
                 </p>
               </div>
 
-              <div className="space-y-4 text-sm leading-relaxed text-gray-700 whitespace-pre-line text-justify font-sans border-t border-purple-100/50 pt-6">
+              <div className="space-y-4 text-sm leading-relaxed text-gray-700 whitespace-pre-line text-justify font-sans border-t border-black pt-6">
                 {termsAndConditions || "All custom files built using our templates carry open-source MIT copyrights. By using our guides, you accept responsibility for your implementation."}
               </div>
             </div>
@@ -1047,52 +1059,60 @@ export default function App() {
         {/* VIEW 4: CONTACT PAGE */}
         {currentTab === "contact" && (
           <div className="max-w-2xl mx-auto animate-in fade-in duration-300" id="contact-view-container">
-            <ContactForm />
+            <React.Suspense fallback={<LoadingSpinner />}>
+              <ContactForm />
+            </React.Suspense>
           </div>
         )}
 
         {/* VIEW 4.5: USER SOCIAL MEDIA PROFILE */}
         {currentTab === "profile" && (
           <div className="max-w-4xl mx-auto animate-in fade-in duration-300" id="profile-view-container">
-            <UserProfile 
-              currentUser={currentUser}
-              setCurrentUser={setCurrentUser}
-              allPosts={allPosts}
-              onSelectPost={(post) => handleSelectPost(post)}
-              onLogout={() => {
-                setCurrentUser(null);
-                localStorage.removeItem("spro_user");
-                setCurrentTab("home");
-              }}
-            />
+            <React.Suspense fallback={<LoadingSpinner />}>
+              <UserProfile 
+                currentUser={currentUser}
+                setCurrentUser={setCurrentUser}
+                allPosts={allPosts}
+                onSelectPost={(post) => handleSelectPost(post)}
+                onLogout={() => {
+                  setCurrentUser(null);
+                  localStorage.removeItem("spro_user");
+                  setCurrentTab("home");
+                }}
+              />
+            </React.Suspense>
           </div>
         )}
 
         {/* VIEW 5: ADMIN AUTHENTICATION */}
         {currentTab === "admin-auth" && (
-          <AdminAuth 
-            onSuccess={() => {
-              setIsAdminAuthenticated(true);
-              localStorage.setItem("spro_admin_auth", "true");
-              setCurrentTab("admin");
-            }}
-            onCancel={() => setCurrentTab("home")}
-          />
+          <React.Suspense fallback={<LoadingSpinner />}>
+            <AdminAuth 
+              onSuccess={() => {
+                setIsAdminAuthenticated(true);
+                localStorage.setItem("spro_admin_auth", "true");
+                setCurrentTab("admin");
+              }}
+              onCancel={() => setCurrentTab("home")}
+            />
+          </React.Suspense>
         )}
 
         {/* VIEW 6: ADMIN PANEL CONTROL DECK (Full Page!) */}
         {currentTab === "admin" && (
           isAdminAuthenticated ? (
-            <AdminPanel 
-              onClose={() => setCurrentTab("home")}
-              categories={categories}
-              setCategories={setCategories}
-              onLogout={() => {
-                setIsAdminAuthenticated(false);
-                localStorage.removeItem("spro_admin_auth");
-                setCurrentTab("home");
-              }}
-            />
+            <React.Suspense fallback={<LoadingSpinner />}>
+              <AdminPanel 
+                onClose={() => setCurrentTab("home")}
+                categories={categories}
+                setCategories={setCategories}
+                onLogout={() => {
+                  setIsAdminAuthenticated(false);
+                  localStorage.removeItem("spro_admin_auth");
+                  setCurrentTab("home");
+                }}
+              />
+            </React.Suspense>
           ) : (
             <div className="p-8 text-center bg-white/35 backdrop-blur-md border border-purple-100 rounded-[28px] max-w-md mx-auto space-y-4">
               <p className="text-sm font-bold text-purple-950">Administrative Authorization Required.</p>

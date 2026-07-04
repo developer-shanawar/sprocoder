@@ -251,7 +251,7 @@ export default function Header({
 
   return (
     <>
-      <nav className="fixed top-4 left-1/2 -translate-x-1/2 w-[92%] max-w-6xl z-40 bg-[#f4f0ff] border border-purple-200/80 rounded-[28px] px-4 md:px-6 py-3 shadow-md flex items-center justify-between transition-all" id="floating-nav-bar">
+      <nav className="fixed top-4 left-1/2 -translate-x-1/2 w-[92%] max-w-6xl z-40 bg-[#f4f0ff] border-2 border-black rounded-[28px] px-4 md:px-6 py-3 shadow-md flex items-center justify-between transition-all" id="floating-nav-bar">
         {/* Logo and Slogan */}
         <div 
           onClick={() => setCurrentTab("home")}
