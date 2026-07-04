@@ -1,8 +1,8 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { 
   Users, BookOpen, Layers, MessageSquare, Settings, 
   Plus, Edit, Trash2, Heart, Bookmark, Eye, FileText, Upload, Save, Check, RefreshCw,
-  Youtube, Star
+  Youtube, Star, Bold, Italic, Underline, Link, Heading1, Heading2, List, Quote, Globe
 } from "lucide-react";
 import { db, DB_PATHS } from "../firebase";
 import { ref, set, push, remove, get, update, onValue } from "firebase/database";
@@ -116,6 +116,37 @@ export default function AdminPanel({ onClose, categories, setCategories, onLogou
   // ImgBB API Key state
   const [imgbbKey, setImgbbKey] = useState("95bfa2c260a52e93433daf349259e043");
   const [imgbbKeySaveSuccess, setImgbbKeySaveSuccess] = useState(false);
+
+  // Website Brand SEO Settings state
+  const [websiteTitle, setWebsiteTitle] = useState("S pro coder");
+  const [websiteDescription, setWebsiteDescription] = useState("bespoke digital platform supplying high-end tech tutorials and AI articles.");
+  const [seoSaveSuccess, setSeoSaveSuccess] = useState(false);
+
+  // Article rich text area ref
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const [fetchingVideoIdx, setFetchingVideoIdx] = useState<number | null>(null);
+
+  // Blogger formatting insertion helper
+  const insertFormatting = (before: string, after: string) => {
+    const textarea = textareaRef.current;
+    if (!textarea) return;
+
+    const start = textarea.selectionStart;
+    const end = textarea.selectionEnd;
+    const text = textarea.value;
+    const selected = text.substring(start, end);
+
+    const replacement = before + selected + after;
+    const newContent = text.substring(0, start) + replacement + text.substring(end);
+    
+    setContent(newContent);
+
+    // Reposition cursor and maintain focus
+    setTimeout(() => {
+      textarea.focus();
+      textarea.setSelectionRange(start + before.length, start + before.length + selected.length);
+    }, 0);
+  };
 
   // Load Admin Data from RTDB
   useEffect(() => {
@@ -242,6 +273,20 @@ export default function AdminPanel({ onClose, categories, setCategories, onLogou
     get(ref(db, "settings/imgbbKey")).then((snapshot) => {
       if (snapshot.exists()) {
         setImgbbKey(snapshot.val());
+      }
+    });
+
+    // 11. Load Website SEO Title
+    get(ref(db, "settings/websiteTitle")).then((snapshot) => {
+      if (snapshot.exists()) {
+        setWebsiteTitle(snapshot.val());
+      }
+    });
+
+    // 12. Load Website SEO Description
+    get(ref(db, "settings/websiteDescription")).then((snapshot) => {
+      if (snapshot.exists()) {
+        setWebsiteDescription(snapshot.val());
       }
     });
 
@@ -554,6 +599,86 @@ export default function AdminPanel({ onClose, categories, setCategories, onLogou
     }
   };
 
+  // Save Website Brand and SEO Settings
+  const handleSaveSeoSettings = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+    setSeoSaveSuccess(false);
+    try {
+      await set(ref(db, "settings/websiteTitle"), websiteTitle.trim());
+      await set(ref(db, "settings/websiteDescription"), websiteDescription.trim());
+      setSeoSaveSuccess(true);
+      setTimeout(() => setSeoSaveSuccess(false), 3000);
+      alert("SEO Settings saved successfully!");
+    } catch (err) {
+      console.error(err);
+      alert("Failed to save SEO settings.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Real-time YouTube metadata fetcher using YouTube Data API v3
+  const handleAutoFetchYouTube = async (index: number, url: string) => {
+    const videoId = getYouTubeId(url);
+    if (!videoId || videoId.length < 11) return;
+    
+    setFetchingVideoIdx(index);
+    try {
+      const apiKey = "AIzaSyA44sCLBbdsUy7adMW9_ztgs1ypMTJkkYU";
+      const res = await fetch(`https://www.googleapis.com/youtube/v3/videos?part=snippet,statistics,contentDetails&id=${videoId}&key=${apiKey}`);
+      if (res.ok) {
+        const data = await res.json();
+        if (data.items && data.items.length > 0) {
+          const item = data.items[0];
+          const fetchedTitle = item.snippet?.title || "";
+          const fetchedChannel = item.snippet?.channelTitle || "";
+          
+          // Parse duration ISO 8601 (e.g. PT14M20S -> 14:20)
+          const durationISO = item.contentDetails?.duration || "PT10M00S";
+          let duration = "10:00";
+          const matches = durationISO.match(/PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?/);
+          if (matches) {
+            const hours = matches[1] ? parseInt(matches[1]) : 0;
+            const minutes = matches[2] ? parseInt(matches[2]) : 0;
+            const seconds = matches[3] ? parseInt(matches[3]) : 0;
+            const pad = (n: number) => n.toString().padStart(2, '0');
+            if (hours > 0) {
+              duration = `${hours}:${pad(minutes)}:${pad(seconds)}`;
+            } else {
+              duration = `${minutes}:${pad(seconds)}`;
+            }
+          }
+
+          // Parse views count
+          const rawViews = parseInt(item.statistics?.viewCount || "0");
+          let views = "1K views";
+          if (rawViews >= 1000000) {
+            views = `${(rawViews / 1000000).toFixed(1)}M views`;
+          } else if (rawViews >= 1000) {
+            views = `${(rawViews / 1000).toFixed(1)}K views`;
+          } else {
+            views = `${rawViews} views`;
+          }
+
+          const updated = [...adminVideos];
+          updated[index] = {
+            ...updated[index],
+            title: fetchedTitle || updated[index].title,
+            channel: fetchedChannel || updated[index].channel,
+            duration: duration,
+            views: views
+          };
+          setAdminVideos(updated);
+        }
+      }
+    } catch (err) {
+      console.error("Failed to fetch YouTube info:", err);
+    } finally {
+      setFetchingVideoIdx(null);
+    }
+  };
+
   // Save Website Icon Toggle settings
   const handleToggleWebsiteIcon = async (val: boolean) => {
     setShowWebsiteIcon(val);
@@ -850,15 +975,151 @@ export default function AdminPanel({ onClose, categories, setCategories, onLogou
                 {/* Content Area */}
                 <div className="space-y-1">
                   <label className="text-[10px] font-bold text-purple-900 uppercase tracking-wider block">
-                    Article Content (Markdown format supported)
+                    Article Content & Text Layout Editor (Blogger Format Helper)
                   </label>
+                  
+                  {/* Rich Text / Blogger-style formatting bar */}
+                  <div className="flex flex-wrap items-center gap-1 p-2 bg-purple-50/70 border border-purple-200 rounded-t-xl text-xs border-b-0">
+                    {/* Bold */}
+                    <button
+                      type="button"
+                      onClick={() => insertFormatting('<b>', '</b>')}
+                      className="p-1.5 hover:bg-white border border-transparent hover:border-purple-200 rounded text-purple-950 font-bold transition-all cursor-pointer flex items-center justify-center"
+                      title="Bold text"
+                    >
+                      <Bold className="w-3.5 h-3.5" />
+                    </button>
+                    {/* Italic */}
+                    <button
+                      type="button"
+                      onClick={() => insertFormatting('<i>', '</i>')}
+                      className="p-1.5 hover:bg-white border border-transparent hover:border-purple-200 rounded text-purple-950 transition-all cursor-pointer flex items-center justify-center"
+                      title="Italic text"
+                    >
+                      <Italic className="w-3.5 h-3.5" />
+                    </button>
+                    {/* Underline */}
+                    <button
+                      type="button"
+                      onClick={() => insertFormatting('<u>', '</u>')}
+                      className="p-1.5 hover:bg-white border border-transparent hover:border-purple-200 rounded text-purple-950 transition-all cursor-pointer flex items-center justify-center"
+                      title="Underline text"
+                    >
+                      <Underline className="w-3.5 h-3.5" />
+                    </button>
+                    <div className="h-4 w-px bg-purple-200 mx-1" />
+                    
+                    {/* Font Size Dropdown/Helpers */}
+                    <button
+                      type="button"
+                      onClick={() => insertFormatting('<span style="font-size: 1.5rem; font-weight: bold; line-height: 1.2;">', '</span>')}
+                      className="px-2 py-1 hover:bg-white border border-transparent hover:border-purple-200 rounded text-purple-950 text-[10px] font-black tracking-tighter transition-all cursor-pointer"
+                      title="Large Text (Blogger Style)"
+                    >
+                      A+
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => insertFormatting('<span style="font-size: 0.85rem;">', '</span>')}
+                      className="px-2 py-1 hover:bg-white border border-transparent hover:border-purple-200 rounded text-purple-950 text-[10px] font-black tracking-tighter transition-all cursor-pointer"
+                      title="Small Text"
+                    >
+                      A-
+                    </button>
+                    <div className="h-4 w-px bg-purple-200 mx-1" />
+
+                    {/* Font Family Helpers */}
+                    <button
+                      type="button"
+                      onClick={() => insertFormatting('<span style="font-family: Georgia, serif;">', '</span>')}
+                      className="px-2 py-1 hover:bg-white border border-transparent hover:border-purple-200 rounded text-purple-950 text-[10px] font-serif transition-all cursor-pointer"
+                      title="Serif Font Style"
+                    >
+                      Serif
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => insertFormatting('<span style="font-family: monospace;">', '</span>')}
+                      className="px-2 py-1 hover:bg-white border border-transparent hover:border-purple-200 rounded text-purple-950 text-[10px] font-mono transition-all cursor-pointer"
+                      title="Monospace Font Style"
+                    >
+                      Mono
+                    </button>
+                    <div className="h-4 w-px bg-purple-200 mx-1" />
+
+                    {/* Color Quick buttons */}
+                    <button
+                      type="button"
+                      onClick={() => insertFormatting('<span style="color: #6b21a8; font-weight: bold;">', '</span>')}
+                      className="w-3.5 h-3.5 rounded-full bg-purple-700 border border-purple-400 hover:scale-110 transition-transform cursor-pointer"
+                      title="Purple text color"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => insertFormatting('<span style="color: #b91c1c; font-weight: bold;">', '</span>')}
+                      className="w-3.5 h-3.5 rounded-full bg-red-600 border border-red-400 hover:scale-110 transition-transform cursor-pointer"
+                      title="Red text color"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => insertFormatting('<span style="color: #15803d; font-weight: bold;">', '</span>')}
+                      className="w-3.5 h-3.5 rounded-full bg-green-700 border border-green-400 hover:scale-110 transition-transform cursor-pointer"
+                      title="Green text color"
+                    />
+                    <div className="h-4 w-px bg-purple-200 mx-1" />
+
+                    {/* Add Hyperlink */}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const url = prompt("Enter hyperlink URL (e.g. https://sprocoder.online):", "https://");
+                        if (url && url.trim() !== "") {
+                          insertFormatting(`<a href="${url.trim()}" target="_blank" rel="noopener noreferrer" style="color: #7c3aed; font-weight: bold; text-decoration: underline;">`, '</a>');
+                        }
+                      }}
+                      className="p-1.5 hover:bg-white border border-transparent hover:border-purple-200 rounded text-purple-950 transition-all cursor-pointer flex items-center justify-center gap-1 font-bold text-[10px]"
+                      title="Add Link (Blogger Link)"
+                    >
+                      <Link className="w-3.5 h-3.5 text-purple-600" />
+                      <span>Link</span>
+                    </button>
+                    <div className="h-4 w-px bg-purple-200 mx-1" />
+
+                    {/* Custom HTML Header tags */}
+                    <button
+                      type="button"
+                      onClick={() => insertFormatting('<h2>', '</h2>')}
+                      className="px-2 py-1 hover:bg-white border border-transparent hover:border-purple-200 rounded text-purple-950 text-[10px] font-bold transition-all cursor-pointer"
+                      title="Header 2"
+                    >
+                      H2
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => insertFormatting('<h3>', '</h3>')}
+                      className="px-2 py-1 hover:bg-white border border-transparent hover:border-purple-200 rounded text-purple-950 text-[10px] font-bold transition-all cursor-pointer"
+                      title="Header 3"
+                    >
+                      H3
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => insertFormatting('<blockquote>', '</blockquote>')}
+                      className="p-1.5 hover:bg-white border border-transparent hover:border-purple-200 rounded text-purple-950 transition-all cursor-pointer flex items-center justify-center"
+                      title="Blockquote style"
+                    >
+                      <Quote className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+
                   <textarea 
-                    rows={6}
+                    ref={textareaRef}
+                    rows={8}
                     required
-                    placeholder="## The Renaissance of AI Tools... Use Markdown for formatting, subheadings, code snippets."
+                    placeholder="Type or format your article. Wrap text using the Blogger Format Helper above to dynamically customize sizes, colors, and font styles!"
                     value={content}
                     onChange={(e) => setContent(e.target.value)}
-                    className="w-full p-3 rounded-xl border border-purple-200 bg-white text-xs font-mono focus:outline-none focus:border-purple-500"
+                    className="w-full p-3 rounded-b-xl border border-purple-200 bg-white text-xs font-mono focus:outline-none focus:border-purple-500"
                   />
                 </div>
 
@@ -1326,20 +1587,40 @@ export default function AdminPanel({ onClose, categories, setCategories, onLogou
                       </div>
 
                       <div className="sm:col-span-2 space-y-1">
-                        <label className="text-[10px] font-bold text-purple-900 uppercase tracking-wider block">
-                          YouTube Video Link or ID
+                        <label className="text-[10px] font-bold text-purple-900 uppercase tracking-wider block flex items-center justify-between">
+                          <span>YouTube Video Link or ID</span>
+                          {fetchingVideoIdx === index && (
+                            <span className="text-[9px] text-red-600 animate-pulse font-mono font-bold">⚡ AUTO-FETCHING DETAILS...</span>
+                          )}
                         </label>
-                        <input 
-                          type="text"
-                          placeholder="e.g. https://www.youtube.com/watch?v=dQw4w9WgXcQ"
-                          value={vid.link}
-                          onChange={(e) => {
-                            const updated = [...adminVideos];
-                            updated[index].link = e.target.value;
-                            setAdminVideos(updated);
-                          }}
-                          className="w-full px-3 py-1.5 rounded-lg border border-purple-200 bg-white font-mono"
-                        />
+                        <div className="flex gap-2">
+                          <input 
+                            type="text"
+                            placeholder="e.g. https://www.youtube.com/watch?v=dQw4w9WgXcQ"
+                            value={vid.link}
+                            onChange={(e) => {
+                              const val = e.target.value;
+                              const updated = [...adminVideos];
+                              updated[index].link = val;
+                              setAdminVideos(updated);
+                              handleAutoFetchYouTube(index, val);
+                            }}
+                            className="flex-grow px-3 py-1.5 rounded-lg border border-purple-200 bg-white font-mono focus:outline-none focus:border-red-500"
+                          />
+                          <button
+                            type="button"
+                            disabled={fetchingVideoIdx === index || !vid.link.trim()}
+                            onClick={() => handleAutoFetchYouTube(index, vid.link)}
+                            className="px-3 py-1.5 rounded-lg bg-red-600 hover:bg-red-700 disabled:bg-gray-200 text-white disabled:text-gray-400 font-bold text-[10px] cursor-pointer flex items-center gap-1 transition-all active:scale-95 shrink-0"
+                            title="Auto fetch views, duration and title using Real YouTube Data API"
+                          >
+                            {fetchingVideoIdx === index ? (
+                              <RefreshCw className="w-3 h-3 animate-spin" />
+                            ) : (
+                              <span>⚡ Fetch Details</span>
+                            )}
+                          </button>
+                        </div>
                       </div>
 
                       <div className="space-y-1">
@@ -1461,6 +1742,66 @@ export default function AdminPanel({ onClose, categories, setCategories, onLogou
                     <span>{loading ? "Updating Server..." : "Set as Featured Article"}</span>
                   </button>
                 </div>
+              </div>
+
+              {/* Website SEO Meta & Title Settings Section */}
+              <div className="bg-purple-50/40 p-6 rounded-3xl border border-purple-100/80 space-y-4">
+                <div className="flex items-center justify-between border-b border-purple-100 pb-2">
+                  <div>
+                    <h3 className="text-sm font-black text-purple-950 uppercase tracking-wider flex items-center gap-1.5">
+                      <Globe className="w-4 h-4 text-purple-600" />
+                      <span>Search Engine Optimization (SEO) & Title Settings</span>
+                    </h3>
+                    <p className="text-[10px] text-gray-500">
+                      Customize dynamic search meta metadata, dynamic website tab title, and branding to optimize for AspCoder.online.
+                    </p>
+                  </div>
+                  {seoSaveSuccess && (
+                    <span className="text-[10px] text-emerald-600 font-bold flex items-center gap-0.5 animate-bounce">
+                      <Check className="w-3 h-3" />
+                      <span>Saved!</span>
+                    </span>
+                  )}
+                </div>
+
+                <form onSubmit={handleSaveSeoSettings} className="space-y-4">
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-bold text-purple-900 uppercase tracking-wider block">
+                      Custom Website Title (Header & Browser Tab)
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      value={websiteTitle}
+                      onChange={(e) => setWebsiteTitle(e.target.value)}
+                      placeholder="e.g. AspCoder.online | Professional Coding Hub"
+                      className="w-full p-2.5 rounded-xl border border-purple-200 bg-white text-xs focus:outline-none"
+                    />
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-bold text-purple-900 uppercase tracking-wider block">
+                      Custom Meta Description (For Best SEO Optimization)
+                    </label>
+                    <textarea
+                      rows={3}
+                      required
+                      value={websiteDescription}
+                      onChange={(e) => setWebsiteDescription(e.target.value)}
+                      placeholder="e.g. Master React, Python, Cloud Architectures, and the YouTube API with top-tier tutorials from AspCoder.online."
+                      className="w-full p-2.5 rounded-xl border border-purple-200 bg-white text-xs focus:outline-none"
+                    />
+                  </div>
+
+                  <button
+                    type="submit"
+                    disabled={loading || !websiteTitle.trim() || !websiteDescription.trim()}
+                    className="w-full bg-purple-600 hover:bg-purple-700 text-white font-bold text-xs py-2.5 rounded-xl cursor-pointer flex items-center justify-center gap-1 shadow-none transition-all active:scale-95"
+                  >
+                    <Save className="w-3.5 h-3.5" />
+                    <span>{loading ? "Saving Brand Settings..." : "Save SEO & Title Configuration"}</span>
+                  </button>
+                </form>
               </div>
 
               {/* Website Icon & General Brand Configuration Section */}

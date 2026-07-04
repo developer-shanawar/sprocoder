@@ -109,11 +109,11 @@ export default function HeroSection({
 
           <button
             onClick={onSelect}
-            className="px-5 py-2.5 rounded-xl bg-purple-950 hover:bg-purple-800 text-white text-xs font-bold flex items-center justify-center gap-1.5 cursor-pointer hover:scale-[1.02] active:scale-[0.98] transition-all shadow-md shadow-purple-950/10"
+            className="px-5 py-2.5 rounded-xl bg-purple-950 hover:bg-purple-800 text-white text-xs font-bold flex items-center justify-center gap-1.5 cursor-pointer transition-colors"
             id="hero-read-btn"
           >
             <span>Read Complete Article</span>
-            <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+            <ArrowRight className="w-4 h-4" />
           </button>
         </div>
       </div>

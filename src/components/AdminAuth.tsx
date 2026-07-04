@@ -174,7 +174,7 @@ export default function AdminAuth({ onSuccess, onCancel }: AdminAuthProps) {
           <button
             type="submit"
             disabled={loading}
-            className="w-full py-3 rounded-2xl bg-purple-600 hover:bg-purple-700 text-white font-black text-xs tracking-wider uppercase shadow-md shadow-purple-200 hover:shadow-lg hover:shadow-purple-300 active:scale-95 transition-all cursor-pointer flex items-center justify-center gap-1.5"
+            className="w-full py-3 rounded-2xl bg-purple-600 hover:bg-purple-700 text-white font-black text-xs tracking-wider uppercase transition-colors cursor-pointer flex items-center justify-center gap-1.5 shadow-none"
             id="admin-auth-submit"
           >
             {loading ? (

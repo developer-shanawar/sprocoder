@@ -16,6 +16,7 @@ import {
 import { BlogPost, Comment } from "../types";
 import { motion, AnimatePresence } from "motion/react";
 import Markdown from "react-markdown";
+import rehypeRaw from "rehype-raw";
 
 interface ArticleDetailViewProps {
   post: BlogPost;
@@ -173,6 +174,7 @@ export default function ArticleDetailView({
             <article className="prose prose-purple max-w-none text-purple-950">
               <div className="text-sm sm:text-base leading-relaxed text-slate-800 text-justify">
                 <Markdown
+                  rehypePlugins={[rehypeRaw]}
                   components={{
                     p: ({ children }) => <p className="mb-4 leading-relaxed text-slate-800 text-justify">{children}</p>,
                     a: ({ href, children }) => (

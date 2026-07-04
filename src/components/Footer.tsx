@@ -1,5 +1,7 @@
-import React from "react";
+import React, { useState, useEffect } from "react";
 import { Youtube, Github, Linkedin, Twitter, Sparkles } from "lucide-react";
+import { db } from "../firebase";
+import { ref, onValue } from "firebase/database";
 
 interface FooterProps {
   currentTab: "home" | "articles" | "about" | "privacy" | "terms" | "contact" | "admin-auth" | "admin" | "profile";
@@ -8,6 +10,37 @@ interface FooterProps {
 }
 
 export default function Footer({ currentTab, setCurrentTab, isAdminAuthenticated }: FooterProps) {
+  const [websiteTitle, setWebsiteTitle] = useState("S pro coder");
+  const [footerLinks, setFooterLinks] = useState({
+    youtube: "https://youtube.com",
+    github: "https://github.com",
+    linkedin: "https://linkedin.com",
+    twitter: "https://twitter.com"
+  });
+
+  useEffect(() => {
+    // Sync title
+    const titleRef = ref(db, "settings/websiteTitle");
+    const unsubTitle = onValue(titleRef, (snapshot) => {
+      if (snapshot.exists()) {
+        setWebsiteTitle(snapshot.val());
+      }
+    });
+
+    // Sync links
+    const linksRef = ref(db, "settings/footerLinks");
+    const unsubLinks = onValue(linksRef, (snapshot) => {
+      if (snapshot.exists()) {
+        setFooterLinks(snapshot.val());
+      }
+    });
+
+    return () => {
+      unsubTitle();
+      unsubLinks();
+    };
+  }, []);
+
   return (
     <footer className="w-full bg-slate-950 text-white mt-16 rounded-t-[48px] border-t border-white/10 relative overflow-hidden" id="spro-footer">
       {/* Background Ambient glows */}
@@ -25,7 +58,7 @@ export default function Footer({ currentTab, setCurrentTab, isAdminAuthenticated
               <div className="w-8 h-8 rounded-xl bg-purple-600 flex items-center justify-center text-white font-extrabold text-xs shadow-md shadow-purple-500/20">
                 SP
               </div>
-              <h2 className="font-sans font-black text-xl tracking-tight">S pro coder</h2>
+              <h2 className="font-sans font-black text-xl tracking-tight">{websiteTitle}</h2>
             </div>
             
             <p className="text-xs text-slate-300 leading-relaxed max-w-sm">
@@ -35,38 +68,38 @@ export default function Footer({ currentTab, setCurrentTab, isAdminAuthenticated
             {/* Social Media accounts */}
             <div className="flex items-center gap-2.5 pt-2">
               <a 
-                href="https://youtube.com" 
+                href={footerLinks.youtube || "https://youtube.com"} 
                 target="_blank" 
                 rel="noreferrer" 
                 className="w-8 h-8 rounded-full bg-white/5 hover:bg-red-600 text-slate-300 hover:text-white flex items-center justify-center transition-all hover:scale-105"
-                title="S pro coder YouTube Channel"
+                title={`${websiteTitle} YouTube Channel`}
               >
                 <Youtube className="w-4 h-4 fill-current" />
               </a>
               <a 
-                href="https://github.com" 
+                href={footerLinks.github || "https://github.com"} 
                 target="_blank" 
                 rel="noreferrer" 
                 className="w-8 h-8 rounded-full bg-white/5 hover:bg-slate-800 text-slate-300 hover:text-white flex items-center justify-center transition-all hover:scale-105"
-                title="S pro coder GitHub"
+                title={`${websiteTitle} GitHub`}
               >
                 <Github className="w-4 h-4 fill-current" />
               </a>
               <a 
-                href="https://linkedin.com" 
+                href={footerLinks.linkedin || "https://linkedin.com"} 
                 target="_blank" 
                 rel="noreferrer" 
                 className="w-8 h-8 rounded-full bg-white/5 hover:bg-blue-600 text-slate-300 hover:text-white flex items-center justify-center transition-all hover:scale-105"
-                title="S pro coder LinkedIn"
+                title={`${websiteTitle} LinkedIn`}
               >
                 <Linkedin className="w-4 h-4 fill-current" />
               </a>
               <a 
-                href="https://twitter.com" 
+                href={footerLinks.twitter || "https://twitter.com"} 
                 target="_blank" 
                 rel="noreferrer" 
                 className="w-8 h-8 rounded-full bg-white/5 hover:bg-sky-500 text-slate-300 hover:text-white flex items-center justify-center transition-all hover:scale-105"
-                title="S pro coder Twitter / X"
+                title={`${websiteTitle} Twitter / X`}
               >
                 <Twitter className="w-4 h-4 fill-current" />
               </a>
@@ -133,7 +166,7 @@ export default function Footer({ currentTab, setCurrentTab, isAdminAuthenticated
         {/* Bottom copyright line without highlighted 2026 */}
         <div className="border-t border-white/10 pt-6 flex flex-col sm:flex-row items-center justify-between text-[11px] text-slate-400 gap-4">
           <p>
-            © 2023 - 2026 S pro coder. All rights reserved.
+            © 2023 - 2026 {websiteTitle}. All rights reserved.
           </p>
           <div className="flex items-center gap-1.5 font-mono text-[9px] bg-white/5 px-3 py-1 rounded-full border border-white/5">
             <Sparkles className="w-3 h-3 text-purple-400" />

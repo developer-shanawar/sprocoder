@@ -188,7 +188,7 @@ export default function ContactForm() {
             <button
               type="submit"
               disabled={isSubmitting}
-              className="w-full py-3 px-6 rounded-2xl text-xs font-bold bg-purple-600 text-white hover:bg-purple-700 disabled:opacity-50 hover:scale-[1.01] active:scale-[0.99] transition-all flex items-center justify-center gap-2 shadow-lg shadow-purple-200 cursor-pointer"
+              className="w-full py-3 px-6 rounded-2xl text-xs font-bold bg-purple-600 text-white hover:bg-purple-700 disabled:opacity-50 transition-colors flex items-center justify-center gap-2 cursor-pointer shadow-none"
               id="contact-submit-btn"
             >
               {isSubmitting ? (

@@ -51,6 +51,7 @@ function getYouTubeId(url: string): string {
 export default function YouTubeShowcase() {
   const [activeVideo, setActiveVideo] = useState<VideoItem | null>(null);
   const [videos, setVideos] = useState<VideoItem[]>([]);
+  const [websiteTitle, setWebsiteTitle] = useState("S pro coder");
 
   const defaultVideos: VideoItem[] = [
     {
@@ -76,6 +77,14 @@ export default function YouTubeShowcase() {
   ];
 
   useEffect(() => {
+    // Sync title
+    const titleRef = ref(db, "settings/websiteTitle");
+    const unsubTitle = onValue(titleRef, (snapshot) => {
+      if (snapshot.exists()) {
+        setWebsiteTitle(snapshot.val());
+      }
+    });
+
     const videosRef = ref(db, "youtubeVideos");
     const unsubscribe = onValue(videosRef, (snapshot) => {
       if (snapshot.exists()) {
@@ -93,7 +102,7 @@ export default function YouTubeShowcase() {
                 duration: v.duration || "10:00",
                 embedCode: embedCode,
                 thumbnail: embedCode 
-                  ? `https://img.youtube.com/vi/${embedCode}/0.jpg` 
+                  ? `https://img.youtube.com/vi/${embedCode}/mqdefault.jpg` 
                   : (v.thumbnail || "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&w=300&q=80"),
                 channel: v.channel || "S pro coder",
                 link: v.link || ""
@@ -111,7 +120,7 @@ export default function YouTubeShowcase() {
                 duration: v.duration || "10:00",
                 embedCode: embedCode,
                 thumbnail: embedCode 
-                  ? `https://img.youtube.com/vi/${embedCode}/0.jpg` 
+                  ? `https://img.youtube.com/vi/${embedCode}/mqdefault.jpg` 
                   : (v.thumbnail || "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&w=300&q=80"),
                 channel: v.channel || "S pro coder",
                 link: v.link || ""
@@ -129,7 +138,10 @@ export default function YouTubeShowcase() {
       setVideos(defaultVideos);
     });
 
-    return () => unsubscribe();
+    return () => {
+      unsubTitle();
+      unsubscribe();
+    };
   }, []);
 
   return (
@@ -137,7 +149,7 @@ export default function YouTubeShowcase() {
       <div className="flex items-center justify-between">
         <h3 className="font-sans font-bold text-purple-950 text-sm flex items-center gap-2">
           <Youtube className="w-5 h-5 text-red-500 fill-red-500" />
-          <span>S pro coder Tube</span>
+          <span>{websiteTitle} Tube</span>
         </h3>
         <span className="text-[9px] bg-red-500/10 text-red-600 font-bold px-2 py-0.5 rounded-full uppercase tracking-wider flex items-center gap-1">
           <Flame className="w-2.5 h-2.5 text-red-500 animate-pulse" />
@@ -149,35 +161,35 @@ export default function YouTubeShowcase() {
         Watch our technical tutorials and tool breakdowns on YouTube.
       </p>
 
-      <div className="space-y-3">
+      <div className="space-y-4">
         {videos.map((vid) => (
           <div
             key={vid.id}
             onClick={() => setActiveVideo(vid)}
-            className="group relative rounded-2xl overflow-hidden border border-white/50 bg-white/40 hover:border-purple-300 transition-all duration-300 cursor-pointer"
+            className="group relative rounded-2xl overflow-hidden border border-purple-100 bg-white hover:border-purple-300 transition-all duration-200 cursor-pointer shadow-none"
             id={`youtube-card-${vid.id}`}
           >
-            {/* Thumbnail */}
-            <div className="relative h-28 w-full overflow-hidden">
+            {/* Thumbnail: Complete 16:9 aspect-video box */}
+            <div className="relative aspect-video w-full overflow-hidden bg-zinc-950">
               <img
                 src={vid.thumbnail}
                 alt={vid.title}
-                className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+                className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-102"
                 referrerPolicy="no-referrer"
               />
-              <div className="absolute inset-0 bg-black/35 group-hover:bg-black/25 transition-all duration-300 flex items-center justify-center">
-                <div className="w-9 h-9 rounded-full bg-red-600 text-white flex items-center justify-center shadow-lg group-hover:scale-110 active:scale-95 transition-transform duration-300">
+              <div className="absolute inset-0 bg-black/20 group-hover:bg-black/10 transition-all duration-300 flex items-center justify-center">
+                <div className="w-10 h-10 rounded-full bg-red-600 text-white flex items-center justify-center shadow-none transition-transform duration-200 group-hover:scale-105 active:scale-95">
                   <Play className="w-4 h-4 fill-white ml-0.5" />
                 </div>
               </div>
-              <span className="absolute bottom-2 right-2 bg-black/75 px-1.5 py-0.5 rounded font-mono text-[10px] text-white">
+              <span className="absolute bottom-2 right-2 bg-black/80 px-1.5 py-0.5 rounded font-mono text-[9px] text-white font-bold">
                 {vid.duration}
               </span>
             </div>
 
-            {/* Meta */}
-            <div className="p-3">
-              <p className="text-[10px] text-red-600 font-bold uppercase tracking-wider">
+            {/* Meta shown clean below */}
+            <div className="p-3 bg-white">
+              <p className="text-[9px] text-red-600 font-bold uppercase tracking-wider">
                 {vid.channel}
               </p>
               <h4 className="text-xs font-bold text-purple-950 leading-snug mt-1 group-hover:text-purple-700 transition-colors line-clamp-2">

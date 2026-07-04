@@ -19,6 +19,7 @@ interface HeaderProps {
   onSelectPost: (post: BlogPost) => void;
   websiteIconUrl?: string;
   showWebsiteIcon?: boolean;
+  websiteTitle?: string;
 }
 
 export default function Header({
@@ -30,7 +31,8 @@ export default function Header({
   allPosts,
   onSelectPost,
   websiteIconUrl,
-  showWebsiteIcon = true
+  showWebsiteIcon = true,
+  websiteTitle = "S pro coder"
 }: HeaderProps) {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
@@ -270,7 +272,7 @@ export default function Header({
           ))}
           <div className="text-left">
             <h1 className="font-sans font-black text-purple-950 text-sm md:text-base tracking-tight leading-none">
-              S pro coder
+              {websiteTitle}
             </h1>
           </div>
         </div>
@@ -284,10 +286,10 @@ export default function Header({
                 setCurrentTab(tab);
                 setIsMobileMenuOpen(false);
               }}
-              className={`px-4 py-1.5 rounded-full text-xs font-bold capitalize transition-all duration-300 cursor-pointer ${
+              className={`px-4 py-1.5 rounded-full text-xs font-bold capitalize transition-all duration-200 cursor-pointer ${
                 currentTab === tab 
-                  ? "bg-purple-600 text-white shadow-sm shadow-purple-100" 
-                  : "text-purple-950/80 hover:text-purple-700 hover:bg-purple-50/50"
+                  ? "bg-purple-700 text-white shadow-none" 
+                  : "text-purple-950/80 hover:text-purple-700 hover:bg-purple-100/50"
               }`}
               id={`nav-link-${tab}`}
             >
@@ -300,7 +302,7 @@ export default function Header({
                 setCurrentTab("admin-auth");
                 setIsMobileMenuOpen(false);
               }}
-              className={`px-4 py-1.5 rounded-full text-xs font-bold transition-all duration-300 cursor-pointer flex items-center gap-1 bg-gradient-to-r from-purple-700 to-indigo-600 text-white shadow-md shadow-purple-100 ${
+              className={`px-4 py-1.5 rounded-full text-xs font-bold transition-all duration-200 cursor-pointer flex items-center gap-1 bg-purple-700 hover:bg-purple-800 text-white shadow-none ${
                 currentTab === "admin" || currentTab === "admin-auth" ? "ring-2 ring-purple-300" : ""
               }`}
               id="nav-link-admin-panel-btn"
@@ -587,7 +589,7 @@ export default function Header({
                       }}
                       className={`w-full text-left px-4 py-3 rounded-xl text-xs font-bold capitalize transition-all cursor-pointer ${
                         currentTab === tab 
-                          ? "bg-purple-600 text-white shadow-sm" 
+                          ? "bg-purple-700 text-white shadow-none" 
                           : "text-purple-950 hover:bg-purple-50"
                       }`}
                     >
@@ -600,7 +602,7 @@ export default function Header({
                         setCurrentTab("admin-auth");
                         setIsMobileMenuOpen(false);
                       }}
-                      className={`w-full text-left px-4 py-3 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-2 bg-gradient-to-r from-purple-700 to-indigo-600 text-white ${
+                      className={`w-full text-left px-4 py-3 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-2 bg-purple-700 text-white ${
                         currentTab === "admin" || currentTab === "admin-auth" ? "ring-2 ring-purple-300" : ""
                       }`}
                     >

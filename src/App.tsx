@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { 
   Heart, Bookmark, MessageSquare, Sparkles, Calendar, Clock, 
   User, ChevronRight, Plus, Check, BookOpen, Send, X, Zap, 
@@ -41,6 +41,10 @@ export default function App() {
   const [showWebsiteIcon, setShowWebsiteIcon] = useState<boolean>(true);
   const [featuredArticleId, setFeaturedArticleId] = useState<string>("");
 
+  // Website SEO metadata
+  const [websiteTitle, setWebsiteTitle] = useState<string>("S pro coder");
+  const [websiteDescription, setWebsiteDescription] = useState<string>("bespoke digital platform supplying high-end tech tutorials and AI articles.");
+
   // Database Synced states
   const [allPosts, setAllPosts] = useState<BlogPost[]>([]);
   const [categories, setCategories] = useState<string[]>([]);
@@ -59,6 +63,132 @@ export default function App() {
 
   // Ambient lighting parameters (Frosted Glass aesthetics)
   const glowHex = "#a855f7"; // Soft Lavendar Purple Light
+
+  // Helper to slugify titles for SEO-friendly URLs
+  const slugify = (text: string): string => {
+    return text
+      .toString()
+      .toLowerCase()
+      .trim()
+      .replace(/\s+/g, "-")
+      .replace(/[^\w\-]+/g, "")
+      .replace(/\-\-+/g, "-")
+      .replace(/^-+/, "")
+      .replace(/-+$/, "");
+  };
+
+  // Sync state from browser URL path
+  const syncRouteFromUrl = (postsList: BlogPost[]) => {
+    const path = window.location.pathname;
+    
+    if (path === "/" || path === "") {
+      setCurrentTab("home");
+      setSelectedPost(null);
+    } else if (path === "/blog" || path === "/articles") {
+      setCurrentTab("articles");
+      setSelectedPost(null);
+    } else if (path === "/about-us" || path === "/about") {
+      setCurrentTab("about");
+      setSelectedPost(null);
+    } else if (path === "/privacy-policy" || path === "/privacy") {
+      setCurrentTab("privacy");
+      setSelectedPost(null);
+    } else if (path === "/terms-and-conditions" || path === "/terms") {
+      setCurrentTab("terms");
+      setSelectedPost(null);
+    } else if (path === "/contact-us" || path === "/contact") {
+      setCurrentTab("contact");
+      setSelectedPost(null);
+    } else if (path === "/profile") {
+      setCurrentTab("profile");
+      setSelectedPost(null);
+    } else if (path === "/admin-auth") {
+      setCurrentTab("admin-auth");
+      setSelectedPost(null);
+    } else if (path === "/admin") {
+      setCurrentTab("admin");
+      setSelectedPost(null);
+    } else if (path.startsWith("/blog/") || path.startsWith("/articles/")) {
+      const slug = path.split("/").pop() || "";
+      const matched = postsList.find(
+        (p) => slugify(p.title) === slug || p.id === slug
+      );
+      if (matched) {
+        setSelectedPost(matched);
+        setCurrentTab("articles");
+      } else {
+        setCurrentTab("articles");
+        setSelectedPost(null);
+      }
+    }
+  };
+
+  // Flag to ensure we only run the initial route parse once when posts are loaded
+  const hasParsedInitialRoute = useRef<boolean>(false);
+
+  // Sync URL to page state once when posts are loaded
+  useEffect(() => {
+    if (allPosts.length > 0 && !hasParsedInitialRoute.current) {
+      hasParsedInitialRoute.current = true;
+      syncRouteFromUrl(allPosts);
+    }
+  }, [allPosts]);
+
+  // Handle browser back/forward buttons
+  useEffect(() => {
+    const handlePopState = () => {
+      if (allPosts.length > 0) {
+        syncRouteFromUrl(allPosts);
+      }
+    };
+    window.addEventListener("popstate", handlePopState);
+    return () => window.removeEventListener("popstate", handlePopState);
+  }, [allPosts]);
+
+  // Synchronize internal state to external browser address bar URL (SEO Optimization)
+  useEffect(() => {
+    let targetPath = "/";
+    
+    if (selectedPost) {
+      targetPath = `/blog/${slugify(selectedPost.title)}`;
+    } else {
+      switch (currentTab) {
+        case "home":
+          targetPath = "/";
+          break;
+        case "articles":
+          targetPath = "/blog";
+          break;
+        case "about":
+          targetPath = "/about-us";
+          break;
+        case "privacy":
+          targetPath = "/privacy-policy";
+          break;
+        case "terms":
+          targetPath = "/terms-and-conditions";
+          break;
+        case "contact":
+          targetPath = "/contact-us";
+          break;
+        case "profile":
+          targetPath = "/profile";
+          break;
+        case "admin-auth":
+          targetPath = "/admin-auth";
+          break;
+        case "admin":
+          targetPath = "/admin";
+          break;
+        default:
+          targetPath = "/";
+      }
+    }
+
+    if (window.location.pathname !== targetPath) {
+      window.history.pushState(null, "", targetPath);
+    }
+  }, [currentTab, selectedPost]);
 
   // 1. Live Sync User Session profile if logged in
   useEffect(() => {
@@ -164,6 +294,22 @@ export default function App() {
       }
     });
 
+    // Sync Website SEO Title
+    const titleRef = ref(db, "settings/websiteTitle");
+    const unsubTitle = onValue(titleRef, (snapshot) => {
+      if (snapshot.exists()) {
+        setWebsiteTitle(snapshot.val());
+      }
+    });
+
+    // Sync Website SEO Description
+    const descRef = ref(db, "settings/websiteDescription");
+    const unsubDesc = onValue(descRef, (snapshot) => {
+      if (snapshot.exists()) {
+        setWebsiteDescription(snapshot.val());
+      }
+    });
+
     return () => {
       unsubPosts();
       unsubCat();
@@ -171,8 +317,37 @@ export default function App() {
       unsubIcon();
       unsubShowIcon();
       unsubFeatured();
+      unsubTitle();
+      unsubDesc();
     };
   }, []);
+
+  // Dynamic Real-Time browser tab and metadata update for maximum SEO ranking
+  useEffect(() => {
+    document.title = websiteTitle || "S pro coder";
+  }, [websiteTitle]);
+
+  useEffect(() => {
+    if (websiteIconUrl) {
+      let link: HTMLLinkElement | null = document.querySelector("link[rel~='icon']");
+      if (!link) {
+        link = document.createElement('link');
+        link.rel = 'icon';
+        document.getElementsByTagName('head')[0].appendChild(link);
+      }
+      link.href = websiteIconUrl;
+    }
+  }, [websiteIconUrl]);
+
+  useEffect(() => {
+    let meta = document.querySelector("meta[name='description']");
+    if (!meta) {
+      meta = document.createElement('meta');
+      meta.setAttribute('name', 'description');
+      document.getElementsByTagName('head')[0].appendChild(meta);
+    }
+    meta.setAttribute('content', websiteDescription || "bespoke digital platform supplying high-end tech tutorials and AI articles.");
+  }, [websiteDescription]);
 
   // Keep selectedPost updated with real-time comments / views / likes from allPosts
   useEffect(() => {
@@ -432,6 +607,7 @@ export default function App() {
         onSelectPost={(post) => handleSelectPost(post)}
         websiteIconUrl={websiteIconUrl}
         showWebsiteIcon={showWebsiteIcon}
+        websiteTitle={websiteTitle}
       />
 
       {/* PRIMARY WORKSPACE MAIN ROUTER */}
