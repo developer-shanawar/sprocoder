@@ -77,10 +77,9 @@ export default function App() {
       .replace(/-+$/, "");
   };
 
-  // Sync state from browser URL path or hash
+  // Sync state from browser URL path
   const syncRouteFromUrl = (postsList: BlogPost[]) => {
-    // Check hash first (e.g., "#/blog/some-slug"), removing the leading "#"
-    let path = window.location.hash ? window.location.hash.substring(1) : window.location.pathname;
+    const path = window.location.pathname;
     
     if (!path || path === "/" || path === "") {
       setCurrentTab("home");
@@ -128,23 +127,82 @@ export default function App() {
   const hasParsedInitialRoute = useRef<boolean>(false);
   const hasParsedInitialPostRoute = useRef<boolean>(false);
 
-  // Sync static routes immediately on mount so pages like About, Contact, Privacy, Profile load instantly
+  // Dynamically fetch specific content based on direct URL or refresh from Firebase Realtime Database
   useEffect(() => {
-    const hash = window.location.hash;
-    const path = hash ? hash.substring(1) : window.location.pathname;
-    const isPostRoute = path.startsWith("/blog/") || path.startsWith("/articles/");
-    
-    if (!isPostRoute) {
-      syncRouteFromUrl([]);
-      hasParsedInitialRoute.current = true;
-    }
+    const handleInitialRouteFetch = async () => {
+      const path = window.location.pathname;
+      const isPostRoute = path.startsWith("/blog/") || path.startsWith("/articles/");
+      
+      // Determine initial tab based on path
+      if (!isPostRoute) {
+        syncRouteFromUrl([]);
+        hasParsedInitialRoute.current = true;
+      }
+
+      // 1. If path is About Us, fetch aboutContent dynamically
+      if (path === "/about-us" || path === "/about") {
+        try {
+          const snapshot = await get(ref(db, `${DB_PATHS.PAGES}/aboutContent`));
+          if (snapshot.exists()) {
+            setAboutContent(snapshot.val());
+          }
+        } catch (e) {
+          console.error("Error fetching about content dynamically:", e);
+        }
+      } 
+      // 2. If path is Privacy Policy, fetch privacyPolicy dynamically
+      else if (path === "/privacy-policy" || path === "/privacy") {
+        try {
+          const snapshot = await get(ref(db, `${DB_PATHS.PAGES}/privacyPolicy`));
+          if (snapshot.exists()) {
+            setPrivacyPolicy(snapshot.val());
+          }
+        } catch (e) {
+          console.error("Error fetching privacy content dynamically:", e);
+        }
+      }
+      // 3. If path is Terms, fetch termsAndConditions dynamically
+      else if (path === "/terms-and-conditions" || path === "/terms") {
+        try {
+          const snapshot = await get(ref(db, `${DB_PATHS.PAGES}/termsAndConditions`));
+          if (snapshot.exists()) {
+            setTermsAndConditions(snapshot.val());
+          }
+        } catch (e) {
+          console.error("Error fetching terms content dynamically:", e);
+        }
+      }
+      // 4. If path is an Article/Blog post, dynamically fetch the specific article matching slug/ID
+      else if (isPostRoute) {
+        const slug = path.split("/").pop() || "";
+        try {
+          const snapshot = await get(ref(db, DB_PATHS.ARTICLES));
+          if (snapshot.exists()) {
+            const data = snapshot.val();
+            const list: BlogPost[] = Object.values(data);
+            const matched = list.find(
+              (p) => slugify(p.title) === slug || p.id === slug
+            );
+            if (matched) {
+              setSelectedPost(matched);
+              setCurrentTab("articles");
+              hasParsedInitialPostRoute.current = true;
+              hasParsedInitialRoute.current = true;
+            }
+          }
+        } catch (e) {
+          console.error("Error fetching specific article content dynamically:", e);
+        }
+      }
+    };
+
+    handleInitialRouteFetch();
   }, []);
 
   // Sync URL to page state once when posts are loaded (especially for dynamic blog article routes)
   useEffect(() => {
     if (allPosts.length > 0) {
-      const hash = window.location.hash;
-      const path = hash ? hash.substring(1) : window.location.pathname;
+      const path = window.location.pathname;
       const isPostRoute = path.startsWith("/blog/") || path.startsWith("/articles/");
       
       if (isPostRoute && !hasParsedInitialPostRoute.current) {
@@ -158,16 +216,14 @@ export default function App() {
     }
   }, [allPosts]);
 
-  // Handle browser back/forward buttons and hash navigation changes
+  // Handle browser back/forward buttons (pure HTML5 history)
   useEffect(() => {
     const handlePopState = () => {
       syncRouteFromUrl(allPosts);
     };
     window.addEventListener("popstate", handlePopState);
-    window.addEventListener("hashchange", handlePopState);
     return () => {
       window.removeEventListener("popstate", handlePopState);
-      window.removeEventListener("hashchange", handlePopState);
     };
   }, [allPosts]);
 
@@ -211,11 +267,8 @@ export default function App() {
       }
     }
 
-    const targetHash = targetPath === "/" ? "" : `#${targetPath}`;
-    const currentHash = window.location.hash;
-    
-    if (currentHash !== targetHash && (targetHash || currentHash)) {
-      window.history.pushState(null, "", targetHash || "/");
+    if (window.location.pathname !== targetPath) {
+      window.history.pushState(null, "", targetPath);
     }
   }, [currentTab, selectedPost]);
 
@@ -353,8 +406,42 @@ export default function App() {
 
   // Dynamic Real-Time browser tab and metadata update for maximum SEO ranking
   useEffect(() => {
-    document.title = websiteTitle || "S pro coder";
-  }, [websiteTitle]);
+    const baseTitle = websiteTitle || "S pro coder";
+    if (selectedPost) {
+      document.title = `${selectedPost.title} | ${baseTitle}`;
+    } else {
+      switch (currentTab) {
+        case "about":
+          document.title = `About Us | ${baseTitle}`;
+          break;
+        case "privacy":
+          document.title = `Privacy Policy | ${baseTitle}`;
+          break;
+        case "terms":
+          document.title = `Terms & Conditions | ${baseTitle}`;
+          break;
+        case "contact":
+          document.title = `Contact Us | ${baseTitle}`;
+          break;
+        case "articles":
+          document.title = `Blog Articles | ${baseTitle}`;
+          break;
+        case "profile":
+          document.title = `User Profile | ${baseTitle}`;
+          break;
+        case "admin":
+          document.title = `Admin Dashboard | ${baseTitle}`;
+          break;
+        case "admin-auth":
+          document.title = `Admin Auth | ${baseTitle}`;
+          break;
+        case "home":
+        default:
+          document.title = baseTitle;
+          break;
+      }
+    }
+  }, [websiteTitle, currentTab, selectedPost]);
 
   useEffect(() => {
     if (websiteIconUrl) {
