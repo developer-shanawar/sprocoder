@@ -5,8 +5,9 @@ import {
   Flame, Globe, Star, RefreshCw, Search, ShieldCheck, Eye
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
-import { db, DB_PATHS } from "./firebase";
+import { db, DB_PATHS, auth } from "./firebase";
 import { ref, set, onValue, get, update, push } from "firebase/database";
+import { onAuthStateChanged } from "firebase/auth";
 import { BlogPost, Comment, UserAccount, AdminPages } from "./types";
 import { INITIAL_POSTS } from "./data";
 
@@ -28,6 +29,69 @@ const LoadingSpinner = () => (
     <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-purple-600"></div>
   </div>
 );
+
+const SplashScreen = ({ iconUrl, title }: { iconUrl: string; title: string }) => {
+  return (
+    <motion.div 
+      initial={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      transition={{ duration: 0.5, ease: "easeInOut" }}
+      className="fixed inset-0 bg-slate-50 z-[9999] flex flex-col justify-between items-center py-16 px-6 select-none"
+    >
+      <div />
+
+      <div className="flex flex-col items-center justify-center space-y-4">
+        <motion.div
+          initial={{ scale: 0.8, opacity: 0 }}
+          animate={{ scale: 1, opacity: 1 }}
+          transition={{ 
+            duration: 0.6, 
+            ease: "easeOut",
+            scale: {
+              type: "spring",
+              damping: 15,
+              stiffness: 100
+            }
+          }}
+          className="relative"
+        >
+          {iconUrl ? (
+            <img 
+              src={iconUrl} 
+              alt={title || "Logo"} 
+              className="w-24 h-24 rounded-[28px] object-cover shadow-xl border-2 border-black"
+              referrerPolicy="no-referrer"
+            />
+          ) : (
+            <div className="w-24 h-24 rounded-[28px] bg-purple-900 text-white flex items-center justify-center shadow-xl border-2 border-black">
+              <Sparkles className="w-12 h-12 text-purple-200 animate-pulse" />
+            </div>
+          )}
+          <div className="absolute -inset-2 bg-purple-500/10 rounded-[36px] blur-lg -z-10 animate-pulse" />
+        </motion.div>
+
+        <div className="flex items-center gap-1.5 pt-4">
+          <span className="w-2 h-2 bg-purple-900 rounded-full animate-bounce [animation-delay:-0.3s]"></span>
+          <span className="w-2 h-2 bg-purple-700 rounded-full animate-bounce [animation-delay:-0.15s]"></span>
+          <span className="w-2 h-2 bg-purple-500 rounded-full animate-bounce"></span>
+        </div>
+      </div>
+
+      <motion.div 
+        initial={{ y: 20, opacity: 0 }}
+        animate={{ y: 0, opacity: 1 }}
+        transition={{ delay: 0.3, duration: 0.6 }}
+        className="text-center space-y-1"
+      >
+        <p className="text-[10px] text-gray-400 font-mono tracking-widest uppercase">From</p>
+        <h2 className="text-xl font-black text-purple-950 tracking-tight font-sans">
+          {title || "S pro coder"}
+        </h2>
+        <p className="text-xs text-purple-700/80 font-medium">Developer sanctuary</p>
+      </motion.div>
+    </motion.div>
+  );
+};
 
 export default function App() {
   // Navigation tabs initialized from window.location.pathname dynamically
@@ -61,6 +125,10 @@ export default function App() {
   const [websiteIconUrl, setWebsiteIconUrl] = useState<string>("");
   const [showWebsiteIcon, setShowWebsiteIcon] = useState<boolean>(true);
   const [featuredArticleId, setFeaturedArticleId] = useState<string>("");
+
+  // Splash Screen States
+  const [isSplashActive, setIsSplashActive] = useState<boolean>(true);
+  const [isMinTimeElapsed, setIsMinTimeElapsed] = useState<boolean>(false);
 
   // Website SEO metadata
   const [websiteTitle, setWebsiteTitle] = useState<string>("S pro coder");
@@ -293,7 +361,27 @@ export default function App() {
     }
   }, [currentTab, selectedPost]);
 
-  // 1. Live Sync User Session profile if logged in
+  // 1. Monitor Firebase Auth state change for automatic browser session restoration (Auto-Login)
+  useEffect(() => {
+    const unsubscribeAuth = onAuthStateChanged(auth, async (firebaseUser) => {
+      if (firebaseUser) {
+        try {
+          const userRef = ref(db, `${DB_PATHS.USERS}/${firebaseUser.uid}`);
+          const snapshot = await get(userRef);
+          if (snapshot.exists()) {
+            const liveUser = snapshot.val();
+            setCurrentUser(liveUser);
+            localStorage.setItem("spro_user", JSON.stringify(liveUser));
+          }
+        } catch (err) {
+          console.error("Auto-login recovery error:", err);
+        }
+      }
+    });
+    return () => unsubscribeAuth();
+  }, []);
+
+  // 1.1. Live Sync User Session profile if logged in
   useEffect(() => {
     if (!currentUser) return;
     const userRef = ref(db, `${DB_PATHS.USERS}/${currentUser.id}`);
@@ -307,6 +395,30 @@ export default function App() {
     });
     return () => unsub();
   }, [currentUser?.id]);
+
+  // 1.2. Splash Screen timer and automatic loading completion
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setIsMinTimeElapsed(true);
+    }, 1200); // 1.2 seconds minimum display time for clean visuals
+    
+    // Failsafe timer: after 4 seconds, always dismiss splash screen so user never gets stuck
+    const failsafe = setTimeout(() => {
+      setIsSplashActive(false);
+    }, 4000);
+
+    return () => {
+      clearTimeout(timer);
+      clearTimeout(failsafe);
+    };
+  }, []);
+
+  // Dismiss splash screen when minimum time is elapsed AND articles data is fetched
+  useEffect(() => {
+    if (isMinTimeElapsed && allPosts.length > 0) {
+      setIsSplashActive(false);
+    }
+  }, [isMinTimeElapsed, allPosts]);
 
   // 2. Realtime sync articles, categories, and static pages with Firebase database bootstrap
   useEffect(() => {
@@ -564,7 +676,7 @@ export default function App() {
   // Toggle bookmark / saved status
   const handleToggleBookmark = async (post: BlogPost) => {
     if (!currentUser) {
-      alert("Please login/register on the top right to save this article to your dashboard profile.");
+      alert("Please log in first to save this article.");
       return;
     }
 
@@ -601,7 +713,7 @@ export default function App() {
   // Like article toggle (User can like and unlike an article once)
   const handleLikeArticle = async (post: BlogPost) => {
     if (!currentUser) {
-      alert("Please login/register on the top right to like this article.");
+      alert("Please log in first to like this article.");
       return;
     }
 
@@ -716,6 +828,12 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-slate-50 text-purple-950 font-sans flex flex-col relative overflow-x-hidden pb-12">
+      {/* SPLASH SCREEN */}
+      <AnimatePresence>
+        {isSplashActive && (
+          <SplashScreen iconUrl={websiteIconUrl} title={websiteTitle} />
+        )}
+      </AnimatePresence>
       
       {/* HEADER COMPONENT */}
       <Header 

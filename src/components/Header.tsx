@@ -116,7 +116,7 @@ export default function Header({
         setCurrentUser(newUser);
         localStorage.setItem("spro_user", JSON.stringify(newUser));
         setIsAuthModalOpen(false);
-        alert(`Welcome aboard, ${newUser.name}! Your account has been registered successfully.`);
+        alert(`Welcome, ${newUser.name}! Your account has been created successfully.`);
       } else {
         // Login Flow
         let userId = "";
@@ -222,7 +222,7 @@ export default function Header({
       setCurrentUser(targetUser);
       localStorage.setItem("spro_user", JSON.stringify(targetUser));
       setIsAuthModalOpen(false);
-      alert(`Google Authentication successful! Welcome, ${targetUser.name}.`);
+      alert(`Logged in! Welcome, ${targetUser.name}.`);
     } catch (err) {
       console.error(err);
     }
@@ -232,7 +232,7 @@ export default function Header({
     setCurrentUser(null);
     localStorage.removeItem("spro_user");
     setIsProfileOpen(false);
-    alert("Securely logged out from S pro coder.");
+    alert("You have logged out.");
   };
 
   const markAllNotificationsAsRead = async () => {
