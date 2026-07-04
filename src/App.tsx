@@ -81,13 +81,29 @@ const SplashScreen = ({ iconUrl, title }: { iconUrl: string; title: string }) =>
         initial={{ y: 20, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
         transition={{ delay: 0.3, duration: 0.6 }}
-        className="text-center space-y-1"
+        className="flex flex-col items-center justify-center space-y-2 text-center"
       >
         <p className="text-[10px] text-gray-400 font-mono tracking-widest uppercase">From</p>
-        <h2 className="text-xl font-black text-purple-950 tracking-tight font-sans">
-          {title || "S pro coder"}
-        </h2>
-        <p className="text-xs text-purple-700/80 font-medium">Developer sanctuary</p>
+        
+        <div className="flex items-center gap-2">
+          {iconUrl ? (
+            <img 
+              src={iconUrl} 
+              alt={title || "Logo"} 
+              className="w-6 h-6 rounded-lg object-cover shadow-sm border border-black"
+              referrerPolicy="no-referrer"
+            />
+          ) : (
+            <div className="w-6 h-6 rounded-lg bg-gradient-to-tr from-purple-600 via-purple-500 to-indigo-400 flex items-center justify-center text-white font-extrabold text-[9px] shadow-sm">
+              SP
+            </div>
+          )}
+          <h2 className="text-sm font-black text-purple-950 tracking-tight font-sans">
+            {title || "S pro coder"}
+          </h2>
+        </div>
+        
+        <p className="text-[10px] text-purple-700/80 font-medium">Developer sanctuary</p>
       </motion.div>
     </motion.div>
   );
@@ -153,6 +169,21 @@ export default function App() {
   // Ambient lighting parameters (Frosted Glass aesthetics)
   const glowHex = "#a855f7"; // Soft Lavendar Purple Light
 
+  // Keep track of which post IDs had views incremented in this session to prevent duplicate views count
+  const incrementedPostIds = useRef<Set<string>>(new Set());
+
+  const incrementArticleView = async (postId: string, currentViews: number) => {
+    if (!postId || incrementedPostIds.current.has(postId)) return;
+    incrementedPostIds.current.add(postId);
+    try {
+      await update(ref(db, `${DB_PATHS.ARTICLES}/${postId}`), {
+        views: currentViews + 1
+      });
+    } catch (err) {
+      console.error("Failed to increment views:", err);
+    }
+  };
+
   // Helper to slugify titles for SEO-friendly URLs
   const slugify = (text: string): string => {
     return text
@@ -205,6 +236,7 @@ export default function App() {
       if (matched) {
         setSelectedPost(matched);
         setCurrentTab("articles");
+        incrementArticleView(matched.id, matched.views || 0);
       } else {
         setCurrentTab("articles");
         setSelectedPost(null);
@@ -277,6 +309,7 @@ export default function App() {
               setCurrentTab("articles");
               hasParsedInitialPostRoute.current = true;
               hasParsedInitialRoute.current = true;
+              incrementArticleView(matched.id, matched.views || 0);
             }
           }
         } catch (e) {
@@ -361,6 +394,58 @@ export default function App() {
     }
   }, [currentTab, selectedPost]);
 
+  // Dynamic SEO friendly Document Head / Meta Tags Update
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    // Dynamic Title
+    const finalTitle = selectedPost 
+      ? `${selectedPost.title} | ${websiteTitle}` 
+      : `${websiteTitle} - Professional Developer Sanctuary`;
+    document.title = finalTitle;
+
+    // Dynamic Description
+    const finalDesc = selectedPost 
+      ? (selectedPost.tagline || selectedPost.excerpt || websiteDescription) 
+      : websiteDescription;
+
+    // Update Meta Description tag
+    let metaDesc = document.querySelector('meta[name="description"]');
+    if (!metaDesc) {
+      metaDesc = document.createElement('meta');
+      metaDesc.setAttribute('name', 'description');
+      document.head.appendChild(metaDesc);
+    }
+    metaDesc.setAttribute('content', finalDesc);
+
+    // Update Open Graph (OG) social tags
+    let ogTitle = document.querySelector('meta[property="og:title"]');
+    if (!ogTitle) {
+      ogTitle = document.createElement('meta');
+      ogTitle.setAttribute('property', 'og:title');
+      document.head.appendChild(ogTitle);
+    }
+    ogTitle.setAttribute('content', finalTitle);
+
+    let ogDesc = document.querySelector('meta[property="og:description"]');
+    if (!ogDesc) {
+      ogDesc = document.createElement('meta');
+      ogDesc.setAttribute('property', 'og:description');
+      document.head.appendChild(ogDesc);
+    }
+    ogDesc.setAttribute('content', finalDesc);
+
+    if (selectedPost) {
+      let ogImage = document.querySelector('meta[property="og:image"]');
+      if (!ogImage) {
+        ogImage = document.createElement('meta');
+        ogImage.setAttribute('property', 'og:image');
+        document.head.appendChild(ogImage);
+      }
+      ogImage.setAttribute('content', selectedPost.thumbnailUrl);
+    }
+  }, [selectedPost, websiteTitle, websiteDescription]);
+
   // 1. Monitor Firebase Auth state change for automatic browser session restoration (Auto-Login)
   useEffect(() => {
     const unsubscribeAuth = onAuthStateChanged(auth, async (firebaseUser) => {
@@ -400,12 +485,12 @@ export default function App() {
   useEffect(() => {
     const timer = setTimeout(() => {
       setIsMinTimeElapsed(true);
-    }, 1200); // 1.2 seconds minimum display time for clean visuals
+    }, 2000); // 2.0 seconds minimum display time for clean, polished loading
     
-    // Failsafe timer: after 4 seconds, always dismiss splash screen so user never gets stuck
+    // Failsafe timer: after 5 seconds, always dismiss splash screen so user never gets stuck
     const failsafe = setTimeout(() => {
       setIsSplashActive(false);
-    }, 4000);
+    }, 5000);
 
     return () => {
       clearTimeout(timer);
@@ -413,12 +498,12 @@ export default function App() {
     };
   }, []);
 
-  // Dismiss splash screen when minimum time is elapsed AND articles data is fetched
+  // Dismiss splash screen when minimum time is elapsed AND articles and categories data are fetched
   useEffect(() => {
-    if (isMinTimeElapsed && allPosts.length > 0) {
+    if (isMinTimeElapsed && allPosts.length > 0 && categories.length > 0) {
       setIsSplashActive(false);
     }
-  }, [isMinTimeElapsed, allPosts]);
+  }, [isMinTimeElapsed, allPosts, categories]);
 
   // 2. Realtime sync articles, categories, and static pages with Firebase database bootstrap
   useEffect(() => {

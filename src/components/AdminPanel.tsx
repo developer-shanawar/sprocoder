@@ -403,9 +403,11 @@ export default function AdminPanel({ onClose, categories, setCategories, onLogou
         excerpt: tagline.trim() || content.trim().slice(0, 150) + "...",
         author: "Admin - S pro coder",
         date: editingArticle?.date || new Date().toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" }),
-        likes: likes || 0,
-        savesCount: savesCount || 0,
+        likes: editingArticle ? (editingArticle.likes || 0) : (likes || 0),
+        savesCount: editingArticle ? (editingArticle.savesCount || 0) : (savesCount || 0),
+        views: editingArticle ? (editingArticle.views || 0) : 0,
         thumbnailUrl: finalThumbnail,
+        isAiGenerated: editingArticle ? (editingArticle.isAiGenerated || false) : false,
         comments: editingArticle?.comments || []
       };
 
