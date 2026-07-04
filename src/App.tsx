@@ -123,23 +123,42 @@ export default function App() {
     }
   };
 
-  // Flag to ensure we only run the initial route parse once when posts are loaded
+  // Flag to ensure we only run the initial route parse once
   const hasParsedInitialRoute = useRef<boolean>(false);
+  const hasParsedInitialPostRoute = useRef<boolean>(false);
 
-  // Sync URL to page state once when posts are loaded
+  // Sync static routes immediately on mount so pages like About, Contact, Privacy, Profile load instantly
   useEffect(() => {
-    if (allPosts.length > 0 && !hasParsedInitialRoute.current) {
+    const path = window.location.pathname;
+    const isPostRoute = path.startsWith("/blog/") || path.startsWith("/articles/");
+    
+    if (!isPostRoute) {
+      syncRouteFromUrl([]);
       hasParsedInitialRoute.current = true;
-      syncRouteFromUrl(allPosts);
+    }
+  }, []);
+
+  // Sync URL to page state once when posts are loaded (especially for dynamic blog article routes)
+  useEffect(() => {
+    if (allPosts.length > 0) {
+      const path = window.location.pathname;
+      const isPostRoute = path.startsWith("/blog/") || path.startsWith("/articles/");
+      
+      if (isPostRoute && !hasParsedInitialPostRoute.current) {
+        hasParsedInitialPostRoute.current = true;
+        hasParsedInitialRoute.current = true;
+        syncRouteFromUrl(allPosts);
+      } else if (!hasParsedInitialRoute.current) {
+        hasParsedInitialRoute.current = true;
+        syncRouteFromUrl(allPosts);
+      }
     }
   }, [allPosts]);
 
   // Handle browser back/forward buttons
   useEffect(() => {
     const handlePopState = () => {
-      if (allPosts.length > 0) {
-        syncRouteFromUrl(allPosts);
-      }
+      syncRouteFromUrl(allPosts);
     };
     window.addEventListener("popstate", handlePopState);
     return () => window.removeEventListener("popstate", handlePopState);
@@ -578,20 +597,8 @@ export default function App() {
   }, [currentTab]);
 
   return (
-    <div className="min-h-screen bg-purple-50/20 text-purple-950 font-sans flex flex-col relative overflow-x-hidden pb-12">
+    <div className="min-h-screen bg-slate-50 text-purple-950 font-sans flex flex-col relative overflow-x-hidden pb-12">
       
-      {/* GLOWING AMBIENT AURAS (FROSTED GLASS THEME REQUIREMENT: "lights, colors like light purple") */}
-      <div className="absolute inset-0 z-0 pointer-events-none overflow-hidden select-none">
-        <div 
-          className="absolute top-[-10%] left-[-10%] w-[600px] h-[600px] rounded-full blur-[130px] opacity-25 animate-pulse transition-all duration-[8000s]"
-          style={{ backgroundColor: glowHex }}
-        />
-        <div 
-          className="absolute bottom-[20%] right-[-15%] w-[550px] h-[550px] rounded-full blur-[120px] opacity-20 animate-pulse"
-          style={{ backgroundColor: "#c084fc" }}
-        />
-      </div>
-
       {/* HEADER COMPONENT */}
       <Header 
         currentTab={currentTab}

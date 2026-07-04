@@ -251,7 +251,7 @@ export default function Header({
 
   return (
     <>
-      <nav className="fixed top-4 left-1/2 -translate-x-1/2 w-[92%] max-w-6xl z-40 bg-white/35 backdrop-blur-xl border border-white/60 rounded-[28px] px-4 md:px-6 py-3 shadow-lg flex items-center justify-between transition-all" id="floating-nav-bar">
+      <nav className="fixed top-4 left-1/2 -translate-x-1/2 w-[92%] max-w-6xl z-40 bg-[#f4f0ff] border border-purple-200/80 rounded-[28px] px-4 md:px-6 py-3 shadow-md flex items-center justify-between transition-all" id="floating-nav-bar">
         {/* Logo and Slogan */}
         <div 
           onClick={() => setCurrentTab("home")}
@@ -567,7 +567,7 @@ export default function Header({
               initial={{ x: "100%" }}
               animate={{ x: 0 }}
               exit={{ x: "100%" }}
-              className="relative w-72 h-full bg-white/95 backdrop-blur-xl border-l border-purple-100 p-6 flex flex-col justify-between text-purple-950 shadow-2xl"
+              className="relative w-72 h-full bg-[#f4f0ff] border-l border-purple-200 p-6 flex flex-col justify-between text-purple-950 shadow-2xl"
               id="mobile-drawer-container"
             >
               <div className="space-y-6">

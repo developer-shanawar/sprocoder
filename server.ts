@@ -107,6 +107,31 @@ async function setupViteOrStatic() {
       appType: "spa",
     });
     app.use(vite.middlewares);
+
+    // Support clean client-side routing on page refresh / copy-pasted URLs in development
+    app.get("*", async (req, res, next) => {
+      const url = req.originalUrl;
+      
+      // Allow API endpoints and standard static assets with dot extensions to fall through
+      if (url.startsWith("/api") || url.includes(".")) {
+        return next();
+      }
+
+      try {
+        const fs = await import("fs");
+        const templatePath = path.resolve(process.cwd(), "index.html");
+        if (fs.existsSync(templatePath)) {
+          let template = fs.readFileSync(templatePath, "utf-8");
+          template = await vite.transformIndexHtml(url, template);
+          res.status(200).set({ "Content-Type": "text/html" }).end(template);
+        } else {
+          next();
+        }
+      } catch (e) {
+        vite.ssrFixStacktrace(e as Error);
+        next(e);
+      }
+    });
   } else {
     const distPath = path.join(process.cwd(), "dist");
     app.use(express.static(distPath));
