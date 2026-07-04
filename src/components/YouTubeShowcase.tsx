@@ -18,9 +18,34 @@ interface VideoItem {
 // Utility to parse YouTube video IDs
 function getYouTubeId(url: string): string {
   if (!url) return "";
-  const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|\&v=)([^#\&\?]*).*/;
-  const match = url.match(regExp);
-  return (match && match[2].length === 11) ? match[2] : url.trim();
+  const trimmed = url.trim();
+  
+  // If it's already just an 11-char ID
+  if (trimmed.length === 11 && !trimmed.includes("/") && !trimmed.includes("?")) {
+    return trimmed;
+  }
+  
+  try {
+    // Standard and mobile URLs: youtube.com/watch?v=ID or youtu.be/ID
+    if (trimmed.includes("youtube.com") || trimmed.includes("youtu.be")) {
+      const regExp = /^.*(?:(?:youtu\.be\/|v\/|vi\/|u\/\w\/|embed\/|shorts\/)|(?:(?:watch)?\?vi?=|&vi?=))([^#&?]*).*/;
+      const match = trimmed.match(regExp);
+      if (match && match[1] && match[1].length === 11) {
+        return match[1];
+      }
+    }
+  } catch (e) {
+    console.error("Error parsing YouTube ID:", e);
+  }
+  
+  // Fallback split-based parsing
+  const parts = trimmed.split(/v=|vi=|embed\/|shorts\/|youtu\.be\//);
+  if (parts.length > 1) {
+    const idPart = parts[1].split(/[?&]/)[0];
+    if (idPart.length === 11) return idPart;
+  }
+  
+  return trimmed;
 }
 
 export default function YouTubeShowcase() {
@@ -43,10 +68,10 @@ export default function YouTubeShowcase() {
       title: "TypeScript Best Practices: Advanced utility types & clean architecture",
       views: "89K views",
       duration: "22:05",
-      thumbnail: "https://ibb.co/tMdzPBnh",
+      thumbnail: "https://images.unsplash.com/photo-1550684848-fac1c5b4e853?auto=format&fit=crop&w=300&q=80",
       embedCode: "dQw4w9WgXcQ",
       channel: "S pro coder Dev",
-      link: "https://youtu.be/2CO8fcbQ_LQ?si=d4jaQNKeT-i5ioL5"
+      link: "https://www.youtube.com/watch?v=dQw4w9WgXcQ"
     }
   ];
 
@@ -57,38 +82,42 @@ export default function YouTubeShowcase() {
         const data = snapshot.val();
         let loadedVideos: VideoItem[] = [];
         if (Array.isArray(data)) {
-          loadedVideos = data.filter(Boolean).map((v: any, index) => {
-            const embedCode = getYouTubeId(v.link || "");
-            return {
-              id: v.id || `vid-${index}`,
-              title: v.title || "Untitled Video",
-              views: v.views || "1K views",
-              duration: v.duration || "10:00",
-              embedCode: embedCode,
-              thumbnail: embedCode 
-                ? `https://img.youtube.com/vi/${embedCode}/0.jpg` 
-                : (v.thumbnail || "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&w=300&q=80"),
-              channel: v.channel || "S pro coder",
-              link: v.link || ""
-            };
-          });
+          loadedVideos = data
+            .filter((v: any) => v && v.link && v.link.trim() !== "")
+            .map((v: any, index) => {
+              const embedCode = getYouTubeId(v.link || "");
+              return {
+                id: v.id || `vid-${index}`,
+                title: v.title || "Untitled Video",
+                views: v.views || "1K views",
+                duration: v.duration || "10:00",
+                embedCode: embedCode,
+                thumbnail: embedCode 
+                  ? `https://img.youtube.com/vi/${embedCode}/0.jpg` 
+                  : (v.thumbnail || "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&w=300&q=80"),
+                channel: v.channel || "S pro coder",
+                link: v.link || ""
+              };
+            });
         } else if (typeof data === "object") {
-          loadedVideos = Object.keys(data).map((key) => {
-            const v = data[key];
-            const embedCode = getYouTubeId(v.link || "");
-            return {
-              id: key,
-              title: v.title || "Untitled Video",
-              views: v.views || "1K views",
-              duration: v.duration || "10:00",
-              embedCode: embedCode,
-              thumbnail: embedCode 
-                ? `https://img.youtube.com/vi/${embedCode}/0.jpg` 
-                : (v.thumbnail || "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&w=300&q=80"),
-              channel: v.channel || "S pro coder",
-              link: v.link || ""
-            };
-          });
+          loadedVideos = Object.keys(data)
+            .map((key) => {
+              const v = data[key];
+              const embedCode = getYouTubeId(v.link || "");
+              return {
+                id: key,
+                title: v.title || "Untitled Video",
+                views: v.views || "1K views",
+                duration: v.duration || "10:00",
+                embedCode: embedCode,
+                thumbnail: embedCode 
+                  ? `https://img.youtube.com/vi/${embedCode}/0.jpg` 
+                  : (v.thumbnail || "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&w=300&q=80"),
+                channel: v.channel || "S pro coder",
+                link: v.link || ""
+              };
+            })
+            .filter((vid) => vid.link && vid.link.trim() !== "");
         }
         // Slice up to 5 videos
         setVideos(loadedVideos.slice(0, 5));

@@ -38,6 +38,8 @@ export default function App() {
 
   // Dynamic Website logo icon URL
   const [websiteIconUrl, setWebsiteIconUrl] = useState<string>("");
+  const [showWebsiteIcon, setShowWebsiteIcon] = useState<boolean>(true);
+  const [featuredArticleId, setFeaturedArticleId] = useState<string>("");
 
   // Database Synced states
   const [allPosts, setAllPosts] = useState<BlogPost[]>([]);
@@ -81,7 +83,12 @@ export default function App() {
       if (snapshot.exists()) {
         const data = snapshot.val();
         const list: BlogPost[] = Object.values(data);
-        setAllPosts(list);
+        const sortedList = [...list].sort((a, b) => {
+          const tA = a.date ? new Date(a.date).getTime() : 0;
+          const tB = b.date ? new Date(b.date).getTime() : 0;
+          return tB - tA; // Newest first
+        });
+        setAllPosts(sortedList);
       } else {
         // Bootstrap Database with INITIAL_POSTS if completely empty
         const initialMap: Record<string, BlogPost> = {};
@@ -89,7 +96,12 @@ export default function App() {
           initialMap[p.id] = p;
         });
         set(postsRef, initialMap);
-        setAllPosts(INITIAL_POSTS);
+        const sortedInitial = [...INITIAL_POSTS].sort((a, b) => {
+          const tA = a.date ? new Date(a.date).getTime() : 0;
+          const tB = b.date ? new Date(b.date).getTime() : 0;
+          return tB - tA;
+        });
+        setAllPosts(sortedInitial);
       }
     });
 
@@ -136,11 +148,29 @@ export default function App() {
       }
     });
 
+    // Sync Website Icon visibility toggle
+    const showIconRef = ref(db, "settings/showWebsiteIcon");
+    const unsubShowIcon = onValue(showIconRef, (snapshot) => {
+      if (snapshot.exists()) {
+        setShowWebsiteIcon(snapshot.val());
+      }
+    });
+
+    // Sync Featured Article selection
+    const featuredRef = ref(db, "settings/featuredArticleId");
+    const unsubFeatured = onValue(featuredRef, (snapshot) => {
+      if (snapshot.exists()) {
+        setFeaturedArticleId(snapshot.val());
+      }
+    });
+
     return () => {
       unsubPosts();
       unsubCat();
       unsubPages();
       unsubIcon();
+      unsubShowIcon();
+      unsubFeatured();
     };
   }, []);
 
@@ -165,6 +195,15 @@ export default function App() {
     const matchesCategory = selectedCategory ? post.category === selectedCategory : true;
     return matchesSearch && matchesCategory;
   });
+
+  // Find the featured post
+  const featuredPost = allPosts.find((p) => p.id === featuredArticleId) || allPosts[0];
+
+  // Filter out featured post from regular feed on homepage to avoid duplicate rendering,
+  // unless we have an active search/category filter
+  const homeFeedPosts = (selectedCategory || searchQuery)
+    ? filteredPosts
+    : filteredPosts.filter((p) => p.id !== (featuredPost?.id || ""));
 
   // Selected article reading and history log push
   const handleSelectPost = async (post: BlogPost) => {
@@ -392,6 +431,7 @@ export default function App() {
         allPosts={allPosts}
         onSelectPost={(post) => handleSelectPost(post)}
         websiteIconUrl={websiteIconUrl}
+        showWebsiteIcon={showWebsiteIcon}
       />
 
       {/* PRIMARY WORKSPACE MAIN ROUTER */}
@@ -415,14 +455,14 @@ export default function App() {
             {currentTab === "home" && (
           <div className="space-y-10 animate-in fade-in duration-300" id="home-view-container">
             {/* Top Featured Hero article */}
-            {allPosts.length > 0 && (
+            {featuredPost && (
               <HeroSection 
-                post={allPosts[0]}
-                onSelect={() => handleSelectPost(allPosts[0])}
+                post={featuredPost}
+                onSelect={() => handleSelectPost(featuredPost)}
                 isLiked={false}
-                onLike={() => handleLikeArticle(allPosts[0])}
-                isBookmarked={currentUser?.savedArticles?.includes(allPosts[0].id) || false}
-                onBookmark={() => handleToggleBookmark(allPosts[0])}
+                onLike={() => handleLikeArticle(featuredPost)}
+                isBookmarked={currentUser?.savedArticles?.includes(featuredPost.id) || false}
+                onBookmark={() => handleToggleBookmark(featuredPost)}
               />
             )}
 
@@ -462,19 +502,19 @@ export default function App() {
                 </div>
               </div>
 
-              {/* Middle Column: Articles Feed */}
+               {/* Middle Column: Articles Feed */}
               <div className="lg:col-span-5 space-y-6" id="home-middle-feed">
                 <div className="flex items-center justify-between border-b border-purple-100 pb-2">
                   <h3 className="font-sans font-black text-purple-950 text-xs uppercase tracking-widest">
                     {selectedCategory || "Global Article Stream"}
                   </h3>
                   <span className="text-[10px] bg-purple-100 text-purple-700 px-2 py-0.5 rounded font-black font-mono">
-                    {filteredPosts.length} LIVE
+                    {homeFeedPosts.length} LIVE
                   </span>
                 </div>
 
                 <div className="space-y-4">
-                  {filteredPosts.map((post) => {
+                  {homeFeedPosts.map((post) => {
                     const isLiked = false;
                     const isBookmarked = currentUser?.savedArticles?.includes(post.id) || false;
 
@@ -529,7 +569,7 @@ export default function App() {
                       </div>
                     );
                   })}
-                  {filteredPosts.length === 0 && (
+                  {homeFeedPosts.length === 0 && (
                     <div className="p-8 text-center bg-white/30 backdrop-blur-md rounded-2xl border border-white/50 text-gray-500 text-xs">
                       No matching S pro coder articles found in this stream.
                     </div>

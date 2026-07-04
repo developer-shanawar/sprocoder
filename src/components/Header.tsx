@@ -18,6 +18,7 @@ interface HeaderProps {
   allPosts: BlogPost[];
   onSelectPost: (post: BlogPost) => void;
   websiteIconUrl?: string;
+  showWebsiteIcon?: boolean;
 }
 
 export default function Header({
@@ -28,7 +29,8 @@ export default function Header({
   onOpenAdmin,
   allPosts,
   onSelectPost,
-  websiteIconUrl
+  websiteIconUrl,
+  showWebsiteIcon = true
 }: HeaderProps) {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
@@ -254,7 +256,7 @@ export default function Header({
           className="flex items-center gap-2 cursor-pointer group"
           id="nav-logo"
         >
-          {websiteIconUrl ? (
+          {showWebsiteIcon && (websiteIconUrl ? (
             <img 
               src={websiteIconUrl} 
               alt="S pro coder logo" 
@@ -265,14 +267,11 @@ export default function Header({
             <div className="w-9 h-9 rounded-2xl bg-gradient-to-tr from-purple-600 via-purple-500 to-indigo-400 flex items-center justify-center text-white font-extrabold text-sm shadow-md shadow-purple-200 group-hover:scale-105 transition-transform duration-300">
               SP
             </div>
-          )}
+          ))}
           <div className="text-left">
             <h1 className="font-sans font-black text-purple-950 text-sm md:text-base tracking-tight leading-none">
               S pro coder
             </h1>
-            <p className="text-[9px] font-mono font-bold text-purple-600 tracking-wider">
-              TECH & AI HUB
-            </p>
           </div>
         </div>
 

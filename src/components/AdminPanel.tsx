@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import { 
   Users, BookOpen, Layers, MessageSquare, Settings, 
   Plus, Edit, Trash2, Heart, Bookmark, Eye, FileText, Upload, Save, Check, RefreshCw,
-  Youtube
+  Youtube, Star
 } from "lucide-react";
 import { db, DB_PATHS } from "../firebase";
 import { ref, set, push, remove, get, update, onValue } from "firebase/database";
@@ -11,9 +11,34 @@ import { BlogPost, UserAccount, ContactMessage } from "../types";
 // Utility to parse YouTube video IDs
 function getYouTubeId(url: string): string {
   if (!url) return "";
-  const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|\&v=)([^#\&\?]*).*/;
-  const match = url.match(regExp);
-  return (match && match[2].length === 11) ? match[2] : url.trim();
+  const trimmed = url.trim();
+  
+  // If it's already just an 11-char ID
+  if (trimmed.length === 11 && !trimmed.includes("/") && !trimmed.includes("?")) {
+    return trimmed;
+  }
+  
+  try {
+    // Standard and mobile URLs: youtube.com/watch?v=ID or youtu.be/ID
+    if (trimmed.includes("youtube.com") || trimmed.includes("youtu.be")) {
+      const regExp = /^.*(?:(?:youtu\.be\/|v\/|vi\/|u\/\w\/|embed\/|shorts\/)|(?:(?:watch)?\?vi?=|&vi?=))([^#&?]*).*/;
+      const match = trimmed.match(regExp);
+      if (match && match[1] && match[1].length === 11) {
+        return match[1];
+      }
+    }
+  } catch (e) {
+    console.error("Error parsing YouTube ID:", e);
+  }
+  
+  // Fallback split-based parsing
+  const parts = trimmed.split(/v=|vi=|embed\/|shorts\/|youtu\.be\//);
+  if (parts.length > 1) {
+    const idPart = parts[1].split(/[?&]/)[0];
+    if (idPart.length === 11) return idPart;
+  }
+  
+  return trimmed;
 }
 
 interface AdminPanelProps {
@@ -24,7 +49,7 @@ interface AdminPanelProps {
 }
 
 export default function AdminPanel({ onClose, categories, setCategories, onLogout }: AdminPanelProps) {
-  const [activeTab, setActiveTab] = useState<"users" | "articles" | "categories" | "messages" | "pages" | "videos">("articles");
+  const [activeTab, setActiveTab] = useState<"users" | "articles" | "categories" | "messages" | "pages" | "videos" | "featured">("articles");
   const [loading, setLoading] = useState(false);
 
   // Users State
@@ -71,6 +96,26 @@ export default function AdminPanel({ onClose, categories, setCategories, onLogou
     views: string;
   }[]>([]);
   const [videoSaveSuccess, setVideoSaveSuccess] = useState(false);
+
+  // Featured Article State
+  const [featuredArticleId, setFeaturedArticleId] = useState("");
+  const [featuredSaveSuccess, setFeaturedSaveSuccess] = useState(false);
+
+  // Footer Links State
+  const [footerLinks, setFooterLinks] = useState({
+    youtube: "https://youtube.com",
+    github: "https://github.com",
+    linkedin: "https://linkedin.com",
+    twitter: "https://twitter.com"
+  });
+  const [footerSaveSuccess, setFooterSaveSuccess] = useState(false);
+
+  // Show Website Icon state
+  const [showWebsiteIcon, setShowWebsiteIcon] = useState(true);
+
+  // ImgBB API Key state
+  const [imgbbKey, setImgbbKey] = useState("95bfa2c260a52e93433daf349259e043");
+  const [imgbbKeySaveSuccess, setImgbbKeySaveSuccess] = useState(false);
 
   // Load Admin Data from RTDB
   useEffect(() => {
@@ -172,6 +217,34 @@ export default function AdminPanel({ onClose, categories, setCategories, onLogou
       }
     });
 
+    // 7. Load Featured Article
+    get(ref(db, "settings/featuredArticleId")).then((snapshot) => {
+      if (snapshot.exists()) {
+        setFeaturedArticleId(snapshot.val());
+      }
+    });
+
+    // 8. Load Footer Links
+    get(ref(db, "settings/footerLinks")).then((snapshot) => {
+      if (snapshot.exists()) {
+        setFooterLinks(snapshot.val());
+      }
+    });
+
+    // 9. Load Show Website Icon
+    get(ref(db, "settings/showWebsiteIcon")).then((snapshot) => {
+      if (snapshot.exists()) {
+        setShowWebsiteIcon(snapshot.val() !== false);
+      }
+    });
+
+    // 10. Load ImgBB Key
+    get(ref(db, "settings/imgbbKey")).then((snapshot) => {
+      if (snapshot.exists()) {
+        setImgbbKey(snapshot.val());
+      }
+    });
+
     return () => {
       unsubUsers();
       unsubArticles();
@@ -191,7 +264,8 @@ export default function AdminPanel({ onClose, categories, setCategories, onLogou
     formData.append("image", file);
 
     try {
-      const response = await fetch("https://api.imgbb.com/1/upload?key=95bfa2c260a52e93433daf349259e043", {
+      const activeKey = imgbbKey || "95bfa2c260a52e93433daf349259e043";
+      const response = await fetch(`https://api.imgbb.com/1/upload?key=${activeKey}`, {
         method: "POST",
         body: formData,
       });
@@ -200,7 +274,8 @@ export default function AdminPanel({ onClose, categories, setCategories, onLogou
       if (resJson && resJson.success) {
         setThumbnailUrl(resJson.data.url);
       } else {
-        setUploadError("ImgBB upload failed or limit reached.");
+        const errMsg = resJson?.error?.message || "ImgBB upload failed or limit reached.";
+        setUploadError(`ImgBB upload failed: ${errMsg}`);
       }
     } catch (err) {
       console.error(err);
@@ -222,7 +297,8 @@ export default function AdminPanel({ onClose, categories, setCategories, onLogou
     formData.append("image", file);
 
     try {
-      const response = await fetch("https://api.imgbb.com/1/upload?key=95bfa2c260a52e93433daf349259e043", {
+      const activeKey = imgbbKey || "95bfa2c260a52e93433daf349259e043";
+      const response = await fetch(`https://api.imgbb.com/1/upload?key=${activeKey}`, {
         method: "POST",
         body: formData,
       });
@@ -235,7 +311,8 @@ export default function AdminPanel({ onClose, categories, setCategories, onLogou
         await set(ref(db, "settings/websiteIcon"), url);
         alert("Website Logo icon updated and saved successfully!");
       } else {
-        setIconUploadError("ImgBB upload failed.");
+        const errMsg = resJson?.error?.message || "ImgBB upload failed.";
+        setIconUploadError(`ImgBB upload failed: ${errMsg}`);
       }
     } catch (err) {
       console.error(err);
@@ -441,6 +518,70 @@ export default function AdminPanel({ onClose, categories, setCategories, onLogou
     }
   };
 
+  // Save Featured Article selection
+  const handleSaveFeatured = async (id: string) => {
+    setLoading(true);
+    setFeaturedSaveSuccess(false);
+    try {
+      await set(ref(db, "settings/featuredArticleId"), id);
+      setFeaturedArticleId(id);
+      setFeaturedSaveSuccess(true);
+      setTimeout(() => setFeaturedSaveSuccess(false), 3000);
+      alert("Featured article saved successfully!");
+    } catch (err) {
+      console.error(err);
+      alert("Failed to save featured article.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Save Footer Links settings
+  const handleSaveFooterLinks = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+    setFooterSaveSuccess(false);
+    try {
+      await set(ref(db, "settings/footerLinks"), footerLinks);
+      setFooterSaveSuccess(true);
+      setTimeout(() => setFooterSaveSuccess(false), 3000);
+      alert("Footer links updated successfully!");
+    } catch (err) {
+      console.error(err);
+      alert("Failed to update footer links.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Save Website Icon Toggle settings
+  const handleToggleWebsiteIcon = async (val: boolean) => {
+    setShowWebsiteIcon(val);
+    try {
+      await set(ref(db, "settings/showWebsiteIcon"), val);
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  // Save ImgBB Key settings
+  const handleSaveImgbbKey = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+    setImgbbKeySaveSuccess(false);
+    try {
+      await set(ref(db, "settings/imgbbKey"), imgbbKey.trim());
+      setImgbbKeySaveSuccess(true);
+      setTimeout(() => setImgbbKeySaveSuccess(false), 3000);
+      alert("ImgBB API Key updated successfully!");
+    } catch (err) {
+      console.error(err);
+      alert("Failed to update ImgBB API Key.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <div className="space-y-6 animate-in fade-in duration-300" id="admin-panel-root">
       <div className="bg-white/40 backdrop-blur-lg border border-white/60 rounded-[36px] p-6 md:p-8 space-y-6 text-purple-950 shadow-xl" id="admin-panel-container">
@@ -550,6 +691,18 @@ export default function AdminPanel({ onClose, categories, setCategories, onLogou
           >
             <Youtube className="w-4 h-4 text-red-500 fill-red-500" />
             <span>YouTube Showcase</span>
+          </button>
+
+          <button
+            onClick={() => setActiveTab("featured")}
+            className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+              activeTab === "featured" 
+                ? "bg-purple-600 text-white shadow-md shadow-purple-100" 
+                : "hover:bg-purple-50 text-purple-800"
+            }`}
+          >
+            <Star className="w-4 h-4 text-amber-500 fill-amber-500" />
+            <span>Featured Article</span>
           </button>
         </div>
 
@@ -1253,6 +1406,198 @@ export default function AdminPanel({ onClose, categories, setCategories, onLogou
                   <Save className="w-4 h-4" />
                   <span>{loading ? "Saving to Database..." : "Save Showcase Videos"}</span>
                 </button>
+              </div>
+            </div>
+          )}
+
+          {/* TAB 7: FEATURED ARTICLE & SETTINGS */}
+          {activeTab === "featured" && (
+            <div className="space-y-8 animate-in fade-in duration-200" id="tab-featured-content">
+              {/* Featured Article Selector Section */}
+              <div className="bg-purple-50/40 p-6 rounded-3xl border border-purple-100/80 space-y-4">
+                <div className="flex items-center justify-between border-b border-purple-100 pb-2">
+                  <div>
+                    <h3 className="text-sm font-black text-purple-950 uppercase tracking-wider flex items-center gap-1.5">
+                      <Star className="w-4 h-4 text-amber-500 fill-amber-500 animate-pulse" />
+                      <span>Configure Featured Article</span>
+                    </h3>
+                    <p className="text-[10px] text-gray-500">
+                      The chosen article will appear prominently at the top of the homepage as the main showcase story.
+                    </p>
+                  </div>
+                  {featuredSaveSuccess && (
+                    <span className="text-xs text-emerald-600 font-bold flex items-center gap-1 animate-bounce">
+                      <Check className="w-4 h-4" />
+                      <span>Featured Saved!</span>
+                    </span>
+                  )}
+                </div>
+
+                <div className="space-y-3">
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-bold text-purple-900 uppercase tracking-wider block">
+                      Choose Article to Feature
+                    </label>
+                    <select
+                      value={featuredArticleId}
+                      onChange={(e) => setFeaturedArticleId(e.target.value)}
+                      className="w-full p-3 rounded-xl border border-purple-200 bg-white text-xs text-purple-950 focus:outline-none focus:border-purple-500"
+                    >
+                      <option value="">-- Select an Article --</option>
+                      {articles.map((art) => (
+                        <option key={art.id} value={art.id}>
+                          {art.title} ({art.category})
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <button
+                    onClick={() => handleSaveFeatured(featuredArticleId)}
+                    disabled={loading || !featuredArticleId}
+                    className="w-full bg-purple-600 hover:bg-purple-700 text-white font-bold text-xs py-2.5 rounded-xl cursor-pointer flex items-center justify-center gap-1 shadow-lg shadow-purple-100"
+                  >
+                    <Save className="w-4 h-4" />
+                    <span>{loading ? "Updating Server..." : "Set as Featured Article"}</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Website Icon & General Brand Configuration Section */}
+              <div className="bg-purple-50/40 p-6 rounded-3xl border border-purple-100/80 space-y-4">
+                <div className="border-b border-purple-100 pb-2">
+                  <h3 className="text-sm font-black text-purple-950 uppercase tracking-wider flex items-center gap-1.5">
+                    <Settings className="w-4 h-4 text-purple-600" />
+                    <span>Brand & Media Settings</span>
+                  </h3>
+                  <p className="text-[10px] text-gray-500">
+                    Control brand visuals, logo presence, and customize image upload services.
+                  </p>
+                </div>
+
+                <div className="space-y-4">
+                  {/* Website Icon Toggle option */}
+                  <div className="flex items-center justify-between p-3 rounded-xl bg-white border border-purple-100">
+                    <div className="space-y-0.5">
+                      <span className="text-xs font-bold text-purple-950 block">Show Website Icon</span>
+                      <span className="text-[10px] text-gray-500 block">
+                        Toggle to display or hide the brand's logo next to the website title in the navigation header.
+                      </span>
+                    </div>
+                    <label className="relative inline-flex items-center cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={showWebsiteIcon}
+                        onChange={(e) => handleToggleWebsiteIcon(e.target.checked)}
+                        className="sr-only peer"
+                      />
+                      <div className="w-9 h-5 bg-purple-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-purple-600"></div>
+                    </label>
+                  </div>
+
+                  {/* ImgBB Key Form */}
+                  <form onSubmit={handleSaveImgbbKey} className="space-y-3">
+                    <div className="space-y-1">
+                      <div className="flex items-center justify-between">
+                        <label className="text-[10px] font-bold text-purple-900 uppercase tracking-wider block">
+                          ImgBB API Key (For Custom Image Uploads)
+                        </label>
+                        {imgbbKeySaveSuccess && (
+                          <span className="text-[10px] text-emerald-600 font-bold flex items-center gap-0.5">
+                            <Check className="w-3 h-3" />
+                            <span>Saved!</span>
+                          </span>
+                        )}
+                      </div>
+                      <input
+                        type="text"
+                        value={imgbbKey}
+                        onChange={(e) => setImgbbKey(e.target.value)}
+                        placeholder="Paste your 32-character ImgBB API key..."
+                        className="w-full px-3 py-2 rounded-xl border border-purple-200 bg-white text-xs font-mono focus:outline-none"
+                      />
+                    </div>
+                    <button
+                      type="submit"
+                      disabled={loading || !imgbbKey}
+                      className="w-full bg-purple-600 hover:bg-purple-700 text-white font-bold text-xs py-2 rounded-xl cursor-pointer flex items-center justify-center gap-1 shadow-sm"
+                    >
+                      <Save className="w-3.5 h-3.5" />
+                      <span>Update ImgBB Configuration</span>
+                    </button>
+                  </form>
+                </div>
+              </div>
+
+              {/* Footer Links Configuration Section */}
+              <div className="bg-purple-50/40 p-6 rounded-3xl border border-purple-100/80 space-y-4">
+                <div className="flex items-center justify-between border-b border-purple-100 pb-2">
+                  <div>
+                    <h3 className="text-sm font-black text-purple-950 uppercase tracking-wider flex items-center gap-1.5">
+                      <Layers className="w-4 h-4 text-indigo-500" />
+                      <span>Configure Footer Links</span>
+                    </h3>
+                    <p className="text-[10px] text-gray-500">
+                      Configure external links used in the social footer section of the website.
+                    </p>
+                  </div>
+                  {footerSaveSuccess && (
+                    <span className="text-xs text-emerald-600 font-bold flex items-center gap-1 animate-bounce">
+                      <Check className="w-4 h-4" />
+                      <span>Footer Saved!</span>
+                    </span>
+                  )}
+                </div>
+
+                <form onSubmit={handleSaveFooterLinks} className="space-y-4 text-xs">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-bold text-purple-900 uppercase tracking-wider block">YouTube Channel</label>
+                      <input
+                        type="url"
+                        value={footerLinks.youtube}
+                        onChange={(e) => setFooterLinks({ ...footerLinks, youtube: e.target.value })}
+                        className="w-full p-2.5 rounded-xl border border-purple-200 bg-white focus:outline-none"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-bold text-purple-900 uppercase tracking-wider block">GitHub Profile</label>
+                      <input
+                        type="url"
+                        value={footerLinks.github}
+                        onChange={(e) => setFooterLinks({ ...footerLinks, github: e.target.value })}
+                        className="w-full p-2.5 rounded-xl border border-purple-200 bg-white focus:outline-none"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-bold text-purple-900 uppercase tracking-wider block">LinkedIn Page</label>
+                      <input
+                        type="url"
+                        value={footerLinks.linkedin}
+                        onChange={(e) => setFooterLinks({ ...footerLinks, linkedin: e.target.value })}
+                        className="w-full p-2.5 rounded-xl border border-purple-200 bg-white focus:outline-none"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-bold text-purple-900 uppercase tracking-wider block">Twitter/X Profile</label>
+                      <input
+                        type="url"
+                        value={footerLinks.twitter}
+                        onChange={(e) => setFooterLinks({ ...footerLinks, twitter: e.target.value })}
+                        className="w-full p-2.5 rounded-xl border border-purple-200 bg-white focus:outline-none"
+                      />
+                    </div>
+                  </div>
+
+                  <button
+                    type="submit"
+                    disabled={loading}
+                    className="w-full bg-purple-600 hover:bg-purple-700 text-white font-bold text-xs py-2.5 rounded-xl cursor-pointer flex items-center justify-center gap-1 shadow-lg shadow-purple-100"
+                  >
+                    <Save className="w-4 h-4" />
+                    <span>{loading ? "Updating Social Links..." : "Save Social Footer Links"}</span>
+                  </button>
+                </form>
               </div>
             </div>
           )}
