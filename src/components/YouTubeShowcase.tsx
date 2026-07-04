@@ -43,10 +43,10 @@ export default function YouTubeShowcase() {
       title: "TypeScript Best Practices: Advanced utility types & clean architecture",
       views: "89K views",
       duration: "22:05",
-      thumbnail: "https://images.unsplash.com/photo-1550684848-fac1c5b4e853?auto=format&fit=crop&w=300&q=80",
+      thumbnail: "https://ibb.co/tMdzPBnh",
       embedCode: "dQw4w9WgXcQ",
       channel: "S pro coder Dev",
-      link: "https://www.youtube.com/watch?v=dQw4w9WgXcQ"
+      link: "https://youtu.be/2CO8fcbQ_LQ?si=d4jaQNKeT-i5ioL5"
     }
   ];
 
