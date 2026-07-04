@@ -7,10 +7,20 @@ interface FooterProps {
   currentTab: "home" | "articles" | "about" | "privacy" | "terms" | "contact" | "admin-auth" | "admin" | "profile";
   setCurrentTab: (tab: "home" | "articles" | "about" | "privacy" | "terms" | "contact" | "admin-auth" | "admin" | "profile") => void;
   isAdminAuthenticated: boolean;
+  websiteIconUrl?: string;
+  showWebsiteIcon?: boolean;
+  websiteTitle?: string;
 }
 
-export default function Footer({ currentTab, setCurrentTab, isAdminAuthenticated }: FooterProps) {
-  const [websiteTitle, setWebsiteTitle] = useState("S pro coder");
+export default function Footer({ 
+  currentTab, 
+  setCurrentTab, 
+  isAdminAuthenticated,
+  websiteIconUrl,
+  showWebsiteIcon = true,
+  websiteTitle: websiteTitleProp
+}: FooterProps) {
+  const [websiteTitle, setWebsiteTitle] = useState(websiteTitleProp || "S pro coder");
   const [footerLinks, setFooterLinks] = useState({
     youtube: "https://youtube.com",
     github: "https://github.com",
@@ -19,7 +29,13 @@ export default function Footer({ currentTab, setCurrentTab, isAdminAuthenticated
   });
 
   useEffect(() => {
-    // Sync title
+    if (websiteTitleProp) {
+      setWebsiteTitle(websiteTitleProp);
+    }
+  }, [websiteTitleProp]);
+
+  useEffect(() => {
+    // Sync title if prop not provided or to ensure live updates
     const titleRef = ref(db, "settings/websiteTitle");
     const unsubTitle = onValue(titleRef, (snapshot) => {
       if (snapshot.exists()) {
@@ -55,9 +71,18 @@ export default function Footer({ currentTab, setCurrentTab, isAdminAuthenticated
           {/* Column 1: S pro coder Info */}
           <div className="md:col-span-5 space-y-4">
             <div className="flex items-center gap-2">
-              <div className="w-8 h-8 rounded-xl bg-purple-600 flex items-center justify-center text-white font-extrabold text-xs shadow-md shadow-purple-500/20">
-                SP
-              </div>
+              {showWebsiteIcon && (websiteIconUrl ? (
+                <img 
+                  src={websiteIconUrl} 
+                  alt={`${websiteTitle} logo`} 
+                  className="w-8 h-8 rounded-xl object-cover shadow-md shadow-purple-500/20"
+                  referrerPolicy="no-referrer"
+                />
+              ) : (
+                <div className="w-8 h-8 rounded-xl bg-purple-600 flex items-center justify-center text-white font-extrabold text-xs shadow-md shadow-purple-500/20">
+                  SP
+                </div>
+              ))}
               <h2 className="font-sans font-black text-xl tracking-tight">{websiteTitle}</h2>
             </div>
             

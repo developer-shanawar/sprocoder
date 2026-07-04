@@ -77,11 +77,12 @@ export default function App() {
       .replace(/-+$/, "");
   };
 
-  // Sync state from browser URL path
+  // Sync state from browser URL path or hash
   const syncRouteFromUrl = (postsList: BlogPost[]) => {
-    const path = window.location.pathname;
+    // Check hash first (e.g., "#/blog/some-slug"), removing the leading "#"
+    let path = window.location.hash ? window.location.hash.substring(1) : window.location.pathname;
     
-    if (path === "/" || path === "") {
+    if (!path || path === "/" || path === "") {
       setCurrentTab("home");
       setSelectedPost(null);
     } else if (path === "/blog" || path === "/articles") {
@@ -129,7 +130,8 @@ export default function App() {
 
   // Sync static routes immediately on mount so pages like About, Contact, Privacy, Profile load instantly
   useEffect(() => {
-    const path = window.location.pathname;
+    const hash = window.location.hash;
+    const path = hash ? hash.substring(1) : window.location.pathname;
     const isPostRoute = path.startsWith("/blog/") || path.startsWith("/articles/");
     
     if (!isPostRoute) {
@@ -141,7 +143,8 @@ export default function App() {
   // Sync URL to page state once when posts are loaded (especially for dynamic blog article routes)
   useEffect(() => {
     if (allPosts.length > 0) {
-      const path = window.location.pathname;
+      const hash = window.location.hash;
+      const path = hash ? hash.substring(1) : window.location.pathname;
       const isPostRoute = path.startsWith("/blog/") || path.startsWith("/articles/");
       
       if (isPostRoute && !hasParsedInitialPostRoute.current) {
@@ -155,16 +158,20 @@ export default function App() {
     }
   }, [allPosts]);
 
-  // Handle browser back/forward buttons
+  // Handle browser back/forward buttons and hash navigation changes
   useEffect(() => {
     const handlePopState = () => {
       syncRouteFromUrl(allPosts);
     };
     window.addEventListener("popstate", handlePopState);
-    return () => window.removeEventListener("popstate", handlePopState);
+    window.addEventListener("hashchange", handlePopState);
+    return () => {
+      window.removeEventListener("popstate", handlePopState);
+      window.removeEventListener("hashchange", handlePopState);
+    };
   }, [allPosts]);
 
-  // Synchronize internal state to external browser address bar URL (SEO Optimization)
+  // Synchronize internal state to external browser address bar URL (SEO Optimization & 404-free sharing!)
   useEffect(() => {
     let targetPath = "/";
     
@@ -204,8 +211,11 @@ export default function App() {
       }
     }
 
-    if (window.location.pathname !== targetPath) {
-      window.history.pushState(null, "", targetPath);
+    const targetHash = targetPath === "/" ? "" : `#${targetPath}`;
+    const currentHash = window.location.hash;
+    
+    if (currentHash !== targetHash && (targetHash || currentHash)) {
+      window.history.pushState(null, "", targetHash || "/");
     }
   }, [currentTab, selectedPost]);
 
@@ -1022,6 +1032,9 @@ export default function App() {
           setSelectedPost(null);
         }}
         isAdminAuthenticated={isAdminAuthenticated}
+        websiteIconUrl={websiteIconUrl}
+        showWebsiteIcon={showWebsiteIcon}
+        websiteTitle={websiteTitle}
       />
 
     </div>
