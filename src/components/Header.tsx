@@ -740,21 +740,7 @@ export default function Header({
                 </button>
               </form>
 
-              {/* Google login simulation */}
               <div className="border-t border-purple-100 pt-3 flex flex-col gap-2">
-                <button
-                  onClick={handleGoogleSignIn}
-                  className="w-full py-2 px-4 rounded-xl text-xs font-bold border border-purple-200 hover:bg-purple-50 transition-colors flex items-center justify-center gap-2 cursor-pointer text-purple-950"
-                >
-                  <svg className="w-3.5 h-3.5" viewBox="0 0 24 24">
-                    <path
-                      fill="#EA4335"
-                      d="M12.24 10.285V13.4h6.86c-.277 1.56-1.602 4.585-6.86 4.585-4.54 0-8.24-3.76-8.24-8.4s3.7-8.4 8.24-8.4c2.58 0 4.307 1.095 5.298 2.045l2.465-2.37C18.435 1.21 15.62 0 12.24 0 5.58 0 0 5.37 0 12s5.58 12 12.24 12c6.96 0 11.57-4.89 11.57-11.79 0-.795-.085-1.4-.187-1.925H12.24z"
-                    />
-                  </svg>
-                  <span>Authenticate with Google</span>
-                </button>
-
                 <p className="text-[10px] text-center text-gray-500">
                   {authMode === "login" ? "New user?" : "Already registered?"}{" "}
                   <button

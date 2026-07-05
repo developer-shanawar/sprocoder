@@ -200,6 +200,17 @@ export default function App() {
   // Search and Category filters
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
+  const [homePaginationIndex, setHomePaginationIndex] = useState(0);
+
+  const handleSetSelectedCategory = (cat: string | null) => {
+    setSelectedCategory(cat);
+    setHomePaginationIndex(0);
+  };
+
+  const handleSetSearchQuery = (query: string) => {
+    setSearchQuery(query);
+    setHomePaginationIndex(0);
+  };
 
   // Active reading article
   const [selectedPost, setSelectedPost] = useState<BlogPost | null>(null);
@@ -888,6 +899,9 @@ export default function App() {
     ? filteredPosts
     : filteredPosts.filter((p) => p.id !== (featuredPost?.id || ""));
 
+  const totalHomeFeedPosts = homeFeedPosts.length;
+  const paginatedHomeFeedPosts = homeFeedPosts.slice(homePaginationIndex, homePaginationIndex + 5);
+
   // Selected article reading and history log push
   const handleSelectPost = async (post: BlogPost) => {
     // Increment views in the database
@@ -1125,7 +1139,7 @@ export default function App() {
   const isLoggedAdminUser = currentUser && currentUser.email.toLowerCase() === "developershanawar@gmail.com";
   if (isAdminAuthenticated && isLoggedAdminUser && currentTab === "admin") {
     return (
-      <div className="min-h-screen bg-[#070a13] text-gray-100 font-sans flex flex-col relative overflow-x-hidden">
+      <div className="min-h-screen bg-[#f3effe] text-purple-950 font-sans flex flex-col relative overflow-x-hidden p-4 sm:p-6 lg:p-8">
         {/* Floating Switch Control */}
         {renderToggleSwitch()}
 
@@ -1221,7 +1235,7 @@ export default function App() {
                 </h3>
                 <div className="flex flex-row lg:flex-col flex-wrap gap-2">
                   <button
-                    onClick={() => setSelectedCategory(null)}
+                    onClick={() => handleSetSelectedCategory(null)}
                     className={`px-4 py-2.5 rounded-2xl text-xs font-bold transition-all text-left w-auto lg:w-full cursor-pointer border ${
                       selectedCategory === null 
                         ? "bg-purple-600 text-white border-purple-500 shadow-md shadow-purple-100" 
@@ -1234,7 +1248,7 @@ export default function App() {
                   {categories.map((cat) => (
                     <button
                       key={cat}
-                      onClick={() => setSelectedCategory(cat)}
+                      onClick={() => handleSetSelectedCategory(cat)}
                       className={`px-4 py-2.5 rounded-2xl text-xs font-bold transition-all text-left w-auto lg:w-full cursor-pointer border ${
                         selectedCategory === cat 
                           ? "bg-purple-600 text-white border-purple-500 shadow-md shadow-purple-100" 
@@ -1259,7 +1273,7 @@ export default function App() {
                 </div>
 
                 <div className="space-y-4">
-                  {homeFeedPosts.map((post) => {
+                  {paginatedHomeFeedPosts.map((post) => {
                     const isLiked = false;
                     const isBookmarked = currentUser?.savedArticles?.includes(post.id) || false;
 
@@ -1308,7 +1322,7 @@ export default function App() {
                             </span>
                             <span className="flex items-center gap-0.5 text-[10px] font-bold text-gray-500" title="Views">
                               <Eye className="w-3.5 h-3.5 text-purple-500" />
-                              <span>{post.views || 0}</span>
+                              <span>{post.fakeViews !== undefined ? post.fakeViews : (post.views || 0)}</span>
                             </span>
                           </div>
                         </div>
@@ -1318,6 +1332,39 @@ export default function App() {
                   {homeFeedPosts.length === 0 && (
                     <div className="p-8 text-center bg-white/30 backdrop-blur-md rounded-2xl border border-white/50 text-gray-500 text-xs">
                       No matching S pro coder articles found in this stream.
+                    </div>
+                  )}
+
+                  {/* Pagination Buttons (Next & Back 5 Articles) */}
+                  {totalHomeFeedPosts > 5 && (
+                    <div className="flex items-center justify-between pt-4 border-t border-purple-200/60 mt-6 bg-white/30 p-4 rounded-2xl">
+                      <button
+                        disabled={homePaginationIndex === 0}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setHomePaginationIndex(Math.max(0, homePaginationIndex - 5));
+                          const feedEl = document.getElementById("home-middle-feed");
+                          if (feedEl) feedEl.scrollIntoView({ behavior: "smooth", block: "start" });
+                        }}
+                        className="px-3.5 py-2 text-xs font-bold bg-white hover:bg-purple-50 text-purple-950 border border-purple-200 rounded-xl disabled:opacity-40 disabled:hover:bg-white cursor-pointer transition-colors flex items-center gap-1 shadow-sm active:scale-95"
+                      >
+                        ← Back 5
+                      </button>
+                      <span className="text-[10px] text-purple-950 font-mono font-bold">
+                        {homePaginationIndex + 1} - {Math.min(homePaginationIndex + 5, totalHomeFeedPosts)} of {totalHomeFeedPosts}
+                      </span>
+                      <button
+                        disabled={homePaginationIndex + 5 >= totalHomeFeedPosts}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setHomePaginationIndex(homePaginationIndex + 5);
+                          const feedEl = document.getElementById("home-middle-feed");
+                          if (feedEl) feedEl.scrollIntoView({ behavior: "smooth", block: "start" });
+                        }}
+                        className="px-3.5 py-2 text-xs font-bold bg-white hover:bg-purple-50 text-purple-950 border border-purple-200 rounded-xl disabled:opacity-40 disabled:hover:bg-white cursor-pointer transition-colors flex items-center gap-1 shadow-sm active:scale-95"
+                      >
+                        Next 5 →
+                      </button>
                     </div>
                   )}
                 </div>
@@ -1335,7 +1382,7 @@ export default function App() {
                       type="text"
                       placeholder="Search articles & tools..."
                       value={searchQuery}
-                      onChange={(e) => setSearchQuery(e.target.value)}
+                      onChange={(e) => handleSetSearchQuery(e.target.value)}
                       className="w-full pl-9 pr-4 py-2 rounded-2xl bg-white/80 border border-purple-100 text-xs focus:outline-none focus:border-purple-500"
                       id="home-search-bar"
                     />
