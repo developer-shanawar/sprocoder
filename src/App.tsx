@@ -705,7 +705,15 @@ export default function App() {
         setAboutContent(data.aboutContent || "");
         setPrivacyPolicy(data.privacyPolicy || "");
         setTermsAndConditions(data.termsAndConditions || "");
-        setDisclaimerContent(data.disclaimerContent || "");
+        
+        // Auto-seed disclaimer if missing from existing remote pages node
+        if (data.disclaimerContent === undefined || data.disclaimerContent === "") {
+          const defaultDisclaimer = "The information provided on S pro coder (AspCoder.online) is for general educational and informational purposes only. All tutorials, code walkthroughs, and guides are provided in good faith and as-is without warranties of any kind. Any action you take upon the information found on this website is strictly at your own risk.";
+          setDisclaimerContent(defaultDisclaimer);
+          update(pagesRef, { disclaimerContent: defaultDisclaimer }).catch(err => console.error("Error auto-syncing disclaimer:", err));
+        } else {
+          setDisclaimerContent(data.disclaimerContent);
+        }
       } else {
         // Bootstrap static pages
         const defaultPages = {
