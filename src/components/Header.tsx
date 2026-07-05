@@ -271,8 +271,14 @@ export default function Header({
         {/* Logo and Slogan */}
         <div 
           onClick={() => setCurrentTab("home")}
+          onDoubleClick={() => {
+            if (isAdminUser) {
+              onOpenAdmin();
+            }
+          }}
           className="flex items-center gap-2 cursor-pointer group"
           id="nav-logo"
+          title={isAdminUser ? "Double-click to open Admin Panel" : undefined}
         >
           {showWebsiteIcon && (websiteIconUrl ? (
             <img 
@@ -310,21 +316,7 @@ export default function Header({
               {tab}
             </button>
           ))}
-          {isAdminUser && (
-            <button
-              onClick={() => {
-                setCurrentTab("admin-auth");
-                setIsMobileMenuOpen(false);
-              }}
-              className={`px-4 py-1.5 rounded-full text-xs font-bold transition-all duration-200 cursor-pointer flex items-center gap-1 bg-purple-700 hover:bg-purple-800 text-white shadow-none ${
-                currentTab === "admin" || currentTab === "admin-auth" ? "ring-2 ring-purple-300" : ""
-              }`}
-              id="nav-link-admin-panel-btn"
-            >
-              <ShieldCheck className="w-3.5 h-3.5 text-white animate-pulse" />
-              <span>Admin Panel</span>
-            </button>
-          )}
+          {/* Admin panel button removed for all users */}
         </div>
 
         {/* Right Interactions */}
@@ -610,20 +602,7 @@ export default function Header({
                       {tab}
                     </button>
                   ))}
-                  {isAdminUser && (
-                    <button
-                      onClick={() => {
-                        setCurrentTab("admin-auth");
-                        setIsMobileMenuOpen(false);
-                      }}
-                      className={`w-full text-left px-4 py-3 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-2 bg-purple-700 text-white ${
-                        currentTab === "admin" || currentTab === "admin-auth" ? "ring-2 ring-purple-300" : ""
-                      }`}
-                    >
-                      <ShieldCheck className="w-4 h-4 text-white animate-pulse" />
-                      <span>Admin Panel</span>
-                    </button>
-                  )}
+                  {/* Admin panel mobile button removed for all users */}
                 </div>
               </div>
 

@@ -209,21 +209,6 @@ export default function Footer({
                   Terms and Conditions of Use
                 </button>
               </li>
-              <li>
-                <button 
-                  onClick={() => setCurrentTab("disclaimer")} 
-                  className={`text-slate-300 hover:text-white transition-all text-left block cursor-pointer ${
-                    currentTab === "disclaimer" ? "text-purple-400 font-bold font-mono" : ""
-                  }`}
-                >
-                  Legal Disclaimer Notice
-                </button>
-              </li>
-              <li>
-                <p className="text-[10px] text-slate-400 leading-normal max-w-xs italic">
-                  *Disclaimer: Realtime telemetry, content adjustments, and message dispatch are saved in standard, cloud-hosted Firebase repositories.
-                </p>
-              </li>
             </ul>
           </div>
 
@@ -234,10 +219,6 @@ export default function Footer({
           <p>
             © 2023 - 2026 {websiteTitle}. All rights reserved.
           </p>
-          <div className="flex items-center gap-1.5 font-mono text-[9px] bg-white/5 px-3 py-1 rounded-full border border-white/5">
-            <Sparkles className="w-3 h-3 text-purple-400" />
-            <span>POWERED BY CLOUD ENGINE</span>
-          </div>
         </div>
 
       </div>
