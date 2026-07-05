@@ -10,8 +10,8 @@ import { BlogPost, UserAccount, NotificationItem } from "../types";
 import { motion, AnimatePresence } from "motion/react";
 
 interface HeaderProps {
-  currentTab: "home" | "articles" | "about" | "privacy" | "terms" | "contact" | "admin-auth" | "admin" | "profile";
-  setCurrentTab: (tab: "home" | "articles" | "about" | "privacy" | "terms" | "contact" | "admin-auth" | "admin" | "profile") => void;
+  currentTab: "home" | "articles" | "about" | "privacy" | "terms" | "contact" | "admin-auth" | "admin" | "profile" | "disclaimer";
+  setCurrentTab: (tab: "home" | "articles" | "about" | "privacy" | "terms" | "contact" | "admin-auth" | "admin" | "profile" | "disclaimer") => void;
   currentUser: UserAccount | null;
   setCurrentUser: (user: UserAccount | null) => void;
   onOpenAdmin: () => void;
@@ -21,6 +21,22 @@ interface HeaderProps {
   showWebsiteIcon?: boolean;
   websiteTitle?: string;
 }
+
+const InstantLogoMini = ({ size = 36 }: { size?: number }) => (
+  <svg width={size} height={size} viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg" className="filter drop-shadow-sm group-hover:scale-105 transition-transform duration-300 shrink-0">
+    <defs>
+      <linearGradient id="navShieldGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+        <stop offset="0%" stopColor="#a855f7" />
+        <stop offset="50%" stopColor="#6366f1" />
+        <stop offset="100%" stopColor="#3b82f6" />
+      </linearGradient>
+    </defs>
+    <rect x="6" y="6" width="88" height="88" rx="24" fill="#0b0f19" stroke="url(#navShieldGrad)" strokeWidth="6" />
+    <path d="M34 36 L22 50 L34 64" stroke="#a855f7" strokeWidth="7" strokeLinecap="round" strokeLinejoin="round" />
+    <path d="M66 36 L78 50 L66 64" stroke="#3b82f6" strokeWidth="7" strokeLinecap="round" strokeLinejoin="round" />
+    <path d="M56 30 L44 70" stroke="#f43f5e" strokeWidth="6.5" strokeLinecap="round" />
+  </svg>
+);
 
 export default function Header({
   currentTab,
@@ -266,9 +282,7 @@ export default function Header({
               referrerPolicy="no-referrer"
             />
           ) : (
-            <div className="w-9 h-9 rounded-2xl bg-gradient-to-tr from-purple-600 via-purple-500 to-indigo-400 flex items-center justify-center text-white font-extrabold text-sm shadow-md shadow-purple-200 group-hover:scale-105 transition-transform duration-300">
-              SP
-            </div>
+            <InstantLogoMini size={36} />
           ))}
           <div className="text-left">
             <h1 className="font-sans font-black text-purple-950 text-sm md:text-base tracking-tight leading-none">

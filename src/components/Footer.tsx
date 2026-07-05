@@ -1,11 +1,11 @@
 import React, { useState, useEffect } from "react";
-import { Youtube, Github, Linkedin, Twitter, Sparkles } from "lucide-react";
+import { Youtube, Mail, Send, Instagram, Facebook, Sparkles } from "lucide-react";
 import { db } from "../firebase";
 import { ref, onValue } from "firebase/database";
 
 interface FooterProps {
-  currentTab: "home" | "articles" | "about" | "privacy" | "terms" | "contact" | "admin-auth" | "admin" | "profile";
-  setCurrentTab: (tab: "home" | "articles" | "about" | "privacy" | "terms" | "contact" | "admin-auth" | "admin" | "profile") => void;
+  currentTab: "home" | "articles" | "about" | "privacy" | "terms" | "contact" | "admin-auth" | "admin" | "profile" | "disclaimer";
+  setCurrentTab: (tab: "home" | "articles" | "about" | "privacy" | "terms" | "contact" | "admin-auth" | "admin" | "profile" | "disclaimer") => void;
   isAdminAuthenticated: boolean;
   websiteIconUrl?: string;
   showWebsiteIcon?: boolean;
@@ -21,11 +21,19 @@ export default function Footer({
   websiteTitle: websiteTitleProp
 }: FooterProps) {
   const [websiteTitle, setWebsiteTitle] = useState(websiteTitleProp || "S pro coder");
-  const [footerLinks, setFooterLinks] = useState({
+  
+  // Dynamic state for social links (with fallbacks)
+  const [socialLinks, setSocialLinks] = useState({
+    gmail: "developershanawar@gmail.com",
+    telegram: "https://t.me/example",
+    instagram: "https://instagram.com",
+    facebook: "https://facebook.com",
     youtube: "https://youtube.com",
-    github: "https://github.com",
-    linkedin: "https://linkedin.com",
-    twitter: "https://twitter.com"
+    showGmail: true,
+    showTelegram: true,
+    showInstagram: true,
+    showFacebook: true,
+    showYoutube: true
   });
 
   useEffect(() => {
@@ -35,7 +43,7 @@ export default function Footer({
   }, [websiteTitleProp]);
 
   useEffect(() => {
-    // Sync title if prop not provided or to ensure live updates
+    // Sync website title
     const titleRef = ref(db, "settings/websiteTitle");
     const unsubTitle = onValue(titleRef, (snapshot) => {
       if (snapshot.exists()) {
@@ -43,17 +51,21 @@ export default function Footer({
       }
     });
 
-    // Sync links
-    const linksRef = ref(db, "settings/footerLinks");
-    const unsubLinks = onValue(linksRef, (snapshot) => {
+    // Sync social links and visibility
+    const socialRef = ref(db, "settings/socialLinks");
+    const unsubSocials = onValue(socialRef, (snapshot) => {
       if (snapshot.exists()) {
-        setFooterLinks(snapshot.val());
+        const val = snapshot.val();
+        setSocialLinks((prev) => ({
+          ...prev,
+          ...val
+        }));
       }
     });
 
     return () => {
       unsubTitle();
-      unsubLinks();
+      unsubSocials();
     };
   }, []);
 
@@ -90,44 +102,63 @@ export default function Footer({
               An advanced, cutting-edge technical hub and AI resource portal. We specialize in bringing clean developer tutorials, next-generation artificial intelligence insights, and robust software architectures straight to your browser.
             </p>
 
-            {/* Social Media accounts */}
-            <div className="flex items-center gap-2.5 pt-2">
-              <a 
-                href={footerLinks.youtube || "https://youtube.com"} 
-                target="_blank" 
-                rel="noreferrer" 
-                className="w-8 h-8 rounded-full bg-white/5 hover:bg-red-600 text-slate-300 hover:text-white flex items-center justify-center transition-all hover:scale-105"
-                title={`${websiteTitle} YouTube Channel`}
-              >
-                <Youtube className="w-4 h-4 fill-current" />
-              </a>
-              <a 
-                href={footerLinks.github || "https://github.com"} 
-                target="_blank" 
-                rel="noreferrer" 
-                className="w-8 h-8 rounded-full bg-white/5 hover:bg-slate-800 text-slate-300 hover:text-white flex items-center justify-center transition-all hover:scale-105"
-                title={`${websiteTitle} GitHub`}
-              >
-                <Github className="w-4 h-4 fill-current" />
-              </a>
-              <a 
-                href={footerLinks.linkedin || "https://linkedin.com"} 
-                target="_blank" 
-                rel="noreferrer" 
-                className="w-8 h-8 rounded-full bg-white/5 hover:bg-blue-600 text-slate-300 hover:text-white flex items-center justify-center transition-all hover:scale-105"
-                title={`${websiteTitle} LinkedIn`}
-              >
-                <Linkedin className="w-4 h-4 fill-current" />
-              </a>
-              <a 
-                href={footerLinks.twitter || "https://twitter.com"} 
-                target="_blank" 
-                rel="noreferrer" 
-                className="w-8 h-8 rounded-full bg-white/5 hover:bg-sky-500 text-slate-300 hover:text-white flex items-center justify-center transition-all hover:scale-105"
-                title={`${websiteTitle} Twitter / X`}
-              >
-                <Twitter className="w-4 h-4 fill-current" />
-              </a>
+            {/* Social Media accounts with visibility toggles */}
+            <div className="flex flex-wrap items-center gap-2.5 pt-2" id="footer-social-icons">
+              {socialLinks.showGmail && (
+                <a 
+                  href={`mailto:${socialLinks.gmail}`} 
+                  target="_blank" 
+                  rel="noreferrer" 
+                  className="w-8 h-8 rounded-full bg-white/5 hover:bg-purple-600 text-slate-300 hover:text-white flex items-center justify-center transition-all hover:scale-105"
+                  title="Contact via Gmail"
+                >
+                  <Mail className="w-4 h-4" />
+                </a>
+              )}
+              {socialLinks.showTelegram && (
+                <a 
+                  href={socialLinks.telegram} 
+                  target="_blank" 
+                  rel="noreferrer" 
+                  className="w-8 h-8 rounded-full bg-white/5 hover:bg-sky-600 text-slate-300 hover:text-white flex items-center justify-center transition-all hover:scale-105"
+                  title="Join Telegram Channel"
+                >
+                  <Send className="w-4 h-4" />
+                </a>
+              )}
+              {socialLinks.showInstagram && (
+                <a 
+                  href={socialLinks.instagram} 
+                  target="_blank" 
+                  rel="noreferrer" 
+                  className="w-8 h-8 rounded-full bg-white/5 hover:bg-pink-600 text-slate-300 hover:text-white flex items-center justify-center transition-all hover:scale-105"
+                  title="Follow on Instagram"
+                >
+                  <Instagram className="w-4 h-4" />
+                </a>
+              )}
+              {socialLinks.showFacebook && (
+                <a 
+                  href={socialLinks.facebook} 
+                  target="_blank" 
+                  rel="noreferrer" 
+                  className="w-8 h-8 rounded-full bg-white/5 hover:bg-blue-600 text-slate-300 hover:text-white flex items-center justify-center transition-all hover:scale-105"
+                  title="Join Facebook Group"
+                >
+                  <Facebook className="w-4 h-4 fill-current" />
+                </a>
+              )}
+              {socialLinks.showYoutube && (
+                <a 
+                  href={socialLinks.youtube} 
+                  target="_blank" 
+                  rel="noreferrer" 
+                  className="w-8 h-8 rounded-full bg-white/5 hover:bg-red-600 text-slate-300 hover:text-white flex items-center justify-center transition-all hover:scale-105"
+                  title="Watch YouTube Channel"
+                >
+                  <Youtube className="w-4 h-4 fill-current" />
+                </a>
+              )}
             </div>
           </div>
 
@@ -176,6 +207,16 @@ export default function Footer({
                   }`}
                 >
                   Terms and Conditions of Use
+                </button>
+              </li>
+              <li>
+                <button 
+                  onClick={() => setCurrentTab("disclaimer")} 
+                  className={`text-slate-300 hover:text-white transition-all text-left block cursor-pointer ${
+                    currentTab === "disclaimer" ? "text-purple-400 font-bold font-mono" : ""
+                  }`}
+                >
+                  Legal Disclaimer Notice
                 </button>
               </li>
               <li>

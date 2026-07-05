@@ -77,6 +77,7 @@ export interface AdminPages {
   aboutContent: string;
   privacyPolicy: string;
   termsAndConditions: string;
+  disclaimerContent: string;
 }
 
 export interface AppState {
