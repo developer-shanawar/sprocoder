@@ -51,13 +51,8 @@ interface AdminPanelProps {
 }
 
 export default function AdminPanel({ onClose, categories, setCategories, onLogout }: AdminPanelProps) {
-  const [activeTab, setActiveTab] = useState<"users" | "articles" | "categories" | "messages" | "pages" | "videos" | "featured" | "analytics" | "fake">("articles");
+  const [activeTab, setActiveTab] = useState<"users" | "articles" | "categories" | "messages" | "pages" | "videos" | "featured" | "analytics">("articles");
   const [loading, setLoading] = useState(false);
-
-  // Fake Views Tab States
-  const [selectedFakeArticleId, setSelectedFakeArticleId] = useState("");
-  const [fakeViewsInput, setFakeViewsInput] = useState<number | "">("");
-  const [fakeSaveSuccess, setFakeSaveSuccess] = useState(false);
 
   // Disclaimer Page and Social Media Configuration States
   const [disclaimerContent, setDisclaimerContent] = useState("");
@@ -468,7 +463,6 @@ export default function AdminPanel({ onClose, categories, setCategories, onLogou
         likes: likes || 0,
         savesCount: savesCount || 0,
         views: existingPost ? (existingPost.views || 0) : 0,
-        fakeViews: (existingPost && existingPost.fakeViews !== undefined) ? existingPost.fakeViews : undefined,
         thumbnailUrl: finalThumbnail,
         isAiGenerated: existingPost ? (existingPost.isAiGenerated || false) : false,
         comments: existingPost ? (existingPost.comments || []) : []
@@ -791,31 +785,6 @@ export default function AdminPanel({ onClose, categories, setCategories, onLogou
     }
   };
 
-  // Save Fake Views settings
-  const handleSaveFakeViews = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!selectedFakeArticleId) {
-      alert("Please select an article first.");
-      return;
-    }
-    
-    setLoading(true);
-    setFakeSaveSuccess(false);
-    try {
-      const viewsVal = fakeViewsInput === "" ? 0 : Number(fakeViewsInput);
-      await update(ref(db, `${DB_PATHS.ARTICLES}/${selectedFakeArticleId}`), {
-        fakeViews: viewsVal
-      });
-      setFakeSaveSuccess(true);
-      setTimeout(() => setFakeSaveSuccess(false), 3000);
-    } catch (err) {
-      console.error("Failed to save fake views:", err);
-      alert("Failed to save fake views. Please try again.");
-    } finally {
-      setLoading(false);
-    }
-  };
-
   return (
     <div className="space-y-6 animate-in fade-in duration-300" id="admin-panel-root">
       <div className="bg-[#f5f0ff] border-2 border-purple-200/80 rounded-[36px] p-6 md:p-8 space-y-6 text-purple-950 shadow-2xl" id="admin-panel-container">
@@ -949,18 +918,6 @@ export default function AdminPanel({ onClose, categories, setCategories, onLogou
           >
             <TrendingUp className="w-4 h-4 text-emerald-500" />
             <span>Live Analytics</span>
-          </button>
-
-          <button
-            onClick={() => setActiveTab("fake")}
-            className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-              activeTab === "fake" 
-                ? "bg-purple-600 text-white shadow-md shadow-purple-100" 
-                : "hover:bg-purple-50 text-purple-800"
-            }`}
-          >
-            <Eye className="w-4 h-4 text-purple-600 fill-purple-650/10" />
-            <span>Fake Views</span>
           </button>
         </div>
 
@@ -1345,25 +1302,16 @@ export default function AdminPanel({ onClose, categories, setCategories, onLogou
                             {art.category}
                           </td>
                           <td className="p-3">
-                            <div className="flex flex-col gap-1 text-[10px] text-gray-500">
-                              <div className="flex items-center gap-3">
-                                <span className="flex items-center gap-0.5" title="Likes">
-                                  <Heart className="w-3 h-3 text-rose-500 fill-rose-500" /> {art.likes}
-                                </span>
-                                <span className="flex items-center gap-0.5" title="Saved Bookmarks">
-                                  <Bookmark className="w-3 h-3 text-purple-600 fill-purple-600" /> {art.savesCount || 0}
-                                </span>
-                              </div>
-                              <div className="flex items-center gap-1.5 font-mono text-[9px]">
-                                <span className="flex items-center gap-0.5 text-purple-900 font-bold" title="Original/Real Organic Views">
-                                  <Eye className="w-3 h-3 text-purple-500" /> {art.views || 0} real
-                                </span>
-                                {art.fakeViews !== undefined && (
-                                  <span className="bg-amber-100 text-amber-800 px-1 rounded font-bold" title="Public Fake Views counter">
-                                    ({art.fakeViews} fake)
-                                  </span>
-                                )}
-                              </div>
+                            <div className="flex items-center gap-3 text-[10px] text-gray-500">
+                              <span className="flex items-center gap-0.5">
+                                <Heart className="w-3 h-3 text-rose-500 fill-rose-500" /> {art.likes}
+                              </span>
+                              <span className="flex items-center gap-0.5">
+                                <Bookmark className="w-3 h-3 text-purple-600 fill-purple-600" /> {art.savesCount || 0}
+                              </span>
+                              <span className="flex items-center gap-0.5">
+                                <Eye className="w-3.5 h-3.5 text-purple-500" /> {art.views || 0}
+                              </span>
                             </div>
                           </td>
                           <td className="p-3 text-right space-x-1.5">
@@ -2499,150 +2447,6 @@ export default function AdminPanel({ onClose, categories, setCategories, onLogou
                   </table>
                 </div>
               </div>
-            </div>
-          )}
-
-          {/* TAB 9: FAKE VIEWS MANAGER */}
-          {activeTab === "fake" && (
-            <div className="space-y-6 animate-in fade-in duration-200" id="tab-fake-content">
-              <div>
-                <h3 className="text-xs font-black text-purple-950 uppercase tracking-wider flex items-center gap-1.5">
-                  <Eye className="w-4 h-4 text-purple-600 fill-purple-600/15" />
-                  <span>Custom Article Fake Views Deck</span>
-                </h3>
-                <p className="text-[10px] text-gray-500">
-                  Configure artificial views metrics for specific articles. Readers will see these fake views, while the admin deck will continue displaying true/original organic database views.
-                </p>
-              </div>
-
-              {/* Selection and Update form */}
-              <form onSubmit={handleSaveFakeViews} className="p-5 rounded-2xl bg-white border border-purple-100 space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="space-y-1">
-                    <label className="text-[10px] font-bold text-purple-900 uppercase tracking-wider block">Select Article to Manage</label>
-                    <select
-                      value={selectedFakeArticleId}
-                      onChange={(e) => {
-                        const artId = e.target.value;
-                        setSelectedFakeArticleId(artId);
-                        const matched = articles.find(a => a.id === artId);
-                        if (matched) {
-                          setFakeViewsInput(matched.fakeViews !== undefined ? matched.fakeViews : "");
-                        } else {
-                          setFakeViewsInput("");
-                        }
-                      }}
-                      className="w-full p-2.5 rounded-xl border border-purple-200 bg-white text-xs text-purple-950 focus:outline-none focus:ring-1 focus:ring-purple-500"
-                    >
-                      <option value="">-- Choose an Article --</option>
-                      {articles.map((art) => (
-                        <option key={art.id} value={art.id}>
-                          {art.title} ({art.category})
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-
-                  <div className="space-y-1">
-                    <label className="text-[10px] font-bold text-purple-900 uppercase tracking-wider block">Set Public-Facing Fake Views Count</label>
-                    <input
-                      type="number"
-                      min="0"
-                      value={fakeViewsInput}
-                      placeholder="Leave empty or set to 0 to fallback to original views"
-                      onChange={(e) => setFakeViewsInput(e.target.value === "" ? "" : Number(e.target.value))}
-                      className="w-full p-2.5 rounded-xl border border-purple-200 bg-white text-xs text-purple-950 focus:outline-none focus:ring-1 focus:ring-purple-500"
-                    />
-                  </div>
-                </div>
-
-                <div className="flex items-center justify-between pt-2">
-                  <div>
-                    {selectedFakeArticleId && (
-                      <p className="text-[10px] font-mono font-semibold text-gray-500">
-                        Organic/Original Views in DB: <span className="text-purple-800 font-bold">{(articles.find(a => a.id === selectedFakeArticleId)?.views) || 0}</span>
-                      </p>
-                    )}
-                  </div>
-                  <button
-                    type="submit"
-                    disabled={loading || !selectedFakeArticleId}
-                    className="bg-purple-600 hover:bg-purple-700 disabled:opacity-40 disabled:hover:bg-purple-600 text-white font-bold text-xs py-2.5 px-5 rounded-xl cursor-pointer flex items-center gap-1 shadow-lg shadow-purple-100 transition-all active:scale-95"
-                  >
-                    <Save className="w-3.5 h-3.5" />
-                    <span>{loading ? "Updating Views..." : "Update Fake Views"}</span>
-                  </button>
-                </div>
-
-                {fakeSaveSuccess && (
-                  <div className="p-3 bg-emerald-50 border border-emerald-100 text-emerald-800 rounded-xl text-xs font-semibold text-center animate-pulse">
-                    Fake views successfully updated! Public visitors will now see this updated views counter.
-                  </div>
-                )}
-              </form>
-
-              {/* Table / List of All Articles and their views */}
-              <div className="space-y-2">
-                <h4 className="text-xs font-black text-purple-950 uppercase tracking-wider">
-                  Articles Views Configuration Overview
-                </h4>
-
-                <div className="overflow-x-auto rounded-xl border border-purple-100 bg-white">
-                  <table className="w-full text-left text-xs border-collapse">
-                    <thead>
-                      <tr className="bg-purple-50 text-purple-950 font-bold border-b border-purple-100">
-                        <th className="p-3">Article Title</th>
-                        <th className="p-3 text-center">Original Views (Internal)</th>
-                        <th className="p-3 text-center">Fake Views (Public)</th>
-                        <th className="p-3 text-right">Actions</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-purple-50">
-                      {articles.map((art) => (
-                        <tr key={art.id} className="hover:bg-purple-50/50">
-                          <td className="p-3">
-                            <p className="font-bold text-purple-950 line-clamp-1">{art.title}</p>
-                            <span className="text-[9px] text-purple-600 font-bold uppercase">{art.category}</span>
-                          </td>
-                          <td className="p-3 text-center font-mono font-bold text-purple-900">
-                            {art.views || 0}
-                          </td>
-                          <td className="p-3 text-center">
-                            {art.fakeViews !== undefined ? (
-                              <span className="bg-amber-100 text-amber-800 text-[10px] font-mono font-bold px-2 py-0.5 rounded-full">
-                                {art.fakeViews} (Fake)
-                              </span>
-                            ) : (
-                              <span className="bg-purple-100 text-purple-800 text-[10px] font-mono font-semibold px-2 py-0.5 rounded-full">
-                                {art.views || 0} (Original)
-                              </span>
-                            )}
-                          </td>
-                          <td className="p-3 text-right">
-                            <button
-                              onClick={() => {
-                                setSelectedFakeArticleId(art.id);
-                                setFakeViewsInput(art.fakeViews !== undefined ? art.fakeViews : "");
-                              }}
-                              className="px-2.5 py-1 text-[10px] font-bold bg-purple-50 hover:bg-purple-100 text-purple-700 border border-purple-200 rounded-lg cursor-pointer transition-all"
-                            >
-                              Edit Views
-                            </button>
-                          </td>
-                        </tr>
-                      ))}
-                      {articles.length === 0 && (
-                        <tr>
-                          <td colSpan={4} className="p-8 text-center text-gray-400">
-                            No articles written yet.
-                          </td>
-                        </tr>
-                      )}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-
             </div>
           )}
 

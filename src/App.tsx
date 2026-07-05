@@ -1322,7 +1322,7 @@ export default function App() {
                             </span>
                             <span className="flex items-center gap-0.5 text-[10px] font-bold text-gray-500" title="Views">
                               <Eye className="w-3.5 h-3.5 text-purple-500" />
-                              <span>{post.fakeViews !== undefined ? post.fakeViews : (post.views || 0)}</span>
+                              <span>{post.views || 0}</span>
                             </span>
                           </div>
                         </div>
