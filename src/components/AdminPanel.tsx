@@ -388,6 +388,19 @@ export default function AdminPanel({ onClose, categories, setCategories, onLogou
         articleId = newArtRef.key as string;
       }
 
+      // Fetch the most up-to-date post from database to avoid overwriting live comments, views, etc.
+      let existingPost: BlogPost | null = null;
+      if (!isNew) {
+        try {
+          const snap = await get(ref(db, `${DB_PATHS.ARTICLES}/${articleId}`));
+          if (snap.exists()) {
+            existingPost = snap.val();
+          }
+        } catch (e) {
+          console.error("Error reading post from DB for merge:", e);
+        }
+      }
+
       const parsedTags = tagsInput.trim()
         ? tagsInput.split(",").map((t) => t.trim().replace(/^#/, "").toLowerCase()).filter(Boolean)
         : [category.toLowerCase(), "tech", "coding"];
@@ -401,14 +414,14 @@ export default function AdminPanel({ onClose, categories, setCategories, onLogou
         readTime: `${Math.max(1, Math.ceil(content.split(/\s+/).length / 200))} min read`,
         tags: parsedTags,
         excerpt: tagline.trim() || content.trim().slice(0, 150) + "...",
-        author: "Admin - S pro coder",
-        date: editingArticle?.date || new Date().toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" }),
-        likes: editingArticle ? (editingArticle.likes || 0) : (likes || 0),
-        savesCount: editingArticle ? (editingArticle.savesCount || 0) : (savesCount || 0),
-        views: editingArticle ? (editingArticle.views || 0) : 0,
+        author: existingPost ? (existingPost.author || "Admin - S pro coder") : "Admin - S pro coder",
+        date: existingPost ? (existingPost.date || new Date().toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" })) : new Date().toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" }),
+        likes: likes || 0,
+        savesCount: savesCount || 0,
+        views: existingPost ? (existingPost.views || 0) : 0,
         thumbnailUrl: finalThumbnail,
-        isAiGenerated: editingArticle ? (editingArticle.isAiGenerated || false) : false,
-        comments: editingArticle?.comments || []
+        isAiGenerated: existingPost ? (existingPost.isAiGenerated || false) : false,
+        comments: existingPost ? (existingPost.comments || []) : []
       };
 
       await set(ref(db, `${DB_PATHS.ARTICLES}/${articleId}`), articlePayload);
@@ -1111,6 +1124,21 @@ export default function AdminPanel({ onClose, categories, setCategories, onLogou
                       title="Blockquote style"
                     >
                       <Quote className="w-3.5 h-3.5" />
+                    </button>
+                    <div className="h-4 w-px bg-purple-200 mx-1" />
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const code = prompt("Paste your Adsterra or other Ad Network HTML/JS code here:");
+                        if (code && code.trim() !== "") {
+                          insertFormatting(`\n\n[AD_CODE_START]\n${code.trim()}\n[AD_CODE_END]\n\n`, "");
+                        }
+                      }}
+                      className="p-1.5 hover:bg-amber-50 border border-transparent hover:border-amber-200 rounded text-amber-800 transition-all cursor-pointer flex items-center gap-1 font-bold text-[10px]"
+                      title="Insert Ad Network Script or Banner Code (Adsterra / AdSense)"
+                    >
+                      <Globe className="w-3.5 h-3.5 text-amber-600 animate-pulse" />
+                      <span>Insert Ad Code</span>
                     </button>
                   </div>
 

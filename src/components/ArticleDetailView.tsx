@@ -18,6 +18,62 @@ import { motion, AnimatePresence } from "motion/react";
 import Markdown from "react-markdown";
 import rehypeRaw from "rehype-raw";
 
+const AdRenderer = ({ code }: { code: string }) => {
+  const containerRef = React.useRef<HTMLDivElement>(null);
+
+  React.useEffect(() => {
+    if (!containerRef.current || !code) return;
+
+    // Clear previous contents
+    containerRef.current.innerHTML = "";
+
+    // Create a safe container
+    const wrapper = document.createElement("div");
+    wrapper.className = "flex flex-col items-center justify-center my-6 py-4 px-2 bg-yellow-50/10 border-2 border-dashed border-yellow-200/60 rounded-2xl max-w-full overflow-hidden text-center";
+    
+    // Tiny elegant label for transparency and compliance
+    const label = document.createElement("span");
+    label.className = "text-[9px] text-yellow-600/60 uppercase tracking-widest font-mono block mb-2 font-bold";
+    label.innerText = "Advertisement Accent";
+    wrapper.appendChild(label);
+
+    // Dynamic iframe or script container to execute nested ad code safely
+    const adContentContainer = document.createElement("div");
+    adContentContainer.className = "w-full flex items-center justify-center min-h-[50px] overflow-auto";
+    wrapper.appendChild(adContentContainer);
+    
+    containerRef.current.appendChild(wrapper);
+
+    // Try parsing and executing scripts
+    try {
+      const tempDiv = document.createElement("div");
+      tempDiv.innerHTML = code;
+      const scripts = tempDiv.getElementsByTagName("script");
+
+      // Set HTML without scripts first
+      const cleanHTML = code.replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, "");
+      adContentContainer.innerHTML = cleanHTML;
+
+      // Execute scripts in order
+      Array.from(scripts).forEach((script) => {
+        const newScript = document.createElement("script");
+        Array.from(script.attributes).forEach((attr) => {
+          newScript.setAttribute(attr.name, attr.value);
+        });
+        if (script.innerHTML) {
+          newScript.innerHTML = script.innerHTML;
+        }
+        adContentContainer.appendChild(newScript);
+      });
+    } catch (err) {
+      console.error("Ad integration parse error:", err);
+      adContentContainer.innerHTML = code;
+    }
+  }, [code]);
+
+  return <div ref={containerRef} className="w-full mx-auto" />;
+};
+
 interface ArticleDetailViewProps {
   post: BlogPost;
   onClose: () => void;
@@ -117,21 +173,21 @@ export default function ArticleDetailView({
       </button>
 
       {/* Main card containing content & actions */}
-      <div className="bg-white/40 backdrop-blur-lg border border-white/60 rounded-[36px] p-6 sm:p-10 shadow-xl space-y-8">
+      <div className="bg-white/40 backdrop-blur-lg border border-white/60 rounded-3xl sm:rounded-[36px] p-4 sm:p-10 shadow-xl space-y-6 sm:space-y-8">
         
         {/* Header Metadata info */}
         <div className="space-y-4">
           <span className="text-[10px] bg-purple-600 text-white px-3.5 py-1 rounded-full font-bold uppercase tracking-widest shadow">
             {post.category}
           </span>
-          <h1 className="text-2xl sm:text-4xl font-black text-purple-950 tracking-tight leading-tight">
+          <h1 className="text-xl sm:text-4xl font-black text-purple-950 tracking-tight leading-tight">
             {post.title}
           </h1>
-          <p className="text-sm sm:text-base text-gray-600 font-medium leading-relaxed italic">
+          <p className="text-xs sm:text-base text-gray-600 font-medium leading-relaxed italic">
             "{post.tagline}"
           </p>
 
-          <div className="flex flex-wrap items-center gap-4 text-xs text-gray-500 font-mono border-y border-purple-100 py-3">
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-xs text-gray-500 font-mono border-y border-purple-100 py-3">
             <span className="flex items-center gap-1.5">
               <Calendar className="w-3.5 h-3.5 text-purple-500" />
               <span>{post.date}</span>
@@ -152,7 +208,7 @@ export default function ArticleDetailView({
         </div>
 
         {/* Thumbnail: Shown with click-to-zoom instruction */}
-        <div className="w-full bg-slate-100/30 rounded-[28px] overflow-hidden p-2 border border-purple-50 flex flex-col items-center justify-center group relative">
+        <div className="w-full bg-slate-100/30 rounded-2xl sm:rounded-[28px] overflow-hidden p-2 border border-purple-50 flex flex-col items-center justify-center group relative">
           <img
             src={post.thumbnailUrl}
             alt={post.title}
@@ -172,49 +228,64 @@ export default function ArticleDetailView({
           {/* Left Column: Article Body (8 cols on desktop) */}
           <div className="lg:col-span-8 space-y-6">
             <article className="prose prose-purple max-w-none text-purple-950">
-              <div className="text-sm sm:text-base leading-relaxed text-slate-800 text-justify">
-                <Markdown
-                  rehypePlugins={[rehypeRaw]}
-                  components={{
-                    p: ({ children }) => <p className="mb-4 leading-relaxed text-slate-800 text-justify">{children}</p>,
-                    a: ({ href, children }) => (
-                      <a 
-                        href={href} 
-                        target="_blank" 
-                        rel="noopener noreferrer" 
-                        className="text-purple-600 font-bold hover:text-purple-850 underline decoration-purple-400 decoration-2 transition-colors cursor-pointer"
-                      >
-                        {children}
-                      </a>
-                    ),
-                    img: ({ src, alt }) => (
-                      <div className="group relative my-4 cursor-zoom-in" onClick={() => src && setLightboxImg(src)}>
-                        <img 
-                          src={src} 
-                          alt={alt} 
-                          className="w-full max-h-[400px] object-cover rounded-2xl border border-purple-100 group-hover:opacity-90 transition-all duration-300 shadow-sm"
-                          referrerPolicy="no-referrer"
-                        />
-                        <span className="absolute bottom-3 right-3 bg-purple-950/80 backdrop-blur-sm text-white text-[8px] px-2 py-0.5 rounded opacity-0 group-hover:opacity-100 transition-all">
-                          Zoom
-                        </span>
-                      </div>
-                    ),
-                    h1: ({ children }) => <h1 className="text-xl font-bold text-purple-950 mt-6 mb-2">{children}</h1>,
-                    h2: ({ children }) => <h2 className="text-lg font-bold text-purple-950 mt-5 mb-2">{children}</h2>,
-                    h3: ({ children }) => <h3 className="text-base font-bold text-purple-950 mt-4 mb-1">{children}</h3>,
-                    ul: ({ children }) => <ul className="list-disc pl-5 mb-4 space-y-1">{children}</ul>,
-                    ol: ({ children }) => <ol className="list-decimal pl-5 mb-4 space-y-1">{children}</ol>,
-                    li: ({ children }) => <li className="text-slate-800">{children}</li>,
-                    blockquote: ({ children }) => (
-                      <blockquote className="border-l-4 border-purple-500 pl-4 italic text-slate-600 my-4 bg-purple-50/50 py-1.5 pr-2 rounded-r-xl">
-                        {children}
-                      </blockquote>
-                    )
-                  }}
-                >
-                  {post.content}
-                </Markdown>
+              <div className="text-sm sm:text-base leading-relaxed text-slate-800 text-left sm:text-justify">
+                {(() => {
+                  if (!post.content) return null;
+                  const parts = post.content.split(/\[AD_CODE_START\]([\s\S]*?)\[AD_CODE_END\]/g);
+                  return parts.map((part, index) => {
+                    if (index % 2 === 0) {
+                      if (!part.trim()) return null;
+                      return (
+                        <Markdown
+                          key={`md-chunk-${index}`}
+                          rehypePlugins={[rehypeRaw]}
+                          components={{
+                            p: ({ children }) => <p className="mb-4 leading-relaxed text-slate-800 text-left sm:text-justify">{children}</p>,
+                            a: ({ href, children }) => (
+                              <a 
+                                href={href} 
+                                target="_blank" 
+                                rel="noopener noreferrer" 
+                                className="text-purple-600 font-bold hover:text-purple-850 underline decoration-purple-400 decoration-2 transition-colors cursor-pointer"
+                              >
+                                {children}
+                              </a>
+                            ),
+                            img: ({ src, alt }) => (
+                              <div className="group relative my-4 cursor-zoom-in" onClick={() => src && setLightboxImg(src)}>
+                                <img 
+                                  src={src} 
+                                  alt={alt} 
+                                  className="w-full max-h-[400px] object-cover rounded-2xl border border-purple-100 group-hover:opacity-90 transition-all duration-300 shadow-sm"
+                                  referrerPolicy="no-referrer"
+                                  loading="lazy"
+                                />
+                                <span className="absolute bottom-3 right-3 bg-purple-950/80 backdrop-blur-sm text-white text-[8px] px-2 py-0.5 rounded opacity-0 group-hover:opacity-100 transition-all">
+                                  Zoom
+                                </span>
+                              </div>
+                            ),
+                            h1: ({ children }) => <h1 className="text-xl font-bold text-purple-950 mt-6 mb-2">{children}</h1>,
+                            h2: ({ children }) => <h2 className="text-lg font-bold text-purple-950 mt-5 mb-2">{children}</h2>,
+                            h3: ({ children }) => <h3 className="text-base font-bold text-purple-950 mt-4 mb-1">{children}</h3>,
+                            ul: ({ children }) => <ul className="list-disc pl-5 mb-4 space-y-1">{children}</ul>,
+                            ol: ({ children }) => <ol className="list-decimal pl-5 mb-4 space-y-1">{children}</ol>,
+                            li: ({ children }) => <li className="text-slate-800">{children}</li>,
+                            blockquote: ({ children }) => (
+                              <blockquote className="border-l-4 border-purple-500 pl-4 italic text-slate-600 my-4 bg-purple-50/50 py-1.5 pr-2 rounded-r-xl">
+                                {children}
+                              </blockquote>
+                            )
+                          }}
+                        >
+                          {part}
+                        </Markdown>
+                      );
+                    } else {
+                      return <AdRenderer key={`ad-chunk-${index}`} code={part} />;
+                    }
+                  });
+                })()}
               </div>
             </article>
 
@@ -379,7 +450,7 @@ export default function ArticleDetailView({
 
                       {/* Nesting Replies */}
                       {comment.replies && comment.replies.length > 0 && (
-                        <div className="pl-6 ml-3 border-l-2 border-purple-100/60 space-y-3">
+                        <div className="pl-3 sm:pl-6 ml-1 sm:ml-3 border-l border-purple-100/60 space-y-3">
                           {comment.replies.map((reply) => (
                             <div key={reply.id} className="flex gap-2 text-left">
                               <img
@@ -420,7 +491,7 @@ export default function ArticleDetailView({
                             animate={{ opacity: 1, height: "auto" }}
                             exit={{ opacity: 0, height: 0 }}
                             onSubmit={(e) => handleReplySubmit(e, comment.id)}
-                            className="pl-6 ml-3 border-l-2 border-purple-200 space-y-2 mt-2"
+                            className="pl-3 sm:pl-6 ml-1 sm:ml-3 border-l border-purple-200 space-y-2 mt-2"
                           >
                             <div className="flex items-start gap-1.5">
                               <CornerDownRight className="w-3.5 h-3.5 text-purple-400 shrink-0 mt-2" />

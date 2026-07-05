@@ -90,11 +90,11 @@ const SplashScreen = ({ iconUrl, title }: { iconUrl: string; title: string }) =>
             <img 
               src={iconUrl} 
               alt={title || "Logo"} 
-              className="w-6 h-6 rounded-lg object-cover shadow-sm border border-black"
+              className="w-9 h-9 rounded-2xl object-cover shadow-md shadow-purple-100"
               referrerPolicy="no-referrer"
             />
           ) : (
-            <div className="w-6 h-6 rounded-lg bg-gradient-to-tr from-purple-600 via-purple-500 to-indigo-400 flex items-center justify-center text-white font-extrabold text-[9px] shadow-sm">
+            <div className="w-9 h-9 rounded-2xl bg-gradient-to-tr from-purple-600 via-purple-500 to-indigo-400 flex items-center justify-center text-white font-extrabold text-sm shadow-md shadow-purple-200">
               SP
             </div>
           )}
@@ -175,6 +175,19 @@ export default function App() {
   const incrementArticleView = async (postId: string, currentViews: number) => {
     if (!postId || incrementedPostIds.current.has(postId)) return;
     incrementedPostIds.current.add(postId);
+
+    // Immediately update local states to prevent stale values in UI
+    setSelectedPost((prev) => {
+      if (prev && prev.id === postId) {
+        return { ...prev, views: (prev.views || 0) + 1 };
+      }
+      return prev;
+    });
+
+    setAllPosts((prev) => 
+      prev.map((p) => p.id === postId ? { ...p, views: (p.views || 0) + 1 } : p)
+    );
+
     try {
       await update(ref(db, `${DB_PATHS.ARTICLES}/${postId}`), {
         views: currentViews + 1
@@ -719,7 +732,14 @@ export default function App() {
     // Increment views in the database
     const currentViews = post.views || 0;
     const updatedPost = { ...post, views: currentViews + 1 };
+    
+    // Track that we incremented this post ID to avoid double-triggers on subsequent loads in the same session
+    incrementedPostIds.current.add(post.id);
+
     setSelectedPost(updatedPost);
+    setAllPosts((prev) => 
+      prev.map((p) => p.id === post.id ? { ...p, views: currentViews + 1 } : p)
+    );
 
     try {
       await update(ref(db, `${DB_PATHS.ARTICLES}/${post.id}`), {
