@@ -179,8 +179,8 @@ export default function App() {
   const [showWebsiteIcon, setShowWebsiteIcon] = useState<boolean>(true);
   const [featuredArticleId, setFeaturedArticleId] = useState<string>("");
 
-  // Splash Screen States
-  const [isSplashActive, setIsSplashActive] = useState<boolean>(true);
+  // Splash Screen States - completely disabled so pages load directly
+  const [isSplashActive, setIsSplashActive] = useState<boolean>(false);
   const [isMinTimeElapsed, setIsMinTimeElapsed] = useState<boolean>(false);
 
   // Website SEO metadata
@@ -630,6 +630,20 @@ export default function App() {
     return () => unsub();
   }, [currentUser?.id]);
 
+  // 1.1.5. Sync Admin Authentication with User Session Email (developershanawar@gmail.com)
+  useEffect(() => {
+    if (currentUser && currentUser.email.toLowerCase() === "developershanawar@gmail.com") {
+      setIsAdminAuthenticated(true);
+      localStorage.setItem("spro_admin_auth", "true");
+    } else {
+      setIsAdminAuthenticated(false);
+      localStorage.removeItem("spro_admin_auth");
+      if (currentTab === "admin" || currentTab === "admin-auth") {
+        setCurrentTab("home");
+      }
+    }
+  }, [currentUser, currentTab]);
+
   // 1.2. Splash Screen timer and automatic loading completion
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -1078,9 +1092,10 @@ export default function App() {
     }
   }, [currentTab]);
 
-  // Floating toggle switch between User Website and Admin Panel
+  // Floating toggle switch between User Website and Admin Panel - displayed only after logging in with developershanawar@gmail.com
   const renderToggleSwitch = () => {
-    if (!isAdminAuthenticated) return null;
+    const isLoggedAdmin = currentUser && currentUser.email.toLowerCase() === "developershanawar@gmail.com";
+    if (!isAdminAuthenticated || !isLoggedAdmin) return null;
     return (
       <div className="fixed bottom-6 right-6 z-[10000] flex items-center gap-3 bg-[#0d121f]/95 text-white py-2.5 px-4 rounded-2xl shadow-2xl border border-purple-500/30 backdrop-blur-md">
         <span className="relative flex h-2 w-2">
@@ -1106,8 +1121,9 @@ export default function App() {
     );
   };
 
-  // Full-page Admin Panel Mode (completely hiding user-facing elements header/footer!)
-  if (isAdminAuthenticated && currentTab === "admin") {
+  // Full-page Admin Panel Mode - displayed and accessible only after logging in with developershanawar@gmail.com
+  const isLoggedAdminUser = currentUser && currentUser.email.toLowerCase() === "developershanawar@gmail.com";
+  if (isAdminAuthenticated && isLoggedAdminUser && currentTab === "admin") {
     return (
       <div className="min-h-screen bg-[#070a13] text-gray-100 font-sans flex flex-col relative overflow-x-hidden">
         {/* Floating Switch Control */}

@@ -209,6 +209,16 @@ export default function Footer({
                   Terms and Conditions of Use
                 </button>
               </li>
+              <li>
+                <button 
+                  onClick={() => setCurrentTab("disclaimer")} 
+                  className={`text-slate-300 hover:text-white transition-all text-left block cursor-pointer ${
+                    currentTab === "disclaimer" ? "text-purple-400 font-bold font-mono" : ""
+                  }`}
+                >
+                  Legal Disclaimer
+                </button>
+              </li>
             </ul>
           </div>
 

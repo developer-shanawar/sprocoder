@@ -316,7 +316,21 @@ export default function Header({
               {tab}
             </button>
           ))}
-          {/* Admin panel button removed for all users */}
+          {isAdminUser && (
+            <button
+              onClick={() => {
+                setCurrentTab("admin");
+                setIsMobileMenuOpen(false);
+              }}
+              className={`px-4 py-1.5 rounded-full text-xs font-bold transition-all duration-200 cursor-pointer flex items-center gap-1 bg-purple-700 hover:bg-purple-800 text-white shadow-none ${
+                currentTab === "admin" ? "ring-2 ring-purple-300" : ""
+              }`}
+              id="nav-link-admin-panel-btn"
+            >
+              <ShieldCheck className="w-3.5 h-3.5 text-white animate-pulse" />
+              <span>Admin Panel</span>
+            </button>
+          )}
         </div>
 
         {/* Right Interactions */}
@@ -602,7 +616,20 @@ export default function Header({
                       {tab}
                     </button>
                   ))}
-                  {/* Admin panel mobile button removed for all users */}
+                  {isAdminUser && (
+                    <button
+                      onClick={() => {
+                        setCurrentTab("admin");
+                        setIsMobileMenuOpen(false);
+                      }}
+                      className={`w-full text-left px-4 py-3 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-2 bg-purple-700 text-white ${
+                        currentTab === "admin" ? "ring-2 ring-purple-300" : ""
+                      }`}
+                    >
+                      <ShieldCheck className="w-4 h-4 text-white animate-pulse" />
+                      <span>Admin Panel</span>
+                    </button>
+                  )}
                 </div>
               </div>
 
