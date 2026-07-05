@@ -184,8 +184,8 @@ export default function App() {
   const [isMinTimeElapsed, setIsMinTimeElapsed] = useState<boolean>(false);
 
   // Website SEO metadata
-  const [websiteTitle, setWebsiteTitle] = useState<string>("S pro coder");
-  const [websiteDescription, setWebsiteDescription] = useState<string>("bespoke digital platform supplying high-end tech tutorials and AI articles.");
+  const [websiteTitle, setWebsiteTitle] = useState<string>("S pro coder | sprocoder.online");
+  const [websiteDescription, setWebsiteDescription] = useState<string>("S pro coder (sprocoder.online) is a premium tech tutorials and professional development portal, supplying high-end tech guides, coding deep dives and AI insights.");
 
   // Database Synced states
   const [allPosts, setAllPosts] = useState<BlogPost[]>([]);
@@ -201,6 +201,7 @@ export default function App() {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [homePaginationIndex, setHomePaginationIndex] = useState(0);
+  const [leftSidebarFilter, setLeftSidebarFilter] = useState<"popular" | "oldest">("popular");
 
   const handleSetSelectedCategory = (cat: string | null) => {
     setSelectedCategory(cat);
@@ -878,29 +879,68 @@ export default function App() {
     }
   }, [allPosts, selectedPost?.id]);
 
+  // Filter out posts that are scheduled to be published in the future
+  const visiblePosts = React.useMemo(() => {
+    return allPosts.filter((post) => {
+      if (post.publishStatus === "scheduled" && post.scheduledDate) {
+        const scheduledTime = new Date(post.scheduledDate).getTime();
+        if (Date.now() < scheduledTime) return false;
+      }
+      return true;
+    });
+  }, [allPosts]);
+
   // Filter posts based on query, selected category, and active view
-  const filteredPosts = allPosts.filter((post) => {
-    const matchesSearch = 
-      post.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      post.tagline.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      post.content.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      post.excerpt.toLowerCase().includes(searchQuery.toLowerCase());
-    
-    const matchesCategory = selectedCategory ? post.category === selectedCategory : true;
-    return matchesSearch && matchesCategory;
-  });
+  const filteredPosts = React.useMemo(() => {
+    return visiblePosts.filter((post) => {
+      const matchesSearch = 
+        post.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        post.tagline.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        post.content.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        post.excerpt.toLowerCase().includes(searchQuery.toLowerCase());
+      
+      const matchesCategory = selectedCategory ? post.category === selectedCategory : true;
+      return matchesSearch && matchesCategory;
+    });
+  }, [visiblePosts, searchQuery, selectedCategory]);
 
   // Find the featured post
-  const featuredPost = allPosts.find((p) => p.id === featuredArticleId) || allPosts[0];
+  const featuredPost = React.useMemo(() => {
+    return visiblePosts.find((p) => p.id === featuredArticleId) || visiblePosts[0];
+  }, [visiblePosts, featuredArticleId]);
 
   // Filter out featured post from regular feed on homepage to avoid duplicate rendering,
   // unless we have an active search/category filter
-  const homeFeedPosts = (selectedCategory || searchQuery)
-    ? filteredPosts
-    : filteredPosts.filter((p) => p.id !== (featuredPost?.id || ""));
+  const homeFeedPosts = React.useMemo(() => {
+    return (selectedCategory || searchQuery)
+      ? filteredPosts
+      : filteredPosts.filter((p) => p.id !== (featuredPost?.id || ""));
+  }, [selectedCategory, searchQuery, filteredPosts, featuredPost]);
 
   const totalHomeFeedPosts = homeFeedPosts.length;
-  const paginatedHomeFeedPosts = homeFeedPosts.slice(homePaginationIndex, homePaginationIndex + 5);
+  const paginatedHomeFeedPosts = React.useMemo(() => {
+    return homeFeedPosts.slice(homePaginationIndex, homePaginationIndex + 5);
+  }, [homeFeedPosts, homePaginationIndex]);
+
+  // Left sidebar Spotlights calculation (Popular vs Oldest)
+  const leftSidebarArticles = React.useMemo(() => {
+    const list = [...visiblePosts];
+    if (leftSidebarFilter === "popular") {
+      // Sort by views + likes + savesCount descending (zadi views and eng)
+      return list
+        .sort((a, b) => {
+          const engA = (a.views || 0) + (a.likes || 0) + (a.savesCount || 0);
+          const engB = (b.views || 0) + (b.likes || 0) + (b.savesCount || 0);
+          return engB - engA;
+        })
+        .slice(0, 5);
+    } else {
+      // Sort oldest uploaded articles first (lexicographical push IDs are chronological)
+      return list
+        .sort((a, b) => a.id.localeCompare(b.id))
+        .slice(0, 5);
+    }
+  }, [visiblePosts, leftSidebarFilter]);
 
   // Selected article reading and history log push
   const handleSelectPost = async (post: BlogPost) => {
@@ -1198,6 +1238,8 @@ export default function App() {
           <React.Suspense fallback={<LoadingSpinner />}>
             <ArticleDetailView 
               post={selectedPost}
+              allPosts={allPosts}
+              onSelectPost={handleSelectPost}
               onClose={() => setSelectedPost(null)}
               isBookmarked={currentUser?.savedArticles?.includes(selectedPost.id) || false}
               onToggleBookmark={() => handleToggleBookmark(selectedPost)}
@@ -1259,6 +1301,75 @@ export default function App() {
                     </button>
                   ))}
                 </div>
+
+                {/* Left Sidebar Spotlight Widget - Popular & Oldest */}
+                <div className="pt-5 border-t border-purple-100/60 space-y-4" id="left-sidebar-widget">
+                  <div className="flex items-center justify-between">
+                    <h3 className="font-sans font-black text-purple-950 text-xs uppercase tracking-widest pl-2">
+                      Spotlight
+                    </h3>
+                    <div className="flex items-center gap-1 bg-purple-50/80 p-0.5 rounded-xl border border-purple-100/50">
+                      <button
+                        onClick={() => setLeftSidebarFilter("popular")}
+                        className={`px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-wider transition-all cursor-pointer border-0 ${
+                          leftSidebarFilter === "popular"
+                            ? "bg-purple-600 text-white shadow-sm"
+                            : "text-purple-950 hover:bg-purple-100"
+                        }`}
+                        id="widget-btn-popular"
+                      >
+                        Popular
+                      </button>
+                      <button
+                        onClick={() => setLeftSidebarFilter("oldest")}
+                        className={`px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-wider transition-all cursor-pointer border-0 ${
+                          leftSidebarFilter === "oldest"
+                            ? "bg-purple-600 text-white shadow-sm"
+                            : "text-purple-950 hover:bg-purple-100"
+                        }`}
+                        id="widget-btn-oldest"
+                      >
+                        Oldest
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="space-y-3 bg-white/45 backdrop-blur-md p-4 rounded-[28px] border-2 border-black/80 shadow-sm">
+                    {leftSidebarArticles.length > 0 ? (
+                      leftSidebarArticles.map((art) => (
+                        <div
+                          key={art.id}
+                          onClick={() => handleSelectPost(art)}
+                          className="flex gap-3 items-center group cursor-pointer border-b border-purple-100/40 last:border-none pb-2.5 last:pb-0"
+                        >
+                          <img
+                            src={art.thumbnailUrl}
+                            alt={art.title}
+                            className="w-11 h-11 rounded-xl object-cover border border-purple-100/50 group-hover:scale-105 transition-transform duration-300 shrink-0"
+                            referrerPolicy="no-referrer"
+                          />
+                          <div className="min-w-0 flex-1">
+                            <h4 className="text-[11px] font-extrabold text-purple-950 leading-tight line-clamp-2 group-hover:text-purple-700 transition-colors">
+                              {art.title}
+                            </h4>
+                            <div className="flex items-center gap-2 mt-1 text-[9px] text-gray-500 font-semibold font-mono">
+                              <span>{art.category}</span>
+                              <span>•</span>
+                              <span className="flex items-center gap-0.5 text-purple-700">
+                                <Eye className="w-2.5 h-2.5" />
+                                <span>{art.views || 0}</span>
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                      ))
+                    ) : (
+                      <p className="text-[10px] text-gray-400 text-center py-2 font-medium">
+                        No articles live.
+                      </p>
+                    )}
+                  </div>
+                </div>
               </div>
 
                {/* Middle Column: Articles Feed */}
@@ -1307,10 +1418,7 @@ export default function App() {
                           </p>
                         </div>
 
-                        <div className="flex items-center justify-between border-t border-purple-50 pt-3">
-                          <span className="text-[10px] text-gray-500 font-bold">
-                            By {post.author}
-                          </span>
+                        <div className="flex items-center justify-end border-t border-purple-50 pt-3">
                           <div className="flex items-center gap-2">
                             <span className="flex items-center gap-0.5 text-[10px] font-bold text-gray-500">
                               <Heart className="w-3.5 h-3.5 text-rose-500 fill-rose-500/10" />

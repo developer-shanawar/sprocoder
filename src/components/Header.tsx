@@ -333,77 +333,79 @@ export default function Header({
           )}
         </div>
 
-        {/* Right Interactions */}
+         {/* Right Interactions */}
         <div className="flex items-center gap-2" id="nav-interactions">
           
-          {/* Notifications Trigger */}
-          <div className="relative">
-            <button
-              onClick={() => {
-                setIsNotifOpen(!isNotifOpen);
-                if (!isNotifOpen) {
-                  markAllNotificationsAsRead();
-                }
-              }}
-              className="p-2.5 rounded-full hover:bg-purple-100 text-purple-950/90 relative cursor-pointer"
-              title="Notifications"
-              id="notif-bell-btn"
-            >
-              <Bell className="w-4 h-4" />
-              {unreadCount > 0 && (
-                <span className="absolute top-1 right-1 w-4 h-4 bg-red-500 text-white rounded-full text-[9px] font-bold flex items-center justify-center animate-bounce">
-                  {unreadCount}
-                </span>
-              )}
-            </button>
+          {/* Notifications Trigger - Only visible when user is logged in */}
+          {currentUser && (
+            <div className="relative">
+              <button
+                onClick={() => {
+                  setIsNotifOpen(!isNotifOpen);
+                  if (!isNotifOpen) {
+                    markAllNotificationsAsRead();
+                  }
+                }}
+                className="p-2.5 rounded-full hover:bg-purple-100 text-purple-950/90 relative cursor-pointer"
+                title="Notifications"
+                id="notif-bell-btn"
+              >
+                <Bell className="w-4 h-4" />
+                {unreadCount > 0 && (
+                  <span className="absolute top-1 right-1 w-4 h-4 bg-red-500 text-white rounded-full text-[9px] font-bold flex items-center justify-center animate-bounce">
+                    {unreadCount}
+                  </span>
+                )}
+              </button>
 
-            {/* Notifications Dropdown Panel */}
-            <AnimatePresence>
-              {isNotifOpen && (
-                <motion.div
-                  initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: 10 }}
-                  className="fixed top-24 left-4 right-4 md:absolute md:top-auto md:left-auto md:right-0 md:w-80 mt-3 bg-white/95 backdrop-blur-xl border border-purple-100 rounded-3xl p-4 shadow-xl z-50 text-purple-950 space-y-3 animate-in"
-                  id="notifications-dropdown"
-                >
-                  <div className="flex items-center justify-between border-b border-purple-100 pb-2">
-                    <h4 className="font-extrabold text-xs uppercase tracking-wider flex items-center gap-1">
-                      <Sparkles className="w-3.5 h-3.5 text-purple-600" />
-                      <span>S pro Alerts</span>
-                    </h4>
-                    <button 
-                      onClick={() => setIsNotifOpen(false)}
-                      className="text-[9px] text-gray-400 font-bold hover:text-purple-950"
-                    >
-                      Dismiss
-                    </button>
-                  </div>
+              {/* Notifications Dropdown Panel */}
+              <AnimatePresence>
+                {isNotifOpen && (
+                  <motion.div
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: 10 }}
+                    className="fixed top-24 left-4 right-4 md:absolute md:top-auto md:left-auto md:right-0 md:w-80 mt-3 bg-white/95 backdrop-blur-xl border border-purple-100 rounded-3xl p-4 shadow-xl z-50 text-purple-950 space-y-3 animate-in"
+                    id="notifications-dropdown"
+                  >
+                    <div className="flex items-center justify-between border-b border-purple-100 pb-2">
+                      <h4 className="font-extrabold text-xs uppercase tracking-wider flex items-center gap-1">
+                        <Sparkles className="w-3.5 h-3.5 text-purple-600" />
+                        <span>S pro Alerts</span>
+                      </h4>
+                      <button 
+                        onClick={() => setIsNotifOpen(false)}
+                        className="text-[9px] text-gray-400 font-bold hover:text-purple-950"
+                      >
+                        Dismiss
+                      </button>
+                    </div>
 
-                  <div className="space-y-2 max-h-60 overflow-y-auto pr-1">
-                    {notifications.length > 0 ? (
-                      notifications.map((notif) => (
-                        <div 
-                          key={notif.id} 
-                          className={`p-2.5 rounded-xl border transition-all text-left ${
-                            notif.isRead ? "bg-white border-purple-50" : "bg-purple-50/70 border-purple-100 font-semibold"
-                          }`}
-                        >
-                          <p className="text-[11px] text-purple-950 leading-snug">{notif.title}</p>
-                          <p className="text-[10px] text-gray-500 leading-normal mt-0.5">{notif.body}</p>
-                          <span className="text-[8px] text-purple-400 font-mono block mt-1">{notif.date}</span>
-                        </div>
-                      ))
-                    ) : (
-                      <p className="text-[11px] text-gray-400 text-center py-4">
-                        No published notifications. New post updates will appear here!
-                      </p>
-                    )}
-                  </div>
-                </motion.div>
-              )}
-            </AnimatePresence>
-          </div>
+                    <div className="space-y-2 max-h-60 overflow-y-auto pr-1">
+                      {notifications.length > 0 ? (
+                        notifications.map((notif) => (
+                          <div 
+                            key={notif.id} 
+                            className={`p-2.5 rounded-xl border transition-all text-left ${
+                              notif.isRead ? "bg-white border-purple-50" : "bg-purple-50/70 border-purple-100 font-semibold"
+                            }`}
+                          >
+                            <p className="text-[11px] text-purple-950 leading-snug">{notif.title}</p>
+                            <p className="text-[10px] text-gray-500 leading-normal mt-0.5">{notif.body}</p>
+                            <span className="text-[8px] text-purple-400 font-mono block mt-1">{notif.date}</span>
+                          </div>
+                        ))
+                      ) : (
+                        <p className="text-[11px] text-gray-400 text-center py-4">
+                          No published notifications. New post updates will appear here!
+                        </p>
+                      )}
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
+          )}
 
           {/* Profile Details or Register/Login Buttons */}
           {currentUser ? (

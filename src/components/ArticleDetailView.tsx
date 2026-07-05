@@ -76,6 +76,8 @@ const AdRenderer = ({ code }: { code: string }) => {
 
 interface ArticleDetailViewProps {
   post: BlogPost;
+  allPosts: BlogPost[];
+  onSelectPost: (post: BlogPost) => void;
   onClose: () => void;
   isBookmarked: boolean;
   onToggleBookmark: () => void;
@@ -88,6 +90,8 @@ interface ArticleDetailViewProps {
 
 export default function ArticleDetailView({
   post,
+  allPosts,
+  onSelectPost,
   onClose,
   isBookmarked,
   onToggleBookmark,
@@ -101,6 +105,24 @@ export default function ArticleDetailView({
   const [activeReplyCommentId, setActiveReplyCommentId] = useState<string | null>(null);
   const [replyText, setReplyText] = useState("");
   const [lightboxImg, setLightboxImg] = useState<string | null>(null);
+
+  // Related articles calculation (max 5) based on shared categories and tags
+  const relatedArticles = React.useMemo(() => {
+    if (!allPosts || allPosts.length === 0) return [];
+    return allPosts
+      .filter((p) => p.id !== post.id)
+      .map((p) => {
+        let score = 0;
+        if (p.category === post.category) score += 5;
+        // Tag overlap score
+        const sharedTags = (p.tags || []).filter(t => (post.tags || []).includes(t));
+        score += sharedTags.length * 2;
+        return { post: p, score };
+      })
+      .sort((a, b) => b.score - a.score || (b.post.views || 0) - (a.post.views || 0))
+      .slice(0, 5)
+      .map(item => item.post);
+  }, [allPosts, post]);
 
   const handleCommentSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -195,10 +217,6 @@ export default function ArticleDetailView({
             <span className="flex items-center gap-1.5">
               <Clock className="w-3.5 h-3.5 text-purple-500" />
               <span>{post.readTime}</span>
-            </span>
-            <span className="flex items-center gap-1.5">
-              <User className="w-3.5 h-3.5 text-purple-500" />
-              <span>Published by {post.author}</span>
             </span>
             <span className="flex items-center gap-1.5">
               <Eye className="w-3.5 h-3.5 text-purple-500" />
@@ -338,6 +356,39 @@ export default function ArticleDetailView({
                 </button>
               </div>
             </div>
+
+            {/* Related Articles Widget (max 5) */}
+            {relatedArticles.length > 0 && (
+              <div className="p-6 rounded-3xl bg-white/45 border border-purple-100 space-y-4 shadow-sm" id="related-articles-sidebar">
+                <h4 className="font-sans font-extrabold text-[10px] text-purple-950 uppercase tracking-widest flex items-center gap-1.5 border-b border-purple-50 pb-2">
+                  <span>Related Articles</span>
+                  <span className="text-purple-600 font-bold">•</span>
+                  <span className="text-gray-400 font-mono text-[9px] lowercase font-normal">matched on keywords</span>
+                </h4>
+                <div className="space-y-3">
+                  {relatedArticles.map((relPost) => (
+                    <div
+                      key={relPost.id}
+                      onClick={() => onSelectPost(relPost)}
+                      className="flex gap-3 items-start group cursor-pointer border-b border-purple-100/30 last:border-none pb-2.5 last:pb-0"
+                    >
+                      <img
+                        src={relPost.thumbnailUrl}
+                        alt={relPost.title}
+                        className="w-12 h-12 rounded-xl object-cover border border-purple-100/50 group-hover:scale-105 transition-transform shrink-0"
+                        referrerPolicy="no-referrer"
+                      />
+                      <div className="min-w-0 flex-1">
+                        <h5 className="text-[11px] font-extrabold text-purple-950 leading-tight line-clamp-2 group-hover:text-purple-700 transition-colors">
+                          {relPost.title}
+                        </h5>
+                        <p className="text-[9px] text-gray-500 font-mono mt-0.5">{relPost.category}</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
 
             {/* Real-time Responsive Discussion Board */}
             <div className="p-6 rounded-3xl bg-white/50 backdrop-blur-md border border-purple-100 space-y-6 shadow-sm">

@@ -35,6 +35,8 @@ export interface BlogPost {
   thumbnailUrl: string; // Dynamic thumbnail URL (ImgBB support)
   isAiGenerated?: boolean;
   comments?: Comment[];
+  publishStatus?: "direct" | "scheduled";
+  scheduledDate?: string;
 }
 
 export interface HistoryEntry {

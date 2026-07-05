@@ -93,6 +93,8 @@ export default function AdminPanel({ onClose, categories, setCategories, onLogou
   const [tagsInput, setTagsInput] = useState("");
   const [isUploading, setIsUploading] = useState(false);
   const [uploadError, setUploadError] = useState("");
+  const [publishStatus, setPublishStatus] = useState<"direct" | "scheduled">("direct");
+  const [scheduledDate, setScheduledDate] = useState("");
 
   // Categories State
   const [newCategoryName, setNewCategoryName] = useState("");
@@ -465,7 +467,9 @@ export default function AdminPanel({ onClose, categories, setCategories, onLogou
         views: existingPost ? (existingPost.views || 0) : 0,
         thumbnailUrl: finalThumbnail,
         isAiGenerated: existingPost ? (existingPost.isAiGenerated || false) : false,
-        comments: existingPost ? (existingPost.comments || []) : []
+        comments: existingPost ? (existingPost.comments || []) : [],
+        publishStatus,
+        scheduledDate: publishStatus === "scheduled" ? scheduledDate : ""
       };
 
       await set(ref(db, `${DB_PATHS.ARTICLES}/${articleId}`), articlePayload);
@@ -475,8 +479,10 @@ export default function AdminPanel({ onClose, categories, setCategories, onLogou
         const newNotifRef = push(ref(db, DB_PATHS.NOTIFICATIONS));
         await set(newNotifRef, {
           id: newNotifRef.key,
-          title: "New Article Published!",
-          body: `"${title.trim()}" is now live in the ${category} category!`,
+          title: publishStatus === "scheduled" ? "New Article Scheduled!" : "New Article Published!",
+          body: publishStatus === "scheduled" 
+            ? `"${title.trim()}" has been scheduled for publication in ${category}!`
+            : `"${title.trim()}" is now live in the ${category} category!`,
           date: new Date().toLocaleDateString("en-US", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" }),
           isRead: false
         });
@@ -492,6 +498,8 @@ export default function AdminPanel({ onClose, categories, setCategories, onLogou
       setThumbnailUrl("");
       setLikes(0);
       setSavesCount(0);
+      setPublishStatus("direct");
+      setScheduledDate("");
       alert("Article saved successfully!");
     } catch (err) {
       console.error(err);
@@ -511,6 +519,8 @@ export default function AdminPanel({ onClose, categories, setCategories, onLogou
     setThumbnailUrl(post.thumbnailUrl);
     setLikes(post.likes);
     setSavesCount(post.savesCount || 0);
+    setPublishStatus(post.publishStatus || "direct");
+    setScheduledDate(post.scheduledDate || "");
   };
 
   const handleDeleteArticle = async (id: string) => {
@@ -1025,6 +1035,57 @@ export default function AdminPanel({ onClose, categories, setCategories, onLogou
                       id="seo-tags-input"
                     />
                   </div>
+
+                  {/* Scheduling System block */}
+                  <div className="space-y-1.5 md:col-span-2 p-4 bg-purple-50 rounded-2xl border border-purple-100 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                    <div className="space-y-0.5">
+                      <label className="text-[10px] font-bold text-purple-950 uppercase tracking-wider block">
+                        Publishing Flow Selection
+                      </label>
+                      <p className="text-[9px] text-gray-500">
+                        Choose whether to publish this article instantly or specify a future publication time.
+                      </p>
+                    </div>
+                    <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
+                      <div className="flex items-center gap-3">
+                        <label className="flex items-center gap-1.5 text-xs text-purple-950 font-bold cursor-pointer">
+                          <input 
+                            type="radio" 
+                            name="publishFlow" 
+                            value="direct" 
+                            checked={publishStatus === "direct"} 
+                            onChange={() => setPublishStatus("direct")} 
+                            className="text-purple-600 focus:ring-purple-500" 
+                          />
+                          <span>Direct Publish</span>
+                        </label>
+                        <label className="flex items-center gap-1.5 text-xs text-purple-950 font-bold cursor-pointer">
+                          <input 
+                            type="radio" 
+                            name="publishFlow" 
+                            value="scheduled" 
+                            checked={publishStatus === "scheduled"} 
+                            onChange={() => setPublishStatus("scheduled")} 
+                            className="text-purple-600 focus:ring-purple-500" 
+                          />
+                          <span>Schedule Publication</span>
+                        </label>
+                      </div>
+
+                      {publishStatus === "scheduled" && (
+                        <div className="flex items-center gap-2 animate-in fade-in slide-in-from-left-2 duration-300">
+                          <span className="text-[10px] font-bold text-purple-900 uppercase shrink-0">Publish Time:</span>
+                          <input 
+                            type="datetime-local" 
+                            required={publishStatus === "scheduled"} 
+                            value={scheduledDate} 
+                            onChange={(e) => setScheduledDate(e.target.value)} 
+                            className="px-3 py-1.5 rounded-lg border border-purple-200 bg-white text-xs focus:outline-none focus:border-purple-500 font-mono" 
+                          />
+                        </div>
+                      )}
+                    </div>
+                  </div>
                 </div>
 
                 {/* ImgBB upload integration */}
@@ -1296,7 +1357,17 @@ export default function AdminPanel({ onClose, categories, setCategories, onLogou
                             />
                           </td>
                           <td className="p-3 font-semibold text-purple-950 max-w-xs truncate">
-                            {art.title}
+                            <div>{art.title}</div>
+                            {art.publishStatus === "scheduled" && (
+                              <div className="mt-1 flex items-center gap-1">
+                                <span className="text-[8px] bg-amber-500 text-white px-2 py-0.5 rounded-full font-black uppercase tracking-wider">
+                                  Scheduled
+                                </span>
+                                <span className="text-[9px] text-amber-700 font-bold">
+                                  {art.scheduledDate ? new Date(art.scheduledDate).toLocaleString() : "Date TBD"}
+                                </span>
+                              </div>
+                            )}
                           </td>
                           <td className="p-3 text-purple-700 font-bold">
                             {art.category}
