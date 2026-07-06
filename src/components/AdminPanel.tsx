@@ -59,14 +59,8 @@ export default function AdminPanel({ onClose, categories, setCategories, onLogou
   const [socialLinks, setSocialLinks] = useState({
     gmail: "developershanawar@gmail.com",
     telegram: "https://t.me/example",
-    instagram: "https://instagram.com",
-    facebook: "https://facebook.com",
-    youtube: "https://youtube.com",
     showGmail: true,
-    showTelegram: true,
-    showInstagram: true,
-    showFacebook: true,
-    showYoutube: true
+    showTelegram: true
   });
   const [socialSaveSuccess, setSocialSaveSuccess] = useState(false);
 
@@ -1816,72 +1810,6 @@ export default function AdminPanel({ onClose, categories, setCategories, onLogou
                       value={socialLinks.telegram}
                       onChange={(e) => setSocialLinks({ ...socialLinks, telegram: e.target.value })}
                       placeholder="https://t.me/example"
-                      className="p-2 border border-purple-150 rounded-lg text-xs w-full sm:w-80 focus:outline-none"
-                    />
-                  </div>
-
-                  {/* Instagram */}
-                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 p-2.5 bg-white rounded-xl border border-purple-100">
-                    <div className="flex items-center gap-2">
-                      <input 
-                        type="checkbox" 
-                        checked={socialLinks.showInstagram}
-                        onChange={(e) => setSocialLinks({ ...socialLinks, showInstagram: e.target.checked })}
-                        className="rounded border-purple-300 text-purple-600 focus:ring-purple-500 h-4 w-4"
-                      />
-                      <span className="text-[11px] font-bold text-purple-950 flex items-center gap-1.5">
-                        <Instagram className="w-3.5 h-3.5 text-pink-500" /> Instagram URL
-                      </span>
-                    </div>
-                    <input 
-                      type="text"
-                      value={socialLinks.instagram}
-                      onChange={(e) => setSocialLinks({ ...socialLinks, instagram: e.target.value })}
-                      placeholder="https://instagram.com/profile"
-                      className="p-2 border border-purple-150 rounded-lg text-xs w-full sm:w-80 focus:outline-none"
-                    />
-                  </div>
-
-                  {/* Facebook */}
-                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 p-2.5 bg-white rounded-xl border border-purple-100">
-                    <div className="flex items-center gap-2">
-                      <input 
-                        type="checkbox" 
-                        checked={socialLinks.showFacebook}
-                        onChange={(e) => setSocialLinks({ ...socialLinks, showFacebook: e.target.checked })}
-                        className="rounded border-purple-300 text-purple-600 focus:ring-purple-500 h-4 w-4"
-                      />
-                      <span className="text-[11px] font-bold text-purple-950 flex items-center gap-1.5">
-                        <Facebook className="w-3.5 h-3.5 text-blue-600" /> Facebook Page
-                      </span>
-                    </div>
-                    <input 
-                      type="text"
-                      value={socialLinks.facebook}
-                      onChange={(e) => setSocialLinks({ ...socialLinks, facebook: e.target.value })}
-                      placeholder="https://facebook.com/page"
-                      className="p-2 border border-purple-150 rounded-lg text-xs w-full sm:w-80 focus:outline-none"
-                    />
-                  </div>
-
-                  {/* YouTube */}
-                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 p-2.5 bg-white rounded-xl border border-purple-100">
-                    <div className="flex items-center gap-2">
-                      <input 
-                        type="checkbox" 
-                        checked={socialLinks.showYoutube}
-                        onChange={(e) => setSocialLinks({ ...socialLinks, showYoutube: e.target.checked })}
-                        className="rounded border-purple-300 text-purple-600 focus:ring-purple-500 h-4 w-4"
-                      />
-                      <span className="text-[11px] font-bold text-purple-950 flex items-center gap-1.5">
-                        <Youtube className="w-3.5 h-3.5 text-red-500 fill-red-500" /> YouTube Link
-                      </span>
-                    </div>
-                    <input 
-                      type="text"
-                      value={socialLinks.youtube}
-                      onChange={(e) => setSocialLinks({ ...socialLinks, youtube: e.target.value })}
-                      placeholder="https://youtube.com/channel"
                       className="p-2 border border-purple-150 rounded-lg text-xs w-full sm:w-80 focus:outline-none"
                     />
                   </div>

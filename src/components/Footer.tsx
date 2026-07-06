@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { Youtube, Mail, Send, Instagram, Facebook, Sparkles } from "lucide-react";
+import { Mail, Send, Sparkles } from "lucide-react";
 import { db } from "../firebase";
 import { ref, onValue } from "firebase/database";
 
@@ -26,14 +26,8 @@ export default function Footer({
   const [socialLinks, setSocialLinks] = useState({
     gmail: "developershanawar@gmail.com",
     telegram: "https://t.me/example",
-    instagram: "https://instagram.com",
-    facebook: "https://facebook.com",
-    youtube: "https://youtube.com",
     showGmail: true,
-    showTelegram: true,
-    showInstagram: true,
-    showFacebook: true,
-    showYoutube: true
+    showTelegram: true
   });
 
   useEffect(() => {
@@ -124,39 +118,6 @@ export default function Footer({
                   title="Join Telegram Channel"
                 >
                   <Send className="w-4 h-4" />
-                </a>
-              )}
-              {socialLinks.showInstagram && (
-                <a 
-                  href={socialLinks.instagram} 
-                  target="_blank" 
-                  rel="noreferrer" 
-                  className="w-8 h-8 rounded-full bg-white/5 hover:bg-pink-600 text-slate-300 hover:text-white flex items-center justify-center transition-all hover:scale-105"
-                  title="Follow on Instagram"
-                >
-                  <Instagram className="w-4 h-4" />
-                </a>
-              )}
-              {socialLinks.showFacebook && (
-                <a 
-                  href={socialLinks.facebook} 
-                  target="_blank" 
-                  rel="noreferrer" 
-                  className="w-8 h-8 rounded-full bg-white/5 hover:bg-blue-600 text-slate-300 hover:text-white flex items-center justify-center transition-all hover:scale-105"
-                  title="Join Facebook Group"
-                >
-                  <Facebook className="w-4 h-4 fill-current" />
-                </a>
-              )}
-              {socialLinks.showYoutube && (
-                <a 
-                  href={socialLinks.youtube} 
-                  target="_blank" 
-                  rel="noreferrer" 
-                  className="w-8 h-8 rounded-full bg-white/5 hover:bg-red-600 text-slate-300 hover:text-white flex items-center justify-center transition-all hover:scale-105"
-                  title="Watch YouTube Channel"
-                >
-                  <Youtube className="w-4 h-4 fill-current" />
                 </a>
               )}
             </div>
