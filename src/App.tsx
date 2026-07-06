@@ -169,8 +169,20 @@ export default function App() {
   });
 
   // Dynamic Website logo icon URL
-  const [websiteIconUrl, setWebsiteIconUrl] = useState<string>("https://storage.googleapis.com/antigravity-artifacts/a808a860-d4d9-4845-b2e8-5a76d694764d/input_file_0.png");
-  const [showWebsiteIcon, setShowWebsiteIcon] = useState<boolean>(true);
+  const [websiteIconUrl, setWebsiteIconUrl] = useState<string>(() => {
+    if (typeof window !== "undefined") {
+      const cached = localStorage.getItem("spro_website_icon");
+      if (cached) return cached;
+    }
+    return "https://storage.googleapis.com/antigravity-artifacts/a808a860-d4d9-4845-b2e8-5a76d694764d/input_file_0.png";
+  });
+  const [showWebsiteIcon, setShowWebsiteIcon] = useState<boolean>(() => {
+    if (typeof window !== "undefined") {
+      const cached = localStorage.getItem("spro_show_website_icon");
+      if (cached !== null) return cached === "true";
+    }
+    return true;
+  });
   const [featuredArticleId, setFeaturedArticleId] = useState<string>("");
 
   // Splash Screen States - show only on home screen refresh
@@ -183,8 +195,20 @@ export default function App() {
   const [isInitialLoading, setIsInitialLoading] = useState<boolean>(true);
 
   // Website SEO metadata
-  const [websiteTitle, setWebsiteTitle] = useState<string>("S pro coder");
-  const [websiteDescription, setWebsiteDescription] = useState<string>("S pro coder (sprocoder.online) is a premium tech tutorials and professional development portal, supplying high-end tech guides, coding deep dives and AI insights.");
+  const [websiteTitle, setWebsiteTitle] = useState<string>(() => {
+    if (typeof window !== "undefined") {
+      const cached = localStorage.getItem("spro_website_title");
+      if (cached) return cached;
+    }
+    return "S pro coder";
+  });
+  const [websiteDescription, setWebsiteDescription] = useState<string>(() => {
+    if (typeof window !== "undefined") {
+      const cached = localStorage.getItem("spro_website_description");
+      if (cached) return cached;
+    }
+    return "S pro coder (sprocoder.online) is a premium tech tutorials and professional development portal, supplying high-end tech guides, coding deep dives and AI insights.";
+  });
 
   // Database Synced states
   const [allPosts, setAllPosts] = useState<BlogPost[]>([]);
@@ -263,8 +287,6 @@ export default function App() {
       .replace(/^-+/, "")
       .replace(/-+$/, "");
   };
-
-  const isLoadingData = isInitialLoading || (isPostRoute && !selectedPost);
 
   // Sync state from browser URL path
   const syncRouteFromUrl = (postsList: BlogPost[]) => {
@@ -681,12 +703,13 @@ export default function App() {
   useEffect(() => {
     const timer = setTimeout(() => {
       setIsMinTimeElapsed(true);
-    }, 2000); // 2.0 seconds minimum display time for clean, polished loading
+    }, 800); // 0.8 seconds minimum display time for super snappy, polished loading
     
-    // Failsafe timer: after 5 seconds, always dismiss splash screen so user never gets stuck
+    // Failsafe timer: after 3 seconds, always dismiss splash screen so user never gets stuck
     const failsafe = setTimeout(() => {
       setIsSplashActive(false);
-    }, 5000);
+      setIsMinTimeElapsed(true);
+    }, 3000);
 
     return () => {
       clearTimeout(timer);
@@ -694,15 +717,20 @@ export default function App() {
     };
   }, []);
 
-  // Dismiss splash screen and loading states when minimum time is elapsed AND articles and categories data are fetched
+  // Dismiss splash screen and loading states when minimum time is elapsed
+  useEffect(() => {
+    if (isMinTimeElapsed) {
+      setIsSplashActive(false);
+      setIsInitialLoading(false);
+    }
+  }, [isMinTimeElapsed]);
+
+  // Handle initial loading completion when database syncs
   useEffect(() => {
     if (allPosts.length > 0 && categories.length > 0) {
       setIsInitialLoading(false);
-      if (isMinTimeElapsed || !isSplashActive) {
-        setIsSplashActive(false);
-      }
     }
-  }, [isMinTimeElapsed, allPosts, categories, isSplashActive]);
+  }, [allPosts, categories]);
 
   // 2. Realtime sync articles, categories, and static pages with Firebase database bootstrap
   useEffect(() => {
@@ -1332,11 +1360,11 @@ export default function App() {
       {/* PRIMARY WORKSPACE MAIN ROUTER */}
       <main className="relative z-10 w-full max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 mt-28 flex-grow">
         
-        {isLoadingData ? (
+        {isPostRoute && !selectedPost ? (
           <div className="flex flex-col items-center justify-center min-h-[45vh] py-16 space-y-4" id="primary-data-loading-indicator">
-            <div className="animate-spin rounded-full h-10 w-10 border-t-2 border-b-2 border-purple-600"></div>
+            <div className="animate-spin rounded-full h-10 w-10 border-t-2 border-b-2 border-purple-600 font-bold"></div>
             <p className="text-xs text-purple-600 font-mono font-bold uppercase tracking-widest animate-pulse">
-              Syncing S pro coder Sanctuary...
+              Loading Article...
             </p>
           </div>
         ) : (selectedPost && (currentTab === "home" || currentTab === "articles")) ? (
