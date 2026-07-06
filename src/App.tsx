@@ -64,7 +64,8 @@ const SplashScreen = ({ iconUrl, title }: { iconUrl: string; title: string }) =>
       initial={{ opacity: 1 }}
       exit={{ opacity: 0 }}
       transition={{ duration: 0.6, ease: "easeInOut" }}
-      className="fixed inset-0 bg-[#f4f0ff] z-[9999] flex flex-col justify-between items-center py-20 px-6 select-none"
+      className="fixed inset-0 w-screen h-[100dvh] bg-[#f4f0ff] z-[999999] flex flex-col justify-between items-center py-12 sm:py-20 px-6 select-none overflow-hidden"
+      style={{ height: "100dvh", width: "100vw", top: 0, left: 0 }}
     >
       <div />
 
@@ -168,13 +169,18 @@ export default function App() {
   });
 
   // Dynamic Website logo icon URL
-  const [websiteIconUrl, setWebsiteIconUrl] = useState<string>("");
+  const [websiteIconUrl, setWebsiteIconUrl] = useState<string>("https://storage.googleapis.com/antigravity-artifacts/a808a860-d4d9-4845-b2e8-5a76d694764d/input_file_0.png");
   const [showWebsiteIcon, setShowWebsiteIcon] = useState<boolean>(true);
   const [featuredArticleId, setFeaturedArticleId] = useState<string>("");
 
-  // Splash Screen States - completely disabled so pages load directly
-  const [isSplashActive, setIsSplashActive] = useState<boolean>(true);
+  // Splash Screen States - show only on home screen refresh
+  const [isSplashActive, setIsSplashActive] = useState<boolean>(() => {
+    if (typeof window === "undefined") return false;
+    const path = window.location.pathname;
+    return path === "/" || path === "" || path === "/home";
+  });
   const [isMinTimeElapsed, setIsMinTimeElapsed] = useState<boolean>(false);
+  const [isInitialLoading, setIsInitialLoading] = useState<boolean>(true);
 
   // Website SEO metadata
   const [websiteTitle, setWebsiteTitle] = useState<string>("S pro coder");
@@ -210,6 +216,9 @@ export default function App() {
 
   // Active reading article
   const [selectedPost, setSelectedPost] = useState<BlogPost | null>(null);
+
+  const isPostRoute = typeof window !== "undefined" && (window.location.pathname.startsWith("/blog/") || window.location.pathname.startsWith("/articles/"));
+  const isPostRouteLoading = isPostRoute && !selectedPost && allPosts.length === 0;
 
   // Ambient lighting parameters (Frosted Glass aesthetics)
   const glowHex = "#a855f7"; // Soft Lavendar Purple Light
@@ -254,6 +263,8 @@ export default function App() {
       .replace(/^-+/, "")
       .replace(/-+$/, "");
   };
+
+  const isLoadingData = isInitialLoading || (isPostRoute && !selectedPost);
 
   // Sync state from browser URL path
   const syncRouteFromUrl = (postsList: BlogPost[]) => {
@@ -358,6 +369,21 @@ export default function App() {
       else if (isPostRoute) {
         const slug = path.split("/").pop() || "";
         try {
+          // Attempt direct fetch of the specific ID first for optimal performance and pure ID targeting
+          const directSnap = await get(ref(db, `${DB_PATHS.ARTICLES}/${slug}`));
+          if (directSnap.exists()) {
+            const matched = directSnap.val();
+            if (matched && matched.id === slug) {
+              setSelectedPost(matched);
+              setCurrentTab("articles");
+              hasParsedInitialPostRoute.current = true;
+              hasParsedInitialRoute.current = true;
+              incrementArticleView(matched.id, matched.views || 0);
+              return;
+            }
+          }
+
+          // Fallback to searching all articles list (by slugified title)
           const snapshot = await get(ref(db, DB_PATHS.ARTICLES));
           if (snapshot.exists()) {
             const data = snapshot.val();
@@ -668,12 +694,15 @@ export default function App() {
     };
   }, []);
 
-  // Dismiss splash screen when minimum time is elapsed AND articles and categories data are fetched
+  // Dismiss splash screen and loading states when minimum time is elapsed AND articles and categories data are fetched
   useEffect(() => {
-    if (isMinTimeElapsed && allPosts.length > 0 && categories.length > 0) {
-      setIsSplashActive(false);
+    if (allPosts.length > 0 && categories.length > 0) {
+      setIsInitialLoading(false);
+      if (isMinTimeElapsed || !isSplashActive) {
+        setIsSplashActive(false);
+      }
     }
-  }, [isMinTimeElapsed, allPosts, categories]);
+  }, [isMinTimeElapsed, allPosts, categories, isSplashActive]);
 
   // 2. Realtime sync articles, categories, and static pages with Firebase database bootstrap
   useEffect(() => {
@@ -1303,9 +1332,17 @@ export default function App() {
       {/* PRIMARY WORKSPACE MAIN ROUTER */}
       <main className="relative z-10 w-full max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 mt-28 flex-grow">
         
-        {(selectedPost && (currentTab === "home" || currentTab === "articles")) ? (
+        {isLoadingData ? (
+          <div className="flex flex-col items-center justify-center min-h-[45vh] py-16 space-y-4" id="primary-data-loading-indicator">
+            <div className="animate-spin rounded-full h-10 w-10 border-t-2 border-b-2 border-purple-600"></div>
+            <p className="text-xs text-purple-600 font-mono font-bold uppercase tracking-widest animate-pulse">
+              Syncing S pro coder Sanctuary...
+            </p>
+          </div>
+        ) : (selectedPost && (currentTab === "home" || currentTab === "articles")) ? (
           <React.Suspense fallback={<LoadingSpinner />}>
             <ArticleDetailView 
+              key={selectedPost.id}
               post={selectedPost}
               allPosts={allPosts}
               onSelectPost={handleSelectPost}
