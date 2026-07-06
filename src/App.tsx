@@ -46,9 +46,7 @@ const InstantLogo = ({ size = 96, className = "" }: { size?: number; className?:
   </svg>
 );
 
-const SplashScreen = ({ iconUrl, title }: { iconUrl: string; title: string }) => {
-  const logoSrc = iconUrl || "https://storage.googleapis.com/antigravity-artifacts/a808a860-d4d9-4845-b2e8-5a76d694764d/input_file_0.png";
-
+const SplashScreen = () => {
   return (
     <motion.div 
       initial={{ opacity: 1 }}
@@ -57,40 +55,12 @@ const SplashScreen = ({ iconUrl, title }: { iconUrl: string; title: string }) =>
       className="fixed inset-0 w-screen h-[100dvh] bg-slate-50 z-[999999] flex flex-col justify-center items-center px-6 select-none overflow-hidden"
       style={{ height: "100dvh", width: "100vw", top: 0, left: 0 }}
     >
-      <div className="flex flex-col items-center justify-center space-y-6">
-        <motion.div
-          animate={{ 
-            scale: [0.95, 1.05, 0.95],
-          }}
-          transition={{ 
-            duration: 2.0, 
-            repeat: Infinity,
-            ease: "easeInOut",
-          }}
-          className="relative animate-in zoom-in duration-300"
-        >
-          <img 
-            src={logoSrc} 
-            alt={title || "S pro coder logo"} 
-            className="w-20 h-20 sm:w-24 sm:h-24 rounded-full object-cover shadow-xl border-4 border-purple-500/10"
-            referrerPolicy="no-referrer"
-          />
-        </motion.div>
-
-        <div className="text-center space-y-1 animate-in slide-in-from-bottom duration-500">
-          <h2 className="text-base sm:text-lg font-black text-purple-950 tracking-wider font-sans uppercase">
-            {title || "S pro coder"}
-          </h2>
-          <p className="text-[10px] text-purple-600/60 font-mono tracking-widest uppercase font-bold">
-            Loading Resources...
-          </p>
-        </div>
-
+      <div className="flex flex-col items-center justify-center">
         {/* Center 3 Bouncing Dots Loading Screen */}
-        <div className="flex items-center gap-2 pt-2">
-          <span className="w-3 h-3 bg-purple-600 rounded-full animate-bounce [animation-delay:-0.3s]"></span>
-          <span className="w-3 h-3 bg-purple-500 rounded-full animate-bounce [animation-delay:-0.15s]"></span>
-          <span className="w-3 h-3 bg-indigo-600 rounded-full animate-bounce"></span>
+        <div className="flex items-center gap-2">
+          <span className="w-3.5 h-3.5 bg-purple-600 rounded-full animate-bounce [animation-delay:-0.3s]"></span>
+          <span className="w-3.5 h-3.5 bg-purple-500 rounded-full animate-bounce [animation-delay:-0.15s]"></span>
+          <span className="w-3.5 h-3.5 bg-indigo-600 rounded-full animate-bounce"></span>
         </div>
       </div>
     </motion.div>
@@ -200,7 +170,12 @@ export default function App() {
   // Active reading article
   const [selectedPost, setSelectedPost] = useState<BlogPost | null>(null);
 
-  const isPostRoute = typeof window !== "undefined" && (window.location.pathname.startsWith("/blog/") || window.location.pathname.startsWith("/articles/"));
+  // Path Routing State driven by state machine to solve navigation loading issues
+  const [currentPath, setCurrentPath] = useState<string>(() => {
+    return typeof window !== "undefined" ? window.location.pathname : "/";
+  });
+
+  const isPostRoute = currentPath.startsWith("/blog/") || currentPath.startsWith("/articles/");
   const isPostRouteLoading = isPostRoute && !selectedPost && allPosts.length === 0;
 
   // Ambient lighting parameters (Frosted Glass aesthetics)
@@ -250,6 +225,7 @@ export default function App() {
   // Sync state from browser URL path
   const syncRouteFromUrl = (postsList: BlogPost[]) => {
     const path = window.location.pathname;
+    setCurrentPath(path);
     
     if (!path || path === "/" || path === "") {
       setCurrentTab("home");
@@ -463,6 +439,7 @@ export default function App() {
     if (window.location.pathname !== targetPath) {
       window.history.pushState(null, "", targetPath);
     }
+    setCurrentPath(targetPath);
   }, [currentTab, selectedPost]);
 
   // Real-time Visitor hit tracker for Web Analytics
@@ -658,12 +635,18 @@ export default function App() {
     }
   }, [currentUser, currentTab]);
 
-  // Mark data as loaded when articles and categories exist
+  // Mark data as loaded when articles and categories exist (or if on an article page, as soon as the article is loaded)
   useEffect(() => {
-    if (allPosts.length > 0 && categories.length > 0) {
-      setIsDataLoaded(true);
+    if (isPostRoute) {
+      if (selectedPost) {
+        setIsDataLoaded(true);
+      }
+    } else {
+      if (allPosts.length > 0 && categories.length > 0) {
+        setIsDataLoaded(true);
+      }
     }
-  }, [allPosts, categories]);
+  }, [allPosts, categories, selectedPost, isPostRoute]);
 
   // 1.2. Splash Screen timer and automatic loading completion
   useEffect(() => {
@@ -1296,7 +1279,7 @@ export default function App() {
       {/* SPLASH SCREEN */}
       <AnimatePresence>
         {isSplashActive && (
-          <SplashScreen iconUrl={websiteIconUrl} title={websiteTitle} />
+          <SplashScreen />
         )}
       </AnimatePresence>
       
