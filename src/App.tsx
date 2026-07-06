@@ -117,11 +117,42 @@ export default function App() {
   const [isSplashActive, setIsSplashActive] = useState<boolean>(() => {
     if (typeof window === "undefined") return false;
     const path = window.location.pathname;
+    const isPost = path.startsWith("/blog/") || path.startsWith("/articles/");
+    if (isPost && (window as any).__INITIAL_POST__) {
+      return false;
+    }
     return path === "/" || path === "" || path === "/home";
   });
-  const [isMinTimeElapsed, setIsMinTimeElapsed] = useState<boolean>(false);
-  const [isInitialLoading, setIsInitialLoading] = useState<boolean>(true);
-  const [isDataLoaded, setIsDataLoaded] = useState<boolean>(false);
+  const [isMinTimeElapsed, setIsMinTimeElapsed] = useState<boolean>(() => {
+    if (typeof window !== "undefined") {
+      const path = window.location.pathname;
+      const isPost = path.startsWith("/blog/") || path.startsWith("/articles/");
+      if (isPost && (window as any).__INITIAL_POST__) {
+        return true;
+      }
+    }
+    return false;
+  });
+  const [isInitialLoading, setIsInitialLoading] = useState<boolean>(() => {
+    if (typeof window !== "undefined") {
+      const path = window.location.pathname;
+      const isPost = path.startsWith("/blog/") || path.startsWith("/articles/");
+      if (isPost && (window as any).__INITIAL_POST__) {
+        return false;
+      }
+    }
+    return true;
+  });
+  const [isDataLoaded, setIsDataLoaded] = useState<boolean>(() => {
+    if (typeof window !== "undefined") {
+      const path = window.location.pathname;
+      const isPost = path.startsWith("/blog/") || path.startsWith("/articles/");
+      if (isPost && (window as any).__INITIAL_POST__) {
+        return true;
+      }
+    }
+    return false;
+  });
 
   // Website SEO metadata
   const [websiteTitle, setWebsiteTitle] = useState<string>(() => {
@@ -168,7 +199,12 @@ export default function App() {
   };
 
   // Active reading article
-  const [selectedPost, setSelectedPost] = useState<BlogPost | null>(null);
+  const [selectedPost, setSelectedPost] = useState<BlogPost | null>(() => {
+    if (typeof window !== "undefined" && (window as any).__INITIAL_POST__) {
+      return (window as any).__INITIAL_POST__;
+    }
+    return null;
+  });
 
   // Path Routing State driven by state machine to solve navigation loading issues
   const [currentPath, setCurrentPath] = useState<string>(() => {
@@ -258,7 +294,8 @@ export default function App() {
       setCurrentTab("admin");
       setSelectedPost(null);
     } else if (path.startsWith("/blog/") || path.startsWith("/articles/")) {
-      const slug = path.split("/").pop() || "";
+      const rawSlug = path.split("/").pop() || "";
+      const slug = rawSlug.replace(/\.html$/, "");
       const matched = postsList.find(
         (p) => slugify(p.title) === slug || p.id === slug
       );
@@ -283,6 +320,14 @@ export default function App() {
       const path = window.location.pathname;
       const isPostRoute = path.startsWith("/blog/") || path.startsWith("/articles/");
       
+      if (isPostRoute && (window as any).__INITIAL_POST__) {
+        hasParsedInitialPostRoute.current = true;
+        hasParsedInitialRoute.current = true;
+        const matched = (window as any).__INITIAL_POST__;
+        incrementArticleView(matched.id, matched.views || 0);
+        return;
+      }
+
       // Determine initial tab based on path
       if (!isPostRoute) {
         syncRouteFromUrl([]);
@@ -324,7 +369,8 @@ export default function App() {
       }
       // 4. If path is an Article/Blog post, dynamically fetch the specific article matching slug/ID
       else if (isPostRoute) {
-        const slug = path.split("/").pop() || "";
+        const rawSlug = path.split("/").pop() || "";
+        const slug = rawSlug.replace(/\.html$/, "");
         try {
           // Attempt direct fetch of the specific ID first for optimal performance and pure ID targeting
           const directSnap = await get(ref(db, `${DB_PATHS.ARTICLES}/${slug}`));
