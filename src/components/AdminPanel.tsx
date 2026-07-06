@@ -51,7 +51,7 @@ interface AdminPanelProps {
 }
 
 export default function AdminPanel({ onClose, categories, setCategories, onLogout }: AdminPanelProps) {
-  const [activeTab, setActiveTab] = useState<"users" | "articles" | "categories" | "messages" | "pages" | "videos" | "featured" | "analytics">("articles");
+  const [activeTab, setActiveTab] = useState<"users" | "articles" | "categories" | "messages" | "pages" | "videos" | "featured" | "analytics" | "customCode">("articles");
   const [loading, setLoading] = useState(false);
 
   // Disclaimer Page and Social Media Configuration States
@@ -148,6 +148,11 @@ export default function AdminPanel({ onClose, categories, setCategories, onLogou
   const [websiteTitle, setWebsiteTitle] = useState("S pro coder");
   const [websiteDescription, setWebsiteDescription] = useState("bespoke digital platform supplying high-end tech tutorials and AI articles.");
   const [seoSaveSuccess, setSeoSaveSuccess] = useState(false);
+
+  // Script & Verification Code Injection states
+  const [customHeadCode, setCustomHeadCode] = useState("");
+  const [customBodyCode, setCustomBodyCode] = useState("");
+  const [customCodeSaveSuccess, setCustomCodeSaveSuccess] = useState(false);
 
   // Article rich text area ref
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -332,6 +337,15 @@ export default function AdminPanel({ onClose, categories, setCategories, onLogou
     get(ref(db, "settings/websiteDescription")).then((snapshot) => {
       if (snapshot.exists()) {
         setWebsiteDescription(snapshot.val());
+      }
+    });
+
+    // 13. Load Custom Injection Code
+    get(ref(db, "settings/customCode")).then((snapshot) => {
+      if (snapshot.exists()) {
+        const val = snapshot.val();
+        setCustomHeadCode(val.headCode || "");
+        setCustomBodyCode(val.bodyCode || "");
       }
     });
 
@@ -795,6 +809,26 @@ export default function AdminPanel({ onClose, categories, setCategories, onLogou
     }
   };
 
+  // Save Script & Ownership Verification custom code
+  const handleSaveCustomCode = async () => {
+    setLoading(true);
+    setCustomCodeSaveSuccess(false);
+    try {
+      await set(ref(db, "settings/customCode"), {
+        headCode: customHeadCode,
+        bodyCode: customBodyCode
+      });
+      setCustomCodeSaveSuccess(true);
+      setTimeout(() => setCustomCodeSaveSuccess(false), 3000);
+      alert("Verification & Ad Scripts injected successfully!");
+    } catch (err) {
+      console.error(err);
+      alert("Failed to inject scripts.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <div className="space-y-6 animate-in fade-in duration-300" id="admin-panel-root">
       <div className="bg-[#f5f0ff] border-2 border-purple-200/80 rounded-[36px] p-6 md:p-8 space-y-6 text-purple-950 shadow-2xl" id="admin-panel-container">
@@ -928,6 +962,18 @@ export default function AdminPanel({ onClose, categories, setCategories, onLogou
           >
             <TrendingUp className="w-4 h-4 text-emerald-500" />
             <span>Live Analytics</span>
+          </button>
+
+          <button
+            onClick={() => setActiveTab("customCode")}
+            className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+              activeTab === "customCode" 
+                ? "bg-purple-600 text-white shadow-md shadow-purple-100" 
+                : "hover:bg-purple-50 text-purple-800"
+            }`}
+          >
+            <Globe className="w-4 h-4 text-purple-600" />
+            <span>Ad & Ownership Verification</span>
           </button>
         </div>
 
@@ -2517,6 +2563,93 @@ export default function AdminPanel({ onClose, categories, setCategories, onLogou
                     </tbody>
                   </table>
                 </div>
+              </div>
+            </div>
+          )}
+
+          {/* TAB 8: AD & OWNERSHIP VERIFICATION CODE INJECTION */}
+          {activeTab === "customCode" && (
+            <div className="space-y-6 animate-in fade-in duration-200" id="tab-customcode-content">
+              <div className="flex items-center justify-between border-b border-purple-100 pb-2">
+                <div>
+                  <h3 className="text-sm font-black text-purple-950 uppercase tracking-wider flex items-center gap-1.5">
+                    <Globe className="w-4 h-4 text-purple-600" />
+                    <span>Ad Networks & Ownership Verification Setup</span>
+                  </h3>
+                  <p className="text-[11px] text-gray-500">
+                    Inject custom meta tags, CSS styles, Google AdSense verification scripts, or tracking pixels into the head or body of S pro coder.
+                  </p>
+                </div>
+                {customCodeSaveSuccess && (
+                  <span className="text-xs text-emerald-600 font-bold flex items-center gap-1 animate-bounce">
+                    <Check className="w-4 h-4" />
+                    <span>Injected Code Updated Live!</span>
+                  </span>
+                )}
+              </div>
+
+              <div className="space-y-5">
+                {/* HEAD CODE INJECTION */}
+                <div className="space-y-2 p-5 rounded-2xl bg-purple-50/70 border border-purple-100">
+                  <div className="flex items-center justify-between">
+                    <label className="text-xs font-black text-purple-900 uppercase tracking-wider block">
+                      Header Code Injection (Inside &lt;head&gt; tag)
+                    </label>
+                    <span className="text-[9px] bg-purple-100 text-purple-700 font-mono px-2 py-0.5 rounded font-bold">
+                      &lt;head&gt; Section
+                    </span>
+                  </div>
+                  <p className="text-[10px] text-gray-500 leading-normal">
+                    This code will be placed dynamically inside the HTML <code>&lt;head&gt;</code> element. Perfect for ownership verification meta tags (like Google Search Console, or Ad Networks verification), custom stylesheets, and preconnect scripts.
+                  </p>
+                  <textarea 
+                    rows={8}
+                    value={customHeadCode}
+                    onChange={(e) => setCustomHeadCode(e.target.value)}
+                    placeholder="e.g. <meta name='google-site-verification' content='...' />"
+                    className="w-full p-3 rounded-xl border border-purple-200 bg-white text-xs font-mono focus:outline-none focus:border-purple-500 shadow-sm leading-relaxed"
+                  />
+                  <div className="flex items-center justify-between text-[10px] text-gray-400">
+                    <span>Supports HTML elements like &lt;meta&gt;, &lt;link&gt;, &lt;script&gt;, &lt;style&gt;</span>
+                    <span>Length: {customHeadCode.length} chars</span>
+                  </div>
+                </div>
+
+                {/* BODY CODE INJECTION */}
+                <div className="space-y-2 p-5 rounded-2xl bg-purple-50/70 border border-purple-100">
+                  <div className="flex items-center justify-between">
+                    <label className="text-xs font-black text-purple-900 uppercase tracking-wider block">
+                      Body Code Injection (Directly after &lt;body&gt; opens)
+                    </label>
+                    <span className="text-[9px] bg-purple-100 text-purple-700 font-mono px-2 py-0.5 rounded font-bold">
+                      &lt;body&gt; Section
+                    </span>
+                  </div>
+                  <p className="text-[10px] text-gray-500 leading-normal">
+                    This code will be injected dynamically at the beginning of the <code>&lt;body&gt;</code> element. Best for ad loading scripts, tag managers, tracking pixels (like Facebook Pixel), or custom banner notices.
+                  </p>
+                  <textarea 
+                    rows={8}
+                    value={customBodyCode}
+                    onChange={(e) => setCustomBodyCode(e.target.value)}
+                    placeholder="e.g. <!-- Ad network scripts or custom tags -->"
+                    className="w-full p-3 rounded-xl border border-purple-200 bg-white text-xs font-mono focus:outline-none focus:border-purple-500 shadow-sm leading-relaxed"
+                  />
+                  <div className="flex items-center justify-between text-[10px] text-gray-400">
+                    <span>Supports HTML tags, script scripts, div elements, etc.</span>
+                    <span>Length: {customBodyCode.length} chars</span>
+                  </div>
+                </div>
+
+                {/* Save button */}
+                <button 
+                  onClick={handleSaveCustomCode}
+                  disabled={loading}
+                  className="w-full bg-purple-600 hover:bg-purple-700 text-white font-bold text-xs py-3 rounded-2xl cursor-pointer flex items-center justify-center gap-1.5 shadow-md shadow-purple-100 active:scale-95 transition-transform font-bold"
+                >
+                  <Save className="w-4 h-4" />
+                  <span>{loading ? "Injecting Live Codes..." : "Save Code Injection Setup"}</span>
+                </button>
               </div>
             </div>
           )}

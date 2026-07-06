@@ -57,12 +57,14 @@ const SplashScreen = ({ iconUrl, title }: { iconUrl: string; title: string }) =>
     return () => clearTimeout(timer);
   }, []);
 
+  const logoSrc = iconUrl || "https://storage.googleapis.com/antigravity-artifacts/a808a860-d4d9-4845-b2e8-5a76d694764d/input_file_0.png";
+
   return (
     <motion.div 
       initial={{ opacity: 1 }}
       exit={{ opacity: 0 }}
       transition={{ duration: 0.6, ease: "easeInOut" }}
-      className="fixed inset-0 bg-[#090d16] z-[9999] flex flex-col justify-between items-center py-20 px-6 select-none"
+      className="fixed inset-0 bg-[#f4f0ff] z-[9999] flex flex-col justify-between items-center py-20 px-6 select-none"
     >
       <div />
 
@@ -73,7 +75,6 @@ const SplashScreen = ({ iconUrl, title }: { iconUrl: string; title: string }) =>
           animate={{ 
             scale: [0.8, 1.15, 1], 
             opacity: [0, 1, 1],
-            filter: ["brightness(1) blur(2px)", "brightness(2.2) blur(0px)", "brightness(1)"]
           }}
           transition={{ 
             duration: 1.0, 
@@ -81,34 +82,30 @@ const SplashScreen = ({ iconUrl, title }: { iconUrl: string; title: string }) =>
           }}
           className="relative"
         >
-          {iconUrl ? (
-            <img 
-              src={iconUrl} 
-              alt={title || "Logo"} 
-              className="w-24 h-24 rounded-[28px] object-cover shadow-2xl border-2 border-purple-500/20"
-              referrerPolicy="no-referrer"
-            />
-          ) : (
-            <InstantLogo size={96} />
-          )}
+          <img 
+            src={logoSrc} 
+            alt={title || "S pro coder logo"} 
+            className="w-24 h-24 rounded-full object-cover shadow-2xl border-4 border-purple-500/20"
+            referrerPolicy="no-referrer"
+          />
           {/* Outer bright aura ring flash effect */}
           <motion.div 
             initial={{ opacity: 0, scale: 0.8 }}
             animate={{ opacity: [0, 0.8, 0], scale: [0.8, 1.6, 1.8] }}
             transition={{ duration: 1.0, ease: "easeOut" }}
-            className="absolute inset-0 bg-purple-500/30 rounded-[32px] blur-xl -z-10"
+            className="absolute inset-0 bg-purple-500/20 rounded-full blur-xl -z-10"
           />
         </motion.div>
 
         <div className="flex items-center gap-1.5 pt-4">
-          <span className="w-2 h-2 bg-purple-500 rounded-full animate-bounce [animation-delay:-0.3s]"></span>
-          <span className="w-2 h-2 bg-purple-400 rounded-full animate-bounce [animation-delay:-0.15s]"></span>
-          <span className="w-2 h-2 bg-indigo-500 rounded-full animate-bounce"></span>
+          <span className="w-2 h-2 bg-purple-600 rounded-full animate-bounce [animation-delay:-0.3s]"></span>
+          <span className="w-2 h-2 bg-purple-500 rounded-full animate-bounce [animation-delay:-0.15s]"></span>
+          <span className="w-2 h-2 bg-indigo-600 rounded-full animate-bounce"></span>
         </div>
       </div>
 
       {/* BOTTOM BRANDING: LOADS AFTER THE FLASH DISPLAYS */}
-      <div className="h-20 flex items-center justify-center">
+      <div className="h-24 flex items-center justify-center">
         <AnimatePresence>
           {showBottomIcon && (
             <motion.div 
@@ -118,25 +115,21 @@ const SplashScreen = ({ iconUrl, title }: { iconUrl: string; title: string }) =>
               transition={{ duration: 0.6, ease: "easeOut" }}
               className="flex flex-col items-center justify-center space-y-2 text-center"
             >
-              <p className="text-[9px] text-purple-400/60 font-mono tracking-widest uppercase">From</p>
+              <p className="text-[10px] text-purple-600/60 font-mono tracking-widest uppercase font-bold">website</p>
               
               <div className="flex items-center gap-2.5">
-                {iconUrl ? (
-                  <img 
-                    src={iconUrl} 
-                    alt={title || "Logo"} 
-                    className="w-9 h-9 rounded-2xl object-cover shadow-lg border border-purple-500/10"
-                    referrerPolicy="no-referrer"
-                  />
-                ) : (
-                  <InstantLogo size={36} />
-                )}
-                <h2 className="text-sm font-black text-white tracking-wider font-sans uppercase">
+                <img 
+                  src={logoSrc} 
+                  alt={title || "S pro coder logo"} 
+                  className="w-8 h-8 rounded-full object-cover shadow-lg border border-purple-500/10"
+                  referrerPolicy="no-referrer"
+                />
+                <h2 className="text-sm font-black text-purple-950 tracking-wider font-sans uppercase">
                   {title || "S pro coder"}
                 </h2>
               </div>
               
-              <p className="text-[10px] text-purple-400/40 font-mono tracking-widest uppercase">Developer sanctuary</p>
+              <p className="text-[10px] text-purple-500/40 font-mono tracking-widest uppercase">Developer sanctuary</p>
             </motion.div>
           )}
         </AnimatePresence>
@@ -180,11 +173,11 @@ export default function App() {
   const [featuredArticleId, setFeaturedArticleId] = useState<string>("");
 
   // Splash Screen States - completely disabled so pages load directly
-  const [isSplashActive, setIsSplashActive] = useState<boolean>(false);
+  const [isSplashActive, setIsSplashActive] = useState<boolean>(true);
   const [isMinTimeElapsed, setIsMinTimeElapsed] = useState<boolean>(false);
 
   // Website SEO metadata
-  const [websiteTitle, setWebsiteTitle] = useState<string>("S pro coder | sprocoder.online");
+  const [websiteTitle, setWebsiteTitle] = useState<string>("S pro coder");
   const [websiteDescription, setWebsiteDescription] = useState<string>("S pro coder (sprocoder.online) is a premium tech tutorials and professional development portal, supplying high-end tech guides, coding deep dives and AI insights.");
 
   // Database Synced states
@@ -196,6 +189,8 @@ export default function App() {
   const [privacyPolicy, setPrivacyPolicy] = useState("");
   const [termsAndConditions, setTermsAndConditions] = useState("");
   const [disclaimerContent, setDisclaimerContent] = useState("");
+  const [customHeadCode, setCustomHeadCode] = useState("");
+  const [customBodyCode, setCustomBodyCode] = useState("");
 
   // Search and Category filters
   const [searchQuery, setSearchQuery] = useState("");
@@ -796,6 +791,16 @@ export default function App() {
       }
     });
 
+    // Sync Custom Code Injection
+    const customCodeRef = ref(db, "settings/customCode");
+    const unsubCustomCode = onValue(customCodeRef, (snapshot) => {
+      if (snapshot.exists()) {
+        const val = snapshot.val();
+        setCustomHeadCode(val.headCode || "");
+        setCustomBodyCode(val.bodyCode || "");
+      }
+    });
+
     return () => {
       unsubPosts();
       unsubCat();
@@ -805,6 +810,7 @@ export default function App() {
       unsubFeatured();
       unsubTitle();
       unsubDesc();
+      unsubCustomCode();
     };
   }, []);
 
@@ -868,6 +874,69 @@ export default function App() {
     }
     meta.setAttribute('content', websiteDescription || "bespoke digital platform supplying high-end tech tutorials and AI articles.");
   }, [websiteDescription]);
+
+  // Dynamically inject custom head and body codes for ownership verification and ad networks
+  useEffect(() => {
+    if (typeof window === "undefined" || typeof document === "undefined") return;
+
+    // 1. Manage Head Injection
+    // Clean up any previously injected head elements
+    const existingHeadTags = document.querySelectorAll("[data-injected-head]");
+    existingHeadTags.forEach((tag) => tag.remove());
+
+    if (customHeadCode.trim()) {
+      // Create a temporary container to parse HTML string
+      const tempDiv = document.createElement("div");
+      tempDiv.innerHTML = customHeadCode;
+      
+      // Append each element from container to document head, marking with a data attribute for easy tracking and cleanups
+      Array.from(tempDiv.childNodes).forEach((node) => {
+        if (node instanceof HTMLElement) {
+          // If it's a script tag, we need to create a real script element so the browser executes it
+          if (node.tagName === "SCRIPT") {
+            const scriptEl = document.createElement("script");
+            Array.from(node.attributes).forEach((attr) => {
+              scriptEl.setAttribute(attr.name, attr.value);
+            });
+            scriptEl.textContent = node.textContent;
+            scriptEl.setAttribute("data-injected-head", "true");
+            document.head.appendChild(scriptEl);
+          } else {
+            const clone = node.cloneNode(true) as HTMLElement;
+            clone.setAttribute("data-injected-head", "true");
+            document.head.appendChild(clone);
+          }
+        }
+      });
+    }
+
+    // 2. Manage Body Injection
+    const existingBodyTags = document.querySelectorAll("[data-injected-body]");
+    existingBodyTags.forEach((tag) => tag.remove());
+
+    if (customBodyCode.trim()) {
+      const tempDiv = document.createElement("div");
+      tempDiv.innerHTML = customBodyCode;
+
+      Array.from(tempDiv.childNodes).forEach((node) => {
+        if (node instanceof HTMLElement) {
+          if (node.tagName === "SCRIPT") {
+            const scriptEl = document.createElement("script");
+            Array.from(node.attributes).forEach((attr) => {
+              scriptEl.setAttribute(attr.name, attr.value);
+            });
+            scriptEl.textContent = node.textContent;
+            scriptEl.setAttribute("data-injected-body", "true");
+            document.body.appendChild(scriptEl);
+          } else {
+            const clone = node.cloneNode(true) as HTMLElement;
+            clone.setAttribute("data-injected-body", "true");
+            document.body.insertBefore(clone, document.body.firstChild);
+          }
+        }
+      });
+    }
+  }, [customHeadCode, customBodyCode]);
 
   // Keep selectedPost updated with real-time comments / views / likes from allPosts
   useEffect(() => {
@@ -1334,37 +1403,54 @@ export default function App() {
                     </div>
                   </div>
 
-                  <div className="space-y-3 bg-white/45 backdrop-blur-md p-4 rounded-[28px] border-2 border-black/80 shadow-sm">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-1 gap-4">
                     {leftSidebarArticles.length > 0 ? (
                       leftSidebarArticles.map((art) => (
                         <div
                           key={art.id}
                           onClick={() => handleSelectPost(art)}
-                          className="flex gap-3 items-center group cursor-pointer border-b border-purple-100/40 last:border-none pb-2.5 last:pb-0"
+                          className="group bg-white border-2 border-black rounded-[24px] overflow-hidden p-3.5 shadow-sm hover:shadow-md transition-all duration-300 cursor-pointer flex flex-col justify-between space-y-3"
+                          id={`spotlight-card-${art.id}`}
                         >
-                          <img
-                            src={art.thumbnailUrl}
-                            alt={art.title}
-                            className="w-11 h-11 rounded-xl object-cover border border-purple-100/50 group-hover:scale-105 transition-transform duration-300 shrink-0"
-                            referrerPolicy="no-referrer"
-                          />
-                          <div className="min-w-0 flex-1">
-                            <h4 className="text-[11px] font-extrabold text-purple-950 leading-tight line-clamp-2 group-hover:text-purple-700 transition-colors">
-                              {art.title}
-                            </h4>
-                            <div className="flex items-center gap-2 mt-1 text-[9px] text-gray-500 font-semibold font-mono">
-                              <span>{art.category}</span>
-                              <span>•</span>
-                              <span className="flex items-center gap-0.5 text-purple-700">
-                                <Eye className="w-2.5 h-2.5" />
-                                <span>{art.views || 0}</span>
+                          <div className="space-y-2.5">
+                            {/* Thumbnail */}
+                            <div className="relative aspect-video w-full rounded-xl overflow-hidden bg-purple-50 shrink-0">
+                              <img
+                                src={art.thumbnailUrl}
+                                alt={art.title}
+                                className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+                                referrerPolicy="no-referrer"
+                              />
+                              <span className="absolute bottom-1.5 right-1.5 bg-black/80 px-1.5 py-0.5 rounded font-mono text-[8px] text-white font-extrabold uppercase tracking-wider">
+                                {art.readTime || "Read"}
                               </span>
                             </div>
+
+                            {/* Meta & Title */}
+                            <div>
+                              <span className="text-[9px] text-purple-600 font-mono font-black uppercase tracking-wider">
+                                {art.category}
+                              </span>
+                              <h4 className="text-xs font-extrabold text-purple-950 leading-tight mt-1 group-hover:text-purple-700 transition-colors line-clamp-2">
+                                {art.title}
+                              </h4>
+                            </div>
+                          </div>
+
+                          {/* Footer Info */}
+                          <div className="flex items-center justify-between border-t border-purple-50/50 pt-2 text-[10px] text-gray-500 font-mono">
+                            <span className="flex items-center gap-1">
+                              <Eye className="w-3.5 h-3.5 text-purple-600" />
+                              <span className="font-bold">{art.views || 0} views</span>
+                            </span>
+                            <span className="text-[9px] bg-purple-50 text-purple-700 font-bold px-1.5 py-0.5 rounded uppercase tracking-wider scale-90">
+                              Top Content
+                            </span>
                           </div>
                         </div>
                       ))
                     ) : (
-                      <p className="text-[10px] text-gray-400 text-center py-2 font-medium">
+                      <p className="text-[10px] text-gray-400 text-center py-4 font-medium col-span-full">
                         No articles live.
                       </p>
                     )}
