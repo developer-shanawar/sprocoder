@@ -47,93 +47,51 @@ const InstantLogo = ({ size = 96, className = "" }: { size?: number; className?:
 );
 
 const SplashScreen = ({ iconUrl, title }: { iconUrl: string; title: string }) => {
-  const [showBottomIcon, setShowBottomIcon] = useState(false);
-
-  useEffect(() => {
-    // Show the bottom branding deck after the central splash flash completes
-    const timer = setTimeout(() => {
-      setShowBottomIcon(true);
-    }, 950);
-    return () => clearTimeout(timer);
-  }, []);
-
   const logoSrc = iconUrl || "https://storage.googleapis.com/antigravity-artifacts/a808a860-d4d9-4845-b2e8-5a76d694764d/input_file_0.png";
 
   return (
     <motion.div 
       initial={{ opacity: 1 }}
       exit={{ opacity: 0 }}
-      transition={{ duration: 0.6, ease: "easeInOut" }}
-      className="fixed inset-0 w-screen h-[100dvh] bg-[#f4f0ff] z-[999999] flex flex-col justify-between items-center py-12 sm:py-20 px-6 select-none overflow-hidden"
+      transition={{ duration: 0.5, ease: "easeInOut" }}
+      className="fixed inset-0 w-screen h-[100dvh] bg-slate-50 z-[999999] flex flex-col justify-center items-center px-6 select-none overflow-hidden"
       style={{ height: "100dvh", width: "100vw", top: 0, left: 0 }}
     >
-      <div />
-
-      {/* CENTER: FLASHING LARGE ICON */}
       <div className="flex flex-col items-center justify-center space-y-6">
         <motion.div
-          initial={{ scale: 0.8, opacity: 0 }}
           animate={{ 
-            scale: [0.8, 1.15, 1], 
-            opacity: [0, 1, 1],
+            scale: [0.95, 1.05, 0.95],
           }}
           transition={{ 
-            duration: 1.0, 
-            ease: "easeOut",
+            duration: 2.0, 
+            repeat: Infinity,
+            ease: "easeInOut",
           }}
-          className="relative"
+          className="relative animate-in zoom-in duration-300"
         >
           <img 
             src={logoSrc} 
             alt={title || "S pro coder logo"} 
-            className="w-24 h-24 rounded-full object-cover shadow-2xl border-4 border-purple-500/20"
+            className="w-20 h-20 sm:w-24 sm:h-24 rounded-full object-cover shadow-xl border-4 border-purple-500/10"
             referrerPolicy="no-referrer"
-          />
-          {/* Outer bright aura ring flash effect */}
-          <motion.div 
-            initial={{ opacity: 0, scale: 0.8 }}
-            animate={{ opacity: [0, 0.8, 0], scale: [0.8, 1.6, 1.8] }}
-            transition={{ duration: 1.0, ease: "easeOut" }}
-            className="absolute inset-0 bg-purple-500/20 rounded-full blur-xl -z-10"
           />
         </motion.div>
 
-        <div className="flex items-center gap-1.5 pt-4">
-          <span className="w-2 h-2 bg-purple-600 rounded-full animate-bounce [animation-delay:-0.3s]"></span>
-          <span className="w-2 h-2 bg-purple-500 rounded-full animate-bounce [animation-delay:-0.15s]"></span>
-          <span className="w-2 h-2 bg-indigo-600 rounded-full animate-bounce"></span>
+        <div className="text-center space-y-1 animate-in slide-in-from-bottom duration-500">
+          <h2 className="text-base sm:text-lg font-black text-purple-950 tracking-wider font-sans uppercase">
+            {title || "S pro coder"}
+          </h2>
+          <p className="text-[10px] text-purple-600/60 font-mono tracking-widest uppercase font-bold">
+            Loading Resources...
+          </p>
         </div>
-      </div>
 
-      {/* BOTTOM BRANDING: LOADS AFTER THE FLASH DISPLAYS */}
-      <div className="h-24 flex items-center justify-center">
-        <AnimatePresence>
-          {showBottomIcon && (
-            <motion.div 
-              initial={{ y: 24, opacity: 0 }}
-              animate={{ y: 0, opacity: 1 }}
-              exit={{ y: -10, opacity: 0 }}
-              transition={{ duration: 0.6, ease: "easeOut" }}
-              className="flex flex-col items-center justify-center space-y-2 text-center"
-            >
-              <p className="text-[10px] text-purple-600/60 font-mono tracking-widest uppercase font-bold">website</p>
-              
-              <div className="flex items-center gap-2.5">
-                <img 
-                  src={logoSrc} 
-                  alt={title || "S pro coder logo"} 
-                  className="w-8 h-8 rounded-full object-cover shadow-lg border border-purple-500/10"
-                  referrerPolicy="no-referrer"
-                />
-                <h2 className="text-sm font-black text-purple-950 tracking-wider font-sans uppercase">
-                  {title || "S pro coder"}
-                </h2>
-              </div>
-              
-              <p className="text-[10px] text-purple-500/40 font-mono tracking-widest uppercase">Developer sanctuary</p>
-            </motion.div>
-          )}
-        </AnimatePresence>
+        {/* Center 3 Bouncing Dots Loading Screen */}
+        <div className="flex items-center gap-2 pt-2">
+          <span className="w-3 h-3 bg-purple-600 rounded-full animate-bounce [animation-delay:-0.3s]"></span>
+          <span className="w-3 h-3 bg-purple-500 rounded-full animate-bounce [animation-delay:-0.15s]"></span>
+          <span className="w-3 h-3 bg-indigo-600 rounded-full animate-bounce"></span>
+        </div>
       </div>
     </motion.div>
   );
@@ -193,6 +151,7 @@ export default function App() {
   });
   const [isMinTimeElapsed, setIsMinTimeElapsed] = useState<boolean>(false);
   const [isInitialLoading, setIsInitialLoading] = useState<boolean>(true);
+  const [isDataLoaded, setIsDataLoaded] = useState<boolean>(false);
 
   // Website SEO metadata
   const [websiteTitle, setWebsiteTitle] = useState<string>(() => {
@@ -699,17 +658,26 @@ export default function App() {
     }
   }, [currentUser, currentTab]);
 
+  // Mark data as loaded when articles and categories exist
+  useEffect(() => {
+    if (allPosts.length > 0 && categories.length > 0) {
+      setIsDataLoaded(true);
+    }
+  }, [allPosts, categories]);
+
   // 1.2. Splash Screen timer and automatic loading completion
   useEffect(() => {
     const timer = setTimeout(() => {
       setIsMinTimeElapsed(true);
     }, 800); // 0.8 seconds minimum display time for super snappy, polished loading
     
-    // Failsafe timer: after 3 seconds, always dismiss splash screen so user never gets stuck
+    // Failsafe timer: after 5 seconds, always dismiss splash screen so user never gets stuck
     const failsafe = setTimeout(() => {
       setIsSplashActive(false);
       setIsMinTimeElapsed(true);
-    }, 3000);
+      setIsInitialLoading(false);
+      setIsDataLoaded(true);
+    }, 5000);
 
     return () => {
       clearTimeout(timer);
@@ -717,20 +685,13 @@ export default function App() {
     };
   }, []);
 
-  // Dismiss splash screen and loading states when minimum time is elapsed
+  // Dismiss splash screen and loading states when BOTH minimum time is elapsed AND data has loaded
   useEffect(() => {
-    if (isMinTimeElapsed) {
+    if (isMinTimeElapsed && isDataLoaded) {
       setIsSplashActive(false);
       setIsInitialLoading(false);
     }
-  }, [isMinTimeElapsed]);
-
-  // Handle initial loading completion when database syncs
-  useEffect(() => {
-    if (allPosts.length > 0 && categories.length > 0) {
-      setIsInitialLoading(false);
-    }
-  }, [allPosts, categories]);
+  }, [isMinTimeElapsed, isDataLoaded]);
 
   // 2. Realtime sync articles, categories, and static pages with Firebase database bootstrap
   useEffect(() => {
