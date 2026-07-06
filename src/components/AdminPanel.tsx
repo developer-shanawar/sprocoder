@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import { 
   Users, BookOpen, Layers, MessageSquare, Settings, 
-  Plus, Edit, Trash2, Heart, Bookmark, Eye, FileText, Upload, Save, Check, RefreshCw,
+  Plus, Edit, Trash2, Heart, Bookmark, Eye, FileText, Upload, Save, Check, RefreshCw, Lock,
   Youtube, Star, Bold, Italic, Underline, Link, Heading1, Heading2, List, Quote, Globe,
   TrendingUp, BarChart2, Send, Instagram, Facebook, Mail, Sparkles, MessageCircle, AlertCircle
 } from "lucide-react";
@@ -89,6 +89,7 @@ export default function AdminPanel({ onClose, categories, setCategories, onLogou
   const [uploadError, setUploadError] = useState("");
   const [publishStatus, setPublishStatus] = useState<"direct" | "scheduled">("direct");
   const [scheduledDate, setScheduledDate] = useState("");
+  const [visibility, setVisibility] = useState<"public" | "private">("public");
 
   // Categories State
   const [newCategoryName, setNewCategoryName] = useState("");
@@ -477,7 +478,8 @@ export default function AdminPanel({ onClose, categories, setCategories, onLogou
         isAiGenerated: existingPost ? (existingPost.isAiGenerated || false) : false,
         comments: existingPost ? (existingPost.comments || []) : [],
         publishStatus,
-        scheduledDate: publishStatus === "scheduled" ? scheduledDate : ""
+        scheduledDate: publishStatus === "scheduled" ? scheduledDate : "",
+        visibility: visibility || "public"
       };
 
       await set(ref(db, `${DB_PATHS.ARTICLES}/${articleId}`), articlePayload);
@@ -508,6 +510,7 @@ export default function AdminPanel({ onClose, categories, setCategories, onLogou
       setSavesCount(0);
       setPublishStatus("direct");
       setScheduledDate("");
+      setVisibility("public");
       alert("Article saved successfully!");
     } catch (err) {
       console.error(err);
@@ -529,6 +532,7 @@ export default function AdminPanel({ onClose, categories, setCategories, onLogou
     setSavesCount(post.savesCount || 0);
     setPublishStatus(post.publishStatus || "direct");
     setScheduledDate(post.scheduledDate || "");
+    setVisibility(post.visibility || "public");
   };
 
   const handleDeleteArticle = async (id: string) => {
@@ -1126,6 +1130,51 @@ export default function AdminPanel({ onClose, categories, setCategories, onLogou
                       )}
                     </div>
                   </div>
+
+                  {/* YouTube-style Visibility Selection */}
+                  <div className="space-y-1.5 md:col-span-2 p-4 bg-indigo-50 rounded-2xl border border-indigo-100 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                    <div className="space-y-0.5">
+                      <label className="text-[10px] font-bold text-indigo-950 uppercase tracking-wider block flex items-center gap-1">
+                        <Globe className="w-3.5 h-3.5 text-indigo-600 animate-pulse" />
+                        <span>Visibility Setting (YouTube-Style)</span>
+                      </label>
+                      <p className="text-[9px] text-gray-500">
+                        Choose whether this article is Publicly visible to all visitors or Private (saved in dashboard, but hidden from the public feed).
+                      </p>
+                    </div>
+                    <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
+                      <div className="flex items-center gap-4">
+                        <label className="flex items-center gap-1.5 text-xs text-indigo-950 font-bold cursor-pointer">
+                          <input 
+                            type="radio" 
+                            name="articleVisibility" 
+                            value="public" 
+                            checked={visibility === "public"} 
+                            onChange={() => setVisibility("public")} 
+                            className="text-indigo-600 focus:ring-indigo-500" 
+                          />
+                          <span className="flex items-center gap-1 bg-white px-2.5 py-1 rounded-lg border border-indigo-100 shadow-sm">
+                            <Globe className="w-3.5 h-3.5 text-emerald-500" />
+                            Public
+                          </span>
+                        </label>
+                        <label className="flex items-center gap-1.5 text-xs text-indigo-950 font-bold cursor-pointer">
+                          <input 
+                            type="radio" 
+                            name="articleVisibility" 
+                            value="private" 
+                            checked={visibility === "private"} 
+                            onChange={() => setVisibility("private")} 
+                            className="text-indigo-600 focus:ring-indigo-500" 
+                          />
+                          <span className="flex items-center gap-1 bg-white px-2.5 py-1 rounded-lg border border-indigo-100 shadow-sm">
+                            <Lock className="w-3.5 h-3.5 text-rose-500" />
+                            Private
+                          </span>
+                        </label>
+                      </div>
+                    </div>
+                  </div>
                 </div>
 
                 {/* ImgBB upload integration */}
@@ -1396,8 +1445,19 @@ export default function AdminPanel({ onClose, categories, setCategories, onLogou
                               className="w-10 h-7 object-cover rounded border border-purple-100" 
                             />
                           </td>
-                          <td className="p-3 font-semibold text-purple-950 max-w-xs truncate">
-                            <div>{art.title}</div>
+                          <td className="p-3 max-w-xs truncate">
+                            <div className="flex items-center gap-1.5 flex-wrap mb-1">
+                              <span className="font-semibold text-purple-950">{art.title}</span>
+                              {art.visibility === "private" ? (
+                                <span className="inline-flex items-center gap-0.5 text-[8px] bg-rose-100 text-rose-700 font-bold px-1.5 py-0.5 rounded uppercase">
+                                  <Lock className="w-2.5 h-2.5" /> Private
+                                </span>
+                              ) : (
+                                <span className="inline-flex items-center gap-0.5 text-[8px] bg-emerald-100 text-emerald-700 font-bold px-1.5 py-0.5 rounded uppercase">
+                                  <Globe className="w-2.5 h-2.5" /> Public
+                                </span>
+                              )}
+                            </div>
                             {art.publishStatus === "scheduled" && (
                               <div className="mt-1 flex items-center gap-1">
                                 <span className="text-[8px] bg-amber-500 text-white px-2 py-0.5 rounded-full font-black uppercase tracking-wider">

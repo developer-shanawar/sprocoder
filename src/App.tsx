@@ -995,16 +995,20 @@ export default function App() {
     }
   }, [allPosts, selectedPost?.id]);
 
-  // Filter out posts that are scheduled to be published in the future
+  // Filter out posts that are scheduled to be published in the future or marked private (except for admin)
   const visiblePosts = React.useMemo(() => {
+    const isAdmin = currentUser && currentUser.email.toLowerCase() === "developershanawar@gmail.com";
     return allPosts.filter((post) => {
+      if (post.visibility === "private" && !isAdmin) {
+        return false;
+      }
       if (post.publishStatus === "scheduled" && post.scheduledDate) {
         const scheduledTime = new Date(post.scheduledDate).getTime();
         if (Date.now() < scheduledTime) return false;
       }
       return true;
     });
-  }, [allPosts]);
+  }, [allPosts, currentUser]);
 
   // Filter posts based on query, selected category, and active view
   const filteredPosts = React.useMemo(() => {

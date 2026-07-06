@@ -37,6 +37,7 @@ export interface BlogPost {
   comments?: Comment[];
   publishStatus?: "direct" | "scheduled";
   scheduledDate?: string;
+  visibility?: "public" | "private";
 }
 
 export interface HistoryEntry {
