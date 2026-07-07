@@ -995,11 +995,10 @@ export default function App() {
     }
   }, [allPosts, selectedPost?.id]);
 
-  // Filter out posts that are scheduled to be published in the future or marked private (except for admin)
+  // Filter out posts that are scheduled to be published in the future or marked private
   const visiblePosts = React.useMemo(() => {
-    const isAdmin = currentUser && currentUser.email.toLowerCase() === "developershanawar@gmail.com";
     return allPosts.filter((post) => {
-      if (post.visibility === "private" && !isAdmin) {
+      if (post.visibility === "private") {
         return false;
       }
       if (post.publishStatus === "scheduled" && post.scheduledDate) {
@@ -1008,7 +1007,7 @@ export default function App() {
       }
       return true;
     });
-  }, [allPosts, currentUser]);
+  }, [allPosts]);
 
   // Filter posts based on query, selected category, and active view
   const filteredPosts = React.useMemo(() => {

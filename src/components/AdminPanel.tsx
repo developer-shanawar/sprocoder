@@ -51,8 +51,18 @@ interface AdminPanelProps {
 }
 
 export default function AdminPanel({ onClose, categories, setCategories, onLogout }: AdminPanelProps) {
-  const [activeTab, setActiveTab] = useState<"users" | "articles" | "categories" | "messages" | "pages" | "videos" | "featured" | "analytics" | "customCode">("articles");
+  const [activeTab, setActiveTab] = useState<"users" | "articles" | "categories" | "messages" | "pages" | "videos" | "featured" | "analytics" | "customCode" | "aiArticle">("articles");
   const [loading, setLoading] = useState(false);
+
+  // AI Article Generator States
+  const [aiOption, setAiOption] = useState<"manual" | "auto">("manual");
+  const [aiSelectedCategory, setAiSelectedCategory] = useState("");
+  const [aiPublishTime, setAiPublishTime] = useState("");
+  const [aiGenerationLoading, setAiGenerationLoading] = useState(false);
+  const [aiGenerationStep, setAiGenerationStep] = useState(0);
+  const [aiGeneratedArticle, setAiGeneratedArticle] = useState<BlogPost | null>(null);
+  const [aiSuccessMessage, setAiSuccessMessage] = useState("");
+  const [aiErrorMessage, setAiErrorMessage] = useState("");
 
   // Disclaimer Page and Social Media Configuration States
   const [disclaimerContent, setDisclaimerContent] = useState("");

@@ -100,6 +100,35 @@ app.get([
           template = await viteDevServerInstance.transformIndexHtml(req.originalUrl, template);
         }
 
+        if (matched.visibility === "private") {
+          const privateMeta = `
+    <title>Private Article | S pro coder</title>
+    <meta name="robots" content="noindex, nofollow" />
+          `;
+          if (template.includes("<title>")) {
+            template = template.replace(/<title>.*?<\/title>/i, privateMeta);
+          } else {
+            template = template.replace("</head>", `${privateMeta}\n</head>`);
+          }
+
+          const privateLayout = `
+<div style="min-height: 100vh; background-color: #f8fafc; color: #0f172a; font-family: ui-sans-serif, system-ui, sans-serif; display: flex; align-items: center; justify-content: center; padding: 2rem;">
+  <div style="max-width: 28rem; text-align: center; background-color: #ffffff; padding: 2.5rem; border-radius: 1.5rem; border: 1px solid #f1f5f9; box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.05);">
+    <div style="width: 4rem; height: 4rem; border-radius: 9999px; background-color: #ffe4e6; display: flex; align-items: center; justify-content: center; margin: 0 auto 1.5rem;">
+      <svg style="width: 2rem; height: 2rem; color: #f43f5e;" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+      </svg>
+    </div>
+    <h1 style="font-size: 1.5rem; font-weight: 800; color: #0f172a; margin-bottom: 0.75rem;">Private Article</h1>
+    <p style="color: #64748b; font-size: 0.875rem; line-height: 1.5; margin-bottom: 1.5rem;">This article has been set to private by the administrator and is not accessible publicly.</p>
+    <a href="/" style="display: inline-block; background-color: #7c3aed; color: #ffffff; padding: 0.75rem 1.5rem; border-radius: 0.75rem; font-size: 0.875rem; font-weight: 700; text-decoration: none; transition: background-color 0.2s;">Return Home</a>
+  </div>
+</div>
+          `;
+          template = template.replace('<div id="root"></div>', `<div id="root">${privateLayout}</div>`);
+          return res.status(403).set({ "Content-Type": "text/html" }).end(template);
+        }
+
         // Beautiful SEO Title & dynamic initial state
         const seoMeta = `
     <title>${matched.title} | S pro coder</title>
@@ -258,6 +287,123 @@ app.post("/api/blog/generate", async (req, res) => {
     console.error("Error generating blog post:", error);
     return res.status(500).json({
       error: error.message || "Failed to generate blog post. Please check server logs."
+    });
+  }
+});
+
+// New AI schema for Q&A article formatting
+const aiBlogPostSchema = {
+  type: Type.OBJECT,
+  properties: {
+    title: { type: Type.STRING, description: "Highly engaging, elite, and catchy article title." },
+    tagline: { type: Type.STRING, description: "Compelling subtitle / tagline for the article." },
+    category: { type: Type.STRING, description: "The category of the article (must match the requested category or be a highly powerful trending category)." },
+    content: { 
+      type: Type.STRING, 
+      description: "Full-length detailed article body in English. MUST be structured as a sequence of high-quality Q&A (Question & Answer) sections. Each Question must be wrapped EXACTLY in: <div class=\"p-4 bg-emerald-50 border-l-4 border-emerald-500 rounded-r-xl text-emerald-900 font-bold my-4\">Q: [Question Text]</div>. The answer must follow immediately as highly professional, rich, and sophisticated English paragraphs. No markdown headers inside the green highlighted div, only standard text inside it. No extra empty spaces or simple English, at least 500 words total across all sections." 
+    },
+    readTime: { type: Type.STRING, description: "Calculated read time, e.g., '6 min read'." },
+    tags: {
+      type: Type.ARRAY,
+      items: { type: Type.STRING },
+      description: "Array of 4-5 lowercase keyword tags suitable for filtering."
+    },
+    excerpt: { type: Type.STRING, description: "A brief, compelling 2-sentence summary of the article." },
+    author: { type: Type.STRING, description: "Author name, e.g., 'Chroma Analyst' or 'S Pro Sage'." },
+    imageSearchKeyword: { type: Type.STRING, description: "Unsplash search keyword, e.g., 'artificial intelligence neural', 'cybersecurity hacking', 'web coding', or 'quantum computing node'." }
+  },
+  required: ["title", "tagline", "category", "content", "readTime", "tags", "excerpt", "author", "imageSearchKeyword"]
+};
+
+// API Endpoint: Advanced AI Article generation & Auto-System
+app.post("/api/blog/generate-ai", async (req, res) => {
+  try {
+    if (!ai) {
+      return res.status(503).json({
+        error: "Gemini API client is not configured. Please add your GEMINI_API_KEY in Settings > Secrets."
+      });
+    }
+
+    const { option, category, publishTime } = req.body;
+
+    let prompt = "";
+    if (option === "manual") {
+      prompt = `Write a deeply engaging, professional, high-quality tech/science article in the category: "${category}". 
+The article MUST NOT use simple English or contain any mock templates, and must be at least 500 words of rich content.
+The article MUST be structured as a sequence of Questions and Answers (Q&A format).
+For each section, formulate an intriguing, powerful question and follow it with a highly detailed, professional, and educational answer.
+Each Question MUST be wrapped exactly in the following HTML tag so it can be styled in green on the website:
+<div class="p-4 bg-emerald-50 border-l-4 border-emerald-500 rounded-r-xl text-emerald-900 font-bold my-4">Q: [Intriguing Question Here]</div>
+Follow each question immediately with several paragraphs of sophisticated, clean answer text (using normal markdown, no extra spaces or mock placeholder files).
+Generate a catchy title, compelling subtitle/tagline, a brief 2-sentence excerpt, and 4-5 relevant tags/keywords.`;
+    } else {
+      // Auto system
+      prompt = `First, scan the market trends to identify a trending, powerful tech or science category (e.g. AI Agents, Web3 development, Quantum Computing, Serverless Edge, or advanced cybersecurity). 
+Select the absolute best trending category.
+Then, write an elite, high-quality, professional tech/science article for this selected category.
+The article MUST NOT use simple English or contain any mock templates, and must be at least 500 words of rich content.
+The article MUST be structured as a sequence of Questions and Answers (Q&A format).
+For each section, formulate an intriguing, powerful question and follow it with a highly detailed, professional, and educational answer.
+Each Question MUST be wrapped exactly in the following HTML tag so it can be styled in green on the website:
+<div class="p-4 bg-emerald-50 border-l-4 border-emerald-500 rounded-r-xl text-emerald-900 font-bold my-4">Q: [Intriguing Question Here]</div>
+Follow each question immediately with several paragraphs of sophisticated, clean answer text (using normal markdown, no extra spaces or mock placeholder files).
+Generate a catchy title, compelling subtitle/tagline, a brief 2-sentence excerpt, and 4-5 relevant tags/keywords. Make sure the generated category is stored in the 'category' field.`;
+    }
+
+    const response = await ai.models.generateContent({
+      model: "gemini-3.5-flash",
+      contents: prompt,
+      config: {
+        systemInstruction: "You are an elite, award-winning blogger, technology journalist, and tech researcher who writes deeply engaging, polished articles in professional and sophisticated English. You structure articles using Q&A formats where the questions are embedded in clean, green-bordered styled div tags to serve as stunning reading elements.",
+        responseMimeType: "application/json",
+        responseSchema: aiBlogPostSchema
+      }
+    });
+
+    const jsonStr = response.text;
+    if (!jsonStr) {
+      throw new Error("Empty response received from Gemini");
+    }
+
+    const blogPost = JSON.parse(jsonStr.trim());
+    
+    // Select high-quality, relevant image URLs based on keywords or categories
+    const kw = (blogPost.imageSearchKeyword || "").toLowerCase() + " " + (blogPost.category || "").toLowerCase();
+    let selectedImage = "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&w=800&q=80"; // fallback gorgeous minimalist abstract violet
+    
+    if (kw.includes("security") || kw.includes("hack") || kw.includes("cyber")) {
+      selectedImage = "https://images.unsplash.com/photo-1550751827-4bd374c3f58b?auto=format&fit=crop&w=800&q=80";
+    } else if (kw.includes("web") || kw.includes("code") || kw.includes("develop") || kw.includes("program")) {
+      selectedImage = "https://images.unsplash.com/photo-1555066931-4365d14bab8c?auto=format&fit=crop&w=800&q=80";
+    } else if (kw.includes("ai") || kw.includes("intelligence") || kw.includes("neural") || kw.includes("robotic")) {
+      selectedImage = "https://images.unsplash.com/photo-1620712943543-bcc4688e7485?auto=format&fit=crop&w=800&q=80";
+    } else if (kw.includes("cloud") || kw.includes("server") || kw.includes("network") || kw.includes("database")) {
+      selectedImage = "https://images.unsplash.com/photo-1451187580459-43490279c0fa?auto=format&fit=crop&w=800&q=80";
+    } else if (kw.includes("quantum") || kw.includes("physic") || kw.includes("science")) {
+      selectedImage = "https://images.unsplash.com/photo-1635070041078-e363dbe005cb?auto=format&fit=crop&w=800&q=80";
+    } else if (kw.includes("blockchain") || kw.includes("crypto") || kw.includes("coin")) {
+      selectedImage = "https://images.unsplash.com/photo-1639762681485-074b7f938ba0?auto=format&fit=crop&w=800&q=80";
+    }
+
+    blogPost.thumbnailUrl = selectedImage;
+    blogPost.id = "post-ai-" + Date.now();
+    blogPost.date = new Date().toLocaleDateString("en-US", {
+      year: "numeric",
+      month: "long",
+      day: "numeric"
+    });
+    blogPost.likes = 0;
+    blogPost.savesCount = 0;
+    blogPost.isAiGenerated = true;
+    blogPost.publishStatus = publishTime ? "scheduled" : "direct";
+    blogPost.scheduledDate = publishTime || "";
+    blogPost.visibility = "public";
+
+    return res.json(blogPost);
+  } catch (error: any) {
+    console.error("Error generating AI article:", error);
+    return res.status(500).json({
+      error: error.message || "Failed to generate AI article. Please check server logs."
     });
   }
 });
