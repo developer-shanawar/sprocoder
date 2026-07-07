@@ -530,6 +530,87 @@ export default function AdminPanel({ onClose, categories, setCategories, onLogou
     }
   };
 
+  const handleGenerateAiArticle = async () => {
+    if (aiOption === "manual" && !aiSelectedCategory) {
+      setAiErrorMessage("Please select a category for generating the AI article.");
+      return;
+    }
+    
+    setAiErrorMessage("");
+    setAiSuccessMessage("");
+    setAiGeneratedArticle(null);
+    setAiGenerationLoading(true);
+    setAiGenerationStep(0);
+    
+    // Simulate nice step-by-step progress
+    const stepsInterval = setInterval(() => {
+      setAiGenerationStep((prev) => {
+        if (prev < 5) return prev + 1;
+        clearInterval(stepsInterval);
+        return prev;
+      });
+    }, 1500);
+    
+    try {
+      const response = await fetch("/api/blog/generate-ai", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          option: aiOption,
+          category: aiOption === "manual" ? aiSelectedCategory : "",
+          publishTime: aiPublishTime
+        })
+      });
+      
+      const data = await response.json();
+      clearInterval(stepsInterval);
+      
+      if (!response.ok) {
+        throw new Error(data.error || "Failed to generate AI article.");
+      }
+      
+      setAiGenerationStep(6); // Final success step
+      setAiGeneratedArticle(data);
+      setAiSuccessMessage(`AI Article generated successfully! Category: ${data.category}. Format: Professional Q&A.`);
+    } catch (err: any) {
+      clearInterval(stepsInterval);
+      setAiErrorMessage(err.message || "An unexpected error occurred during AI generation.");
+    } finally {
+      setAiGenerationLoading(false);
+    }
+  };
+
+  const handleSaveAiArticle = async () => {
+    if (!aiGeneratedArticle) return;
+    setLoading(true);
+    try {
+      const post = aiGeneratedArticle;
+      
+      // Save to Firebase database
+      await set(ref(db, `${DB_PATHS.ARTICLES}/${post.id}`), post);
+      
+      // Trigger notification in database
+      const newNotifRef = push(ref(db, DB_PATHS.NOTIFICATIONS));
+      await set(newNotifRef, {
+        id: newNotifRef.key,
+        title: post.publishStatus === "scheduled" ? "AI Article Scheduled!" : "AI Article Published!",
+        body: post.publishStatus === "scheduled" 
+          ? `"${post.title}" has been scheduled for publication in ${post.category}!`
+          : `"${post.title}" is now live in the ${post.category} category!`,
+        date: new Date().toLocaleDateString("en-US", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" }),
+        isRead: false
+      });
+      
+      setAiSuccessMessage(`Article "${post.title}" has been successfully published to the website!`);
+      setAiGeneratedArticle(null);
+    } catch (err: any) {
+      console.error(err);
+      setAiErrorMessage("Failed to save AI article to the database.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleEditClick = (post: BlogPost) => {
     setEditingArticle(post);
     setTitle(post.title);
@@ -886,6 +967,18 @@ export default function AdminPanel({ onClose, categories, setCategories, onLogou
           >
             <BookOpen className="w-4 h-4" />
             <span>Articles ({articles.length})</span>
+          </button>
+
+          <button
+            onClick={() => setActiveTab("aiArticle")}
+            className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+              activeTab === "aiArticle" 
+                ? "bg-purple-600 text-white shadow-md shadow-purple-100" 
+                : "hover:bg-purple-50 text-purple-800 font-bold"
+            }`}
+          >
+            <Sparkles className="w-4 h-4 text-purple-500 animate-pulse" />
+            <span>AI Article Engine</span>
           </button>
           
           <button
@@ -2341,39 +2434,137 @@ export default function AdminPanel({ onClose, categories, setCategories, onLogou
               </div>
 
               {/* Summary Cards Grid */}
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                {/* Card 1: Total Hits */}
-                <div className="p-4 bg-white/70 border border-purple-100 rounded-2xl shadow-sm text-left">
-                  <p className="text-[9px] font-black text-purple-900 uppercase tracking-wider">Total Page Views</p>
-                  <p className="text-2xl font-black text-purple-950 mt-1">
-                    {(analyticsData?.sources?.direct || 0) + (analyticsData?.sources?.search || 0) + (analyticsData?.sources?.social || 0)}
-                  </p>
-                  <span className="text-[8px] text-emerald-600 font-semibold flex items-center gap-0.5 mt-1">
-                    <TrendingUp className="w-3 h-3" /> +12.4% vs last week
-                  </span>
-                </div>
+              {(() => {
+                const now = new Date();
+                const getLocalDateStr = (d: Date) => {
+                  const year = d.getFullYear();
+                  const month = String(d.getMonth() + 1).padStart(2, '0');
+                  const day = String(d.getDate()).padStart(2, '0');
+                  return `${year}-${month}-${day}`;
+                };
+                
+                // Today
+                const todayStr = getLocalDateStr(now);
+                const todayViews = analyticsData?.dailyViews?.[todayStr] || 0;
+                
+                // Yesterday
+                const yesterday = new Date();
+                yesterday.setDate(yesterday.getDate() - 1);
+                const yesterdayStr = getLocalDateStr(yesterday);
+                const yesterdayViews = analyticsData?.dailyViews?.[yesterdayStr] || 0;
+                
+                // Last 24 Hours: sum of the last 24 entries in hourlyViews
+                let last24hViews = 0;
+                const hourlyViews = analyticsData?.hourlyViews || {};
+                for (let i = 0; i < 24; i++) {
+                  const d = new Date();
+                  d.setHours(d.getHours() - i);
+                  const year = d.getFullYear();
+                  const month = String(d.getMonth() + 1).padStart(2, '0');
+                  const day = String(d.getDate()).padStart(2, '0');
+                  const hour = String(d.getHours()).padStart(2, '0');
+                  const key = `${year}-${month}-${day}T${hour}`;
+                  last24hViews += hourlyViews[key] || 0;
+                }
+                
+                // Last 7 Days: sum of last 7 daily views
+                let last7DaysViews = 0;
+                const dailyViews = analyticsData?.dailyViews || {};
+                for (let i = 0; i < 7; i++) {
+                  const d = new Date();
+                  d.setDate(d.getDate() - i);
+                  const key = getLocalDateStr(d);
+                  last7DaysViews += dailyViews[key] || 0;
+                }
+                
+                // This Month
+                const thisMonthPrefix = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+                let thisMonthViews = 0;
+                Object.entries(dailyViews).forEach(([key, val]) => {
+                  if (key.startsWith(thisMonthPrefix)) {
+                    thisMonthViews += (val as number);
+                  }
+                });
+                
+                // Last Month
+                const lastMonthDate = new Date();
+                lastMonthDate.setMonth(lastMonthDate.getMonth() - 1);
+                const lastMonthPrefix = `${lastMonthDate.getFullYear()}-${String(lastMonthDate.getMonth() + 1).padStart(2, '0')}`;
+                let lastMonthViews = 0;
+                Object.entries(dailyViews).forEach(([key, val]) => {
+                  if (key.startsWith(lastMonthPrefix)) {
+                    lastMonthViews += (val as number);
+                  }
+                });
+                
+                // All time
+                const allTimeViews = (analyticsData?.sources?.direct || 0) + (analyticsData?.sources?.search || 0) + (analyticsData?.sources?.social || 0);
+                
+                return (
+                  <div className="space-y-6">
+                    {/* Time-based History Analytics */}
+                    <div className="bg-purple-50/50 p-4 rounded-3xl border border-purple-100/50">
+                      <p className="text-[10px] font-black text-purple-900 uppercase tracking-widest mb-3 text-left">TRAFFIC VOLUME HISTORY</p>
+                      <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-3">
+                        <div className="p-3 bg-white border border-purple-100 rounded-2xl shadow-xs text-left">
+                          <p className="text-[8px] font-bold text-gray-500 uppercase tracking-wider">Today</p>
+                          <p className="text-xl font-black text-purple-950 mt-1">{todayViews}</p>
+                          <span className="text-[7px] text-gray-400 font-mono">Live local date</span>
+                        </div>
+                        <div className="p-3 bg-white border border-purple-100 rounded-2xl shadow-xs text-left">
+                          <p className="text-[8px] font-bold text-gray-500 uppercase tracking-wider">Yesterday</p>
+                          <p className="text-xl font-black text-purple-950 mt-1">{yesterdayViews}</p>
+                          <span className="text-[7px] text-gray-400 font-mono">Previous 24h day</span>
+                        </div>
+                        <div className="p-3 bg-white border border-purple-100 rounded-2xl shadow-xs text-left">
+                          <p className="text-[8px] font-bold text-gray-500 uppercase tracking-wider">Last 24 Hours</p>
+                          <p className="text-xl font-black text-emerald-600 mt-1">{last24hViews || todayViews}</p>
+                          <span className="text-[7px] text-emerald-600 font-bold animate-pulse">Hourly aggregate</span>
+                        </div>
+                        <div className="p-3 bg-white border border-purple-100 rounded-2xl shadow-xs text-left">
+                          <p className="text-[8px] font-bold text-gray-500 uppercase tracking-wider">Last 7 Days</p>
+                          <p className="text-xl font-black text-purple-950 mt-1">{last7DaysViews || allTimeViews}</p>
+                          <span className="text-[7px] text-gray-400 font-mono">Rolling week total</span>
+                        </div>
+                        <div className="p-3 bg-white border border-purple-100 rounded-2xl shadow-xs text-left">
+                          <p className="text-[8px] font-bold text-gray-500 uppercase tracking-wider">This Month</p>
+                          <p className="text-xl font-black text-purple-950 mt-1">{thisMonthViews || allTimeViews}</p>
+                          <span className="text-[7px] text-purple-600 font-bold">Current month</span>
+                        </div>
+                        <div className="p-3 bg-white border border-purple-100 rounded-2xl shadow-xs text-left">
+                          <p className="text-[8px] font-bold text-gray-500 uppercase tracking-wider">Last Month</p>
+                          <p className="text-xl font-black text-purple-950 mt-1">{lastMonthViews}</p>
+                          <span className="text-[7px] text-gray-400 font-mono">Previous month</span>
+                        </div>
+                        <div className="p-3 bg-white border border-purple-100 rounded-2xl shadow-xs text-left">
+                          <p className="text-[8px] font-bold text-gray-500 uppercase tracking-wider">All Time</p>
+                          <p className="text-xl font-black text-indigo-600 mt-1">{allTimeViews}</p>
+                          <span className="text-[7px] text-indigo-500 font-bold">Total Page Views</span>
+                        </div>
+                      </div>
+                    </div>
 
-                {/* Card 2: Direct */}
-                <div className="p-4 bg-white/70 border border-purple-100 rounded-2xl shadow-sm text-left">
-                  <p className="text-[9px] font-black text-purple-900 uppercase tracking-wider">Direct Traffic</p>
-                  <p className="text-2xl font-black text-purple-950 mt-1">{analyticsData?.sources?.direct || 0}</p>
-                  <p className="text-[8px] text-gray-400 mt-1">Bookmarks, copy-paste URLs</p>
-                </div>
-
-                {/* Card 3: Search Engines */}
-                <div className="p-4 bg-white/70 border border-purple-100 rounded-2xl shadow-sm text-left">
-                  <p className="text-[9px] font-black text-purple-900 uppercase tracking-wider">Search Engines</p>
-                  <p className="text-2xl font-black text-purple-950 mt-1">{analyticsData?.sources?.search || 0}</p>
-                  <p className="text-[8px] text-gray-400 mt-1">Google, Bing, Yahoo</p>
-                </div>
-
-                {/* Card 4: Social */}
-                <div className="p-4 bg-white/70 border border-purple-100 rounded-2xl shadow-sm text-left">
-                  <p className="text-[9px] font-black text-purple-900 uppercase tracking-wider">Social Channels</p>
-                  <p className="text-2xl font-black text-purple-950 mt-1">{analyticsData?.sources?.social || 0}</p>
-                  <p className="text-[8px] text-gray-400 mt-1">Telegram, YouTube, Meta</p>
-                </div>
-              </div>
+                    {/* Channel Distribution */}
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                      <div className="p-4 bg-white border border-purple-100 rounded-2xl shadow-sm text-left">
+                        <p className="text-[9px] font-black text-purple-900 uppercase tracking-wider">Direct Traffic</p>
+                        <p className="text-2xl font-black text-purple-950 mt-1">{analyticsData?.sources?.direct || 0}</p>
+                        <p className="text-[8px] text-gray-400 mt-1">Bookmarks, copy-paste URLs</p>
+                      </div>
+                      <div className="p-4 bg-white border border-purple-100 rounded-2xl shadow-sm text-left">
+                        <p className="text-[9px] font-black text-purple-900 uppercase tracking-wider">Search Engines</p>
+                        <p className="text-2xl font-black text-purple-950 mt-1">{analyticsData?.sources?.search || 0}</p>
+                        <p className="text-[8px] text-gray-400 mt-1">Google, Bing, Yahoo</p>
+                      </div>
+                      <div className="p-4 bg-white border border-purple-100 rounded-2xl shadow-sm text-left">
+                        <p className="text-[9px] font-black text-purple-900 uppercase tracking-wider">Social Channels</p>
+                        <p className="text-2xl font-black text-purple-950 mt-1">{analyticsData?.sources?.social || 0}</p>
+                        <p className="text-[8px] text-gray-400 mt-1">Telegram, YouTube, Meta</p>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })()}
 
               {/* Recharts Graphical Visualizations */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -2649,6 +2840,295 @@ export default function AdminPanel({ onClose, categories, setCategories, onLogou
                   <span>{loading ? "Injecting Live Codes..." : "Save Code Injection Setup"}</span>
                 </button>
               </div>
+            </div>
+          )}
+
+          {/* TAB: AI ARTICLE ENGINE */}
+          {activeTab === "aiArticle" && (
+            <div className="space-y-6 animate-in fade-in duration-200" id="tab-ai-article-content">
+              <div className="flex items-center justify-between border-b border-purple-100 pb-2">
+                <div>
+                  <h3 className="text-xs font-black text-purple-950 uppercase tracking-wider flex items-center gap-1.5">
+                    <Sparkles className="w-4 h-4 text-purple-600" />
+                    <span>AI Article Generation & Automated System</span>
+                  </h3>
+                  <p className="text-[10px] text-gray-500">
+                    Deploy AI writers to scan market trends and publish elite Q&A tech articles with custom visuals and metadata.
+                  </p>
+                </div>
+              </div>
+
+              {/* Options Selector Cards */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {/* Option 1 Card */}
+                <div 
+                  onClick={() => setAiOption("manual")}
+                  className={`p-5 rounded-3xl border transition-all cursor-pointer text-left ${
+                    aiOption === "manual" 
+                      ? "border-purple-500 bg-purple-50/50 shadow-md ring-2 ring-purple-100" 
+                      : "border-gray-100 bg-white hover:bg-gray-50/50"
+                  }`}
+                >
+                  <div className="flex items-center gap-2 mb-2">
+                    <span className={`w-4 h-4 rounded-full border-2 flex items-center justify-center ${aiOption === "manual" ? "border-purple-600 bg-purple-600" : "border-gray-300"}`}>
+                      {aiOption === "manual" && <span className="w-1.5 h-1.5 bg-white rounded-full" />}
+                    </span>
+                    <h4 className="text-xs font-black text-purple-950 uppercase tracking-widest">Option 1: Selective Category Engine</h4>
+                  </div>
+                  <p className="text-[10px] text-gray-500 leading-relaxed pl-6">
+                    Pick a specific category and publish date. The AI writer will generate a comprehensive, professional English Q&A article centering exactly on this technology sector.
+                  </p>
+                </div>
+
+                {/* Option 2 Card */}
+                <div 
+                  onClick={() => setAiOption("auto")}
+                  className={`p-5 rounded-3xl border transition-all cursor-pointer text-left ${
+                    aiOption === "auto" 
+                      ? "border-purple-500 bg-purple-50/50 shadow-md ring-2 ring-purple-100" 
+                      : "border-gray-100 bg-white hover:bg-gray-50/50"
+                  }`}
+                >
+                  <div className="flex items-center gap-2 mb-2">
+                    <span className={`w-4 h-4 rounded-full border-2 flex items-center justify-center ${aiOption === "auto" ? "border-purple-600 bg-purple-600" : "border-gray-300"}`}>
+                      {aiOption === "auto" && <span className="w-1.5 h-1.5 bg-white rounded-full" />}
+                    </span>
+                    <h4 className="text-xs font-black text-purple-950 uppercase tracking-widest flex items-center gap-1.5">
+                      <span>Option 2: Trend Scan "Auto System"</span>
+                      <span className="text-[8px] bg-emerald-100 text-emerald-800 px-1.5 py-0.5 rounded font-black">RECOMMENDED</span>
+                    </h4>
+                  </div>
+                  <p className="text-[10px] text-gray-500 leading-relaxed pl-6">
+                    The AI system dynamically scans active market trends for hot, elite science/tech categories, identifies the best fit, and auto-generates sophisticated Q&A articles.
+                  </p>
+                </div>
+              </div>
+
+              {/* Form Controls based on selection */}
+              <div className="p-6 bg-white border border-purple-100 rounded-3xl space-y-4 text-left">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  {/* Category select (Only enabled for Manual Option 1) */}
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-bold text-purple-900 uppercase tracking-wider block">
+                      Target Category {aiOption === "auto" && <span className="text-gray-400 font-normal italic">(Auto trend-determined)</span>}
+                    </label>
+                    <select
+                      disabled={aiOption === "auto"}
+                      value={aiSelectedCategory}
+                      onChange={(e) => setAiSelectedCategory(e.target.value)}
+                      className="w-full p-2.5 rounded-xl border border-purple-200 bg-white text-xs text-purple-950 focus:outline-none focus:border-purple-500 disabled:bg-gray-50 disabled:text-gray-400 animate-none"
+                    >
+                      <option value="">-- Choose Category --</option>
+                      {categories.map((cat: any) => (
+                        <option key={cat.id || cat.name} value={cat.name}>
+                          {cat.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {/* Scheduling (Publish Time) */}
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-bold text-purple-900 uppercase tracking-wider block">
+                      Select Publish Time <span className="text-gray-400 font-normal">(Leave empty for instant release)</span>
+                    </label>
+                    <input
+                      type="datetime-local"
+                      value={aiPublishTime}
+                      onChange={(e) => setAiPublishTime(e.target.value)}
+                      className="w-full p-2.5 rounded-xl border border-purple-200 bg-white text-xs text-purple-950 focus:outline-none focus:border-purple-500"
+                    />
+                  </div>
+                </div>
+
+                {/* Error and Success message */}
+                {aiErrorMessage && (
+                  <div className="p-3 bg-red-50 text-red-800 rounded-xl border border-red-100 text-xs font-semibold">
+                    ✕ {aiErrorMessage}
+                  </div>
+                )}
+                {aiSuccessMessage && (
+                  <div className="p-3 bg-emerald-50 text-emerald-800 rounded-xl border border-emerald-100 text-xs font-semibold">
+                    ✓ {aiSuccessMessage}
+                  </div>
+                )}
+
+                {/* Submit button / Generating Animation */}
+                {aiGenerationLoading ? (
+                  <div className="space-y-3 p-4 bg-purple-50/50 border border-purple-100 rounded-2xl">
+                    <div className="flex items-center justify-between text-xs font-bold text-purple-950">
+                      <span className="flex items-center gap-1.5 animate-pulse">
+                        <Sparkles className="w-4 h-4 text-purple-600 animate-spin" />
+                        {aiGenerationStep === 0 && "Scanning server assets & establishing environment..."}
+                        {aiGenerationStep === 1 && `Deep researching Category: ${aiOption === "manual" ? aiSelectedCategory : "Trending Tech Market"}...`}
+                        {aiGenerationStep === 2 && "Designing advanced outline and formulating Q&A architecture..."}
+                        {aiGenerationStep === 3 && "Invoking Gemini-3.5-Flash to craft professional-grade English..."}
+                        {aiGenerationStep === 4 && "Validating green highlights of Question elements and structure..."}
+                        {aiGenerationStep === 5 && "Generating optimal contextual Unsplash imagery & tags..."}
+                        {aiGenerationStep === 6 && "Article compiled successfully! Injecting components..."}
+                      </span>
+                      <span>{Math.round((aiGenerationStep / 6) * 100)}%</span>
+                    </div>
+                    {/* Progress Bar */}
+                    <div className="w-full h-2.5 bg-purple-100 rounded-full overflow-hidden">
+                      <div 
+                        className="h-full bg-gradient-to-r from-purple-500 to-indigo-600 transition-all duration-1000 ease-out"
+                        style={{ width: `${(aiGenerationStep / 6) * 100}%` }}
+                      />
+                    </div>
+                  </div>
+                ) : (
+                  <button
+                    onClick={handleGenerateAiArticle}
+                    className="w-full py-3 bg-purple-600 hover:bg-purple-700 text-white font-black text-xs uppercase tracking-widest rounded-2xl flex items-center justify-center gap-1.5 shadow-lg shadow-purple-100 cursor-pointer active:scale-95 transition-all font-bold"
+                  >
+                    <Sparkles className="w-4 h-4 animate-bounce" />
+                    <span>{aiOption === "manual" ? "Generate Selective AI Article" : "Trigger Trend Scan & Auto Post"}</span>
+                  </button>
+                )}
+              </div>
+
+              {/* Article Preview & Editor Section */}
+              {aiGeneratedArticle && (
+                <div className="bg-purple-50/30 border border-purple-100 p-6 rounded-3xl space-y-6 text-left animate-in zoom-in-95 duration-200">
+                  <div className="border-b border-purple-100 pb-3">
+                    <h3 className="text-xs font-black text-purple-900 uppercase tracking-widest flex items-center gap-1.5">
+                      <BookOpen className="w-4 h-4" />
+                      <span>Review & Customize Generated Article</span>
+                    </h3>
+                    <p className="text-[10px] text-gray-500">
+                      Tweak the generated text, replace the thumbnail image, or add/edit Q&A blocks before committing.
+                    </p>
+                  </div>
+
+                  {/* Thumbnail / Image preview */}
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <div className="md:col-span-1 space-y-3">
+                      <p className="text-[10px] font-black text-purple-900 uppercase tracking-wider block">Generated Article Thumbnail</p>
+                      <div className="aspect-video w-full rounded-2xl overflow-hidden border border-purple-100 shadow-sm relative group bg-black">
+                        <img 
+                          src={aiGeneratedArticle.thumbnailUrl} 
+                          alt="AI Thumbnail" 
+                          className="w-full h-full object-cover opacity-90"
+                          referrerPolicy="no-referrer"
+                        />
+                      </div>
+                      
+                      <div className="space-y-1">
+                        <label className="text-[9px] font-black text-purple-900 uppercase tracking-wider block">Replace Image (URL)</label>
+                        <input
+                          type="url"
+                          value={aiGeneratedArticle.thumbnailUrl}
+                          onChange={(e) => setAiGeneratedArticle({ ...aiGeneratedArticle, thumbnailUrl: e.target.value })}
+                          className="w-full p-2 rounded-xl border border-purple-200 bg-white text-xs font-mono"
+                          placeholder="Paste image URL here..."
+                        />
+                      </div>
+                    </div>
+
+                    {/* Metadata Editors */}
+                    <div className="md:col-span-2 space-y-3">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <div className="space-y-1">
+                          <label className="text-[10px] font-bold text-purple-900 uppercase tracking-wider block">Title</label>
+                          <input
+                            type="text"
+                            value={aiGeneratedArticle.title}
+                            onChange={(e) => setAiGeneratedArticle({ ...aiGeneratedArticle, title: e.target.value })}
+                            className="w-full p-2 rounded-xl border border-purple-200 bg-white text-xs font-bold"
+                          />
+                        </div>
+                        <div className="space-y-1">
+                          <label className="text-[10px] font-bold text-purple-900 uppercase tracking-wider block">Tagline / Subtitle</label>
+                          <input
+                            type="text"
+                            value={aiGeneratedArticle.tagline}
+                            onChange={(e) => setAiGeneratedArticle({ ...aiGeneratedArticle, tagline: e.target.value })}
+                            className="w-full p-2 rounded-xl border border-purple-200 bg-white text-xs"
+                          />
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                        <div className="space-y-1">
+                          <label className="text-[10px] font-bold text-purple-900 uppercase tracking-wider block">Category</label>
+                          <input
+                            type="text"
+                            value={aiGeneratedArticle.category}
+                            onChange={(e) => setAiGeneratedArticle({ ...aiGeneratedArticle, category: e.target.value })}
+                            className="w-full p-2 rounded-xl border border-purple-200 bg-white text-xs"
+                          />
+                        </div>
+                        <div className="space-y-1 col-span-2">
+                          <label className="text-[10px] font-bold text-purple-900 uppercase tracking-wider block">Keywords / Tags (comma separated)</label>
+                          <input
+                            type="text"
+                            value={aiGeneratedArticle.tags ? aiGeneratedArticle.tags.join(", ") : ""}
+                            onChange={(e) => setAiGeneratedArticle({ ...aiGeneratedArticle, tags: e.target.value.split(",").map(t => t.trim().toLowerCase()).filter(Boolean) })}
+                            className="w-full p-2 rounded-xl border border-purple-200 bg-white text-xs"
+                          />
+                        </div>
+                      </div>
+
+                      <div className="space-y-1">
+                        <label className="text-[10px] font-bold text-purple-900 uppercase tracking-wider block">Excerpt Summary</label>
+                        <textarea
+                          rows={2}
+                          value={aiGeneratedArticle.excerpt}
+                          onChange={(e) => setAiGeneratedArticle({ ...aiGeneratedArticle, excerpt: e.target.value })}
+                          className="w-full p-2 rounded-xl border border-purple-200 bg-white text-xs"
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Body Content Editor */}
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <label className="text-[10px] font-bold text-purple-900 uppercase tracking-wider block">Article Markdown Body (with Green Q&A div tags)</label>
+                      <span className="text-[9px] bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded font-bold font-mono">Q&A STYLE ACTIVE</span>
+                    </div>
+                    <textarea
+                      rows={14}
+                      value={aiGeneratedArticle.content}
+                      onChange={(e) => setAiGeneratedArticle({ ...aiGeneratedArticle, content: e.target.value })}
+                      className="w-full p-4 rounded-2xl border border-purple-200 bg-white text-xs font-mono focus:outline-none focus:border-purple-500 leading-relaxed"
+                    />
+                    <div className="flex items-center justify-between text-[10px] text-gray-400">
+                      <span>Note: Questions are formatted in green highlights using <code>&lt;div class="p-4 bg-emerald-50 border-l-4 border-emerald-500..."&gt;</code></span>
+                      <span>Length: {aiGeneratedArticle.content ? aiGeneratedArticle.content.split(/\s+/).length : 0} words</span>
+                    </div>
+                  </div>
+
+                  {/* Publish & Tweak Controls */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-3">
+                    <button
+                      onClick={() => {
+                        // Tweak: Add a new element/section dynamically
+                        if (!aiGeneratedArticle) return;
+                        const defaultQaBlock = `\n\n<div class="p-4 bg-emerald-50 border-l-4 border-emerald-500 rounded-r-xl text-emerald-900 font-bold my-4">Q: Enter your custom advanced question here?</div>\n\nWrite your sophisticated professional explanation answer text here. You can add extra paragraphs as needed.`;
+                        setAiGeneratedArticle({
+                          ...aiGeneratedArticle,
+                          content: aiGeneratedArticle.content + defaultQaBlock
+                        });
+                      }}
+                      className="py-3 bg-purple-100 hover:bg-purple-200 text-purple-800 font-bold text-xs rounded-2xl flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+                    >
+                      <Plus className="w-4 h-4" />
+                      <span>Add Custom Q&A Block</span>
+                    </button>
+
+                    <button
+                      onClick={handleSaveAiArticle}
+                      disabled={loading}
+                      className="py-3 bg-emerald-600 hover:bg-emerald-700 text-white font-black text-xs uppercase tracking-wider rounded-2xl flex items-center justify-center gap-1.5 shadow-md shadow-emerald-100 cursor-pointer transition-colors"
+                    >
+                      <Check className="w-4 h-4" />
+                      <span>{loading ? "Publishing AI Post..." : "Save & Publish Article to Website"}</span>
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
           )}
 

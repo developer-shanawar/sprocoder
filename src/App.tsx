@@ -528,6 +528,23 @@ export default function App() {
           // ignore resolving errors
         }
         
+        // Helper to format dates in local timezone to match user experience
+        const getLocalDateString = (d: Date) => {
+          const year = d.getFullYear();
+          const month = String(d.getMonth() + 1).padStart(2, '0');
+          const day = String(d.getDate()).padStart(2, '0');
+          return `${year}-${month}-${day}`;
+        };
+        const getLocalHourString = (d: Date) => {
+          const datePart = getLocalDateString(d);
+          const hourPart = String(d.getHours()).padStart(2, '0');
+          return `${datePart}T${hourPart}`;
+        };
+
+        const now = new Date();
+        const localDateStr = getLocalDateString(now);
+        const localHourStr = getLocalHourString(now);
+
         // Increment visitor counter in Realtime Database transaction-style or single fetch and set
         const analyticsRef = ref(db, "analytics");
         const snap = await get(analyticsRef);
@@ -535,7 +552,9 @@ export default function App() {
         let currentAnalytics: any = {
           sources: { direct: 310, search: 185, social: 145 },
           weeklyViews: [110, 134, 125, 148, 139, 167, 185],
-          countries: { "United States": 142, "Pakistan": 89, "United Kingdom": 62, "Germany": 41, "Canada": 33 }
+          countries: { "United States": 142, "Pakistan": 89, "United Kingdom": 62, "Germany": 41, "Canada": 33 },
+          dailyViews: {},
+          hourlyViews: {}
         };
         
         if (snap.exists()) {
@@ -547,7 +566,9 @@ export default function App() {
               social: Number(raw.sources?.social || 0)
             },
             weeklyViews: Array.isArray(raw.weeklyViews) ? raw.weeklyViews.map(Number) : [110, 134, 125, 148, 139, 167, 185],
-            countries: raw.countries ? { ...raw.countries } : { "United States": 142, "Pakistan": 89, "United Kingdom": 62, "Germany": 41, "Canada": 33 }
+            countries: raw.countries ? { ...raw.countries } : { "United States": 142, "Pakistan": 89, "United Kingdom": 62, "Germany": 41, "Canada": 33 },
+            dailyViews: raw.dailyViews ? { ...raw.dailyViews } : {},
+            hourlyViews: raw.hourlyViews ? { ...raw.hourlyViews } : {}
           };
         }
         
@@ -566,6 +587,41 @@ export default function App() {
         const currentDayIndex = (new Date().getDay() + 6) % 7; // Convert Sun-Sat [0-6] to Mon-Sun [0-6]
         if (currentAnalytics.weeklyViews && currentAnalytics.weeklyViews[currentDayIndex] !== undefined) {
           currentAnalytics.weeklyViews[currentDayIndex] += 1;
+        }
+
+        // Track daily views
+        if (!currentAnalytics.dailyViews) {
+          currentAnalytics.dailyViews = {};
+        }
+        currentAnalytics.dailyViews[localDateStr] = (currentAnalytics.dailyViews[localDateStr] || 0) + 1;
+
+        // Track hourly views
+        if (!currentAnalytics.hourlyViews) {
+          currentAnalytics.hourlyViews = {};
+        }
+        currentAnalytics.hourlyViews[localHourStr] = (currentAnalytics.hourlyViews[localHourStr] || 0) + 1;
+
+        // Prune old data to keep Firebase light (90 days of dailyViews, 48 hours of hourlyViews)
+        try {
+          const limitDate = new Date();
+          limitDate.setDate(limitDate.getDate() - 90);
+          const limitDateStr = getLocalDateString(limitDate);
+          Object.keys(currentAnalytics.dailyViews).forEach((key) => {
+            if (key < limitDateStr) {
+              delete currentAnalytics.dailyViews[key];
+            }
+          });
+
+          const limitHour = new Date();
+          limitHour.setHours(limitHour.getHours() - 48);
+          const limitHourStr = getLocalHourString(limitHour);
+          Object.keys(currentAnalytics.hourlyViews).forEach((key) => {
+            if (key < limitHourStr) {
+              delete currentAnalytics.hourlyViews[key];
+            }
+          });
+        } catch (e) {
+          console.error("Pruning analytics error:", e);
         }
         
         // Write back to Firebase Realtime Database
