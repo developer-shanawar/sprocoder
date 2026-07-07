@@ -318,13 +318,7 @@ const aiBlogPostSchema = {
 // API Endpoint: Advanced AI Article generation & Auto-System
 app.post("/api/blog/generate-ai", async (req, res) => {
   try {
-    if (!ai) {
-      return res.status(503).json({
-        error: "Gemini API client is not configured. Please add your GEMINI_API_KEY in Settings > Secrets."
-      });
-    }
-
-    const { option, category, publishTime } = req.body;
+    const { option, category, publishTime, openRouterKey, huggingFaceKey, imgbbKey } = req.body;
 
     let prompt = "";
     if (option === "manual") {
@@ -350,24 +344,90 @@ Follow each question immediately with several paragraphs of sophisticated, clean
 Generate a catchy title, compelling subtitle/tagline, a brief 2-sentence excerpt, and 4-5 relevant tags/keywords. Make sure the generated category is stored in the 'category' field.`;
     }
 
-    const response = await ai.models.generateContent({
-      model: "gemini-3.5-flash",
-      contents: prompt,
-      config: {
-        systemInstruction: "You are an elite, award-winning blogger, technology journalist, and tech researcher who writes deeply engaging, polished articles in professional and sophisticated English. You structure articles using Q&A formats where the questions are embedded in clean, green-bordered styled div tags to serve as stunning reading elements.",
-        responseMimeType: "application/json",
-        responseSchema: aiBlogPostSchema
+    let blogPost: any = null;
+
+    if (openRouterKey) {
+      console.log("Generating text content via OpenRouter...");
+      const openRouterRes = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${openRouterKey}`,
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          model: "google/gemini-2.5-flash",
+          messages: [
+            {
+              role: "system",
+              content: `You are an elite, award-winning blogger, technology journalist, and tech researcher who writes deeply engaging, polished articles in professional and sophisticated English. You structure articles using Q&A formats where the questions are embedded in clean, green-bordered styled div tags to serve as stunning reading elements.
+You MUST respond with a raw JSON object matching this schema exactly (do not output any markdown code blocks or wrapping, just the raw JSON object):
+{
+  "title": "catchy title",
+  "tagline": "compelling subtitle/tagline",
+  "category": "category name",
+  "content": "detailed article content with Q&A format using <div class=\"p-4 bg-emerald-50 border-l-4 border-emerald-500 rounded-r-xl text-emerald-900 font-bold my-4\">Q: [Question]</div> tags. Each question must be wrapped in this exact div tag. Formulate the intriguing question and follow with highly detailed, professional, and educational answers in sophisticated English.",
+  "readTime": "e.g. 5 min read",
+  "tags": ["tag1", "tag2"],
+  "excerpt": "A brief, compelling 2-sentence summary of the article.",
+  "author": "e.g. S Pro Sage",
+  "imageSearchKeyword": "Unsplash search keyword, e.g. artificial intelligence neural"
+}`
+            },
+            {
+              role: "user",
+              content: prompt
+            }
+          ],
+          response_format: { type: "json_object" }
+        })
+      });
+
+      if (!openRouterRes.ok) {
+        const errText = await openRouterRes.text();
+        throw new Error(`OpenRouter returned ${openRouterRes.status}: ${errText}`);
       }
-    });
 
-    const jsonStr = response.text;
-    if (!jsonStr) {
-      throw new Error("Empty response received from Gemini");
+      const orData = await openRouterRes.json();
+      const rawText = orData.choices?.[0]?.message?.content;
+      if (!rawText) {
+        throw new Error("Empty response received from OpenRouter");
+      }
+
+      let cleaned = rawText.trim();
+      if (cleaned.startsWith("```json")) {
+        cleaned = cleaned.substring(7);
+      }
+      if (cleaned.endsWith("```")) {
+        cleaned = cleaned.substring(0, cleaned.length - 3);
+      }
+      blogPost = JSON.parse(cleaned.trim());
+    } else {
+      // Fallback to local Gemini client if configured
+      if (!ai) {
+        return res.status(503).json({
+          error: "No OpenRouter key provided and local Gemini API key is missing. Please configure keys in Settings."
+        });
+      }
+
+      console.log("Generating text content via local Gemini client...");
+      const response = await ai.models.generateContent({
+        model: "gemini-3.5-flash",
+        contents: prompt,
+        config: {
+          systemInstruction: "You are an elite, award-winning blogger, technology journalist, and tech researcher who writes deeply engaging, polished articles in professional and sophisticated English. You structure articles using Q&A formats where the questions are embedded in clean, green-bordered styled div tags to serve as stunning reading elements.",
+          responseMimeType: "application/json",
+          responseSchema: aiBlogPostSchema
+        }
+      });
+
+      const jsonStr = response.text;
+      if (!jsonStr) {
+        throw new Error("Empty response received from Gemini");
+      }
+      blogPost = JSON.parse(jsonStr.trim());
     }
-
-    const blogPost = JSON.parse(jsonStr.trim());
     
-    // Select high-quality, relevant image URLs based on keywords or categories
+    // Select high-quality, relevant image URLs based on keywords or categories as base fallback
     const kw = (blogPost.imageSearchKeyword || "").toLowerCase() + " " + (blogPost.category || "").toLowerCase();
     let selectedImage = "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&w=800&q=80"; // fallback gorgeous minimalist abstract violet
     
@@ -383,6 +443,52 @@ Generate a catchy title, compelling subtitle/tagline, a brief 2-sentence excerpt
       selectedImage = "https://images.unsplash.com/photo-1635070041078-e363dbe005cb?auto=format&fit=crop&w=800&q=80";
     } else if (kw.includes("blockchain") || kw.includes("crypto") || kw.includes("coin")) {
       selectedImage = "https://images.unsplash.com/photo-1639762681485-074b7f938ba0?auto=format&fit=crop&w=800&q=80";
+    }
+
+    // Attempt Hugging Face custom visual generation if HF key is provided
+    if (huggingFaceKey) {
+      try {
+        console.log("Generating visual thumbnail via Hugging Face FLUX.1...");
+        const imagePrompt = `high resolution professional tech science blog cover: ${blogPost.title}, styled as clean minimalist digital artwork, purple and cyan modern neon developer aesthetic, no text, award winning illustration`;
+        
+        const hfRes = await fetch("https://api-inference.huggingface.co/models/black-forest-labs/FLUX.1-schnell", {
+          method: "POST",
+          headers: {
+            "Authorization": `Bearer ${huggingFaceKey}`,
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({ inputs: imagePrompt })
+        });
+
+        if (hfRes.ok) {
+          const arrayBuffer = await hfRes.arrayBuffer();
+          const base64Image = Buffer.from(arrayBuffer).toString("base64");
+          
+          console.log("Uploading HF generated image to ImgBB cloud storage...");
+          const activeImgbbKey = imgbbKey || "95bfa2c260a52e93433daf349259e043";
+          const imgbbForm = new URLSearchParams();
+          imgbbForm.append("image", base64Image);
+          
+          const imgbbRes = await fetch(`https://api.imgbb.com/1/upload?key=${activeImgbbKey}`, {
+            method: "POST",
+            body: imgbbForm
+          });
+          
+          if (imgbbRes.ok) {
+            const imgbbData = await imgbbRes.json();
+            if (imgbbData?.data?.url) {
+              selectedImage = imgbbData.data.url;
+              console.log("HF generated image uploaded successfully:", selectedImage);
+            }
+          } else {
+            console.warn("ImgBB upload failed, falling back to Unsplash preset...");
+          }
+        } else {
+          console.warn("HF API returned error, falling back to Unsplash preset...");
+        }
+      } catch (imgErr) {
+        console.error("HF Image generation flow failed, using Unsplash fallback:", imgErr);
+      }
     }
 
     blogPost.thumbnailUrl = selectedImage;

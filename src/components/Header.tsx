@@ -292,7 +292,7 @@ export default function Header({
           ))}
           <div className="text-left">
             <h1 className="font-sans font-black text-purple-950 text-sm md:text-base tracking-tight leading-none">
-              {websiteTitle}
+              S pro coder
             </h1>
           </div>
         </div>

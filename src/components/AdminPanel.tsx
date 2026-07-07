@@ -149,6 +149,11 @@ export default function AdminPanel({ onClose, categories, setCategories, onLogou
   const [imgbbKey, setImgbbKey] = useState("95bfa2c260a52e93433daf349259e043");
   const [imgbbKeySaveSuccess, setImgbbKeySaveSuccess] = useState(false);
 
+  // OpenRouter & Hugging Face Keys state
+  const [openRouterKey, setOpenRouterKey] = useState("");
+  const [huggingFaceKey, setHuggingFaceKey] = useState("");
+  const [apiKeysSaveSuccess, setApiKeysSaveSuccess] = useState(false);
+
   // Website Brand SEO Settings state
   const [websiteTitle, setWebsiteTitle] = useState("S pro coder");
   const [websiteDescription, setWebsiteDescription] = useState("bespoke digital platform supplying high-end tech tutorials and AI articles.");
@@ -328,6 +333,20 @@ export default function AdminPanel({ onClose, categories, setCategories, onLogou
     get(ref(db, "settings/imgbbKey")).then((snapshot) => {
       if (snapshot.exists()) {
         setImgbbKey(snapshot.val());
+      }
+    });
+
+    // Load OpenRouter Key
+    get(ref(db, "settings/openRouterKey")).then((snapshot) => {
+      if (snapshot.exists()) {
+        setOpenRouterKey(snapshot.val());
+      }
+    });
+
+    // Load Hugging Face Key
+    get(ref(db, "settings/huggingFaceKey")).then((snapshot) => {
+      if (snapshot.exists()) {
+        setHuggingFaceKey(snapshot.val());
       }
     });
 
@@ -558,7 +577,10 @@ export default function AdminPanel({ onClose, categories, setCategories, onLogou
         body: JSON.stringify({
           option: aiOption,
           category: aiOption === "manual" ? aiSelectedCategory : "",
-          publishTime: aiPublishTime
+          publishTime: aiPublishTime,
+          openRouterKey,
+          huggingFaceKey,
+          imgbbKey
         })
       });
       
@@ -893,6 +915,25 @@ export default function AdminPanel({ onClose, categories, setCategories, onLogou
     } catch (err) {
       console.error(err);
       alert("Failed to update ImgBB API Key.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Save OpenRouter & Hugging Face Keys settings
+  const handleSaveApiKeys = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+    setApiKeysSaveSuccess(false);
+    try {
+      await set(ref(db, "settings/openRouterKey"), openRouterKey.trim());
+      await set(ref(db, "settings/huggingFaceKey"), huggingFaceKey.trim());
+      setApiKeysSaveSuccess(true);
+      setTimeout(() => setApiKeysSaveSuccess(false), 3000);
+      alert("AI Generation API Keys updated successfully!");
+    } catch (err) {
+      console.error(err);
+      alert("Failed to update AI API keys.");
     } finally {
       setLoading(false);
     }
@@ -2338,6 +2379,70 @@ export default function AdminPanel({ onClose, categories, setCategories, onLogou
                     </button>
                   </form>
                 </div>
+              </div>
+
+              {/* AI Generation API Keys Section */}
+              <div className="bg-purple-50/40 p-6 rounded-3xl border border-purple-100/80 space-y-4">
+                <div className="border-b border-purple-100 pb-2">
+                  <h3 className="text-sm font-black text-purple-950 uppercase tracking-wider flex items-center gap-1.5">
+                    <Sparkles className="w-4 h-4 text-purple-600 animate-pulse" />
+                    <span>AI Article Generation API Keys</span>
+                  </h3>
+                  <p className="text-[10px] text-gray-500">
+                    Provide credentials for third-party AI models to write high-end text and generate beautiful featured article illustrations automatically.
+                  </p>
+                </div>
+
+                <form onSubmit={handleSaveApiKeys} className="space-y-4">
+                  <div className="space-y-1">
+                    <div className="flex items-center justify-between">
+                      <label className="text-[10px] font-bold text-purple-900 uppercase tracking-wider block">
+                        OpenRouter API Key (For Text Content & Structure)
+                      </label>
+                      {apiKeysSaveSuccess && (
+                        <span className="text-[10px] text-emerald-600 font-bold flex items-center gap-0.5">
+                          <Check className="w-3 h-3" />
+                          <span>Saved!</span>
+                        </span>
+                      )}
+                    </div>
+                    <input
+                      type="password"
+                      value={openRouterKey}
+                      onChange={(e) => setOpenRouterKey(e.target.value)}
+                      placeholder="sk-or-v1-..."
+                      className="w-full px-3 py-2 rounded-xl border border-purple-200 bg-white text-xs font-mono focus:outline-none focus:border-purple-500"
+                    />
+                    <span className="text-[8px] text-gray-500 block">
+                      Enables the blog to generate elite tech essays using cutting-edge models without access constraints.
+                    </span>
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-bold text-purple-900 uppercase tracking-wider block">
+                      Hugging Face API Token (For FLUX/SD Image Assets)
+                    </label>
+                    <input
+                      type="password"
+                      value={huggingFaceKey}
+                      onChange={(e) => setHuggingFaceKey(e.target.value)}
+                      placeholder="hf_..."
+                      className="w-full px-3 py-2 rounded-xl border border-purple-200 bg-white text-xs font-mono focus:outline-none focus:border-purple-500"
+                    />
+                    <span className="text-[8px] text-gray-500 block">
+                      Used to render breathtaking, highly relevant, custom vector/abstract featured illustration cards dynamically.
+                    </span>
+                  </div>
+
+                  <button
+                    type="submit"
+                    disabled={loading}
+                    className="w-full bg-purple-600 hover:bg-purple-700 text-white font-bold text-xs py-2 rounded-xl cursor-pointer flex items-center justify-center gap-1 shadow-sm"
+                  >
+                    <Save className="w-3.5 h-3.5" />
+                    <span>Update AI API Credentials</span>
+                  </button>
+                </form>
               </div>
 
               {/* Footer Links Configuration Section */}

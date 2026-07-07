@@ -300,9 +300,14 @@ export default function App() {
         (p) => slugify(p.title) === slug || p.id === slug
       );
       if (matched) {
-        setSelectedPost(matched);
-        setCurrentTab("articles");
-        incrementArticleView(matched.id, matched.views || 0);
+        if (matched.visibility === "private" && !isAdminAuthenticated) {
+          setSelectedPost(null);
+          setCurrentTab("articles");
+        } else {
+          setSelectedPost(matched);
+          setCurrentTab("articles");
+          incrementArticleView(matched.id, matched.views || 0);
+        }
       } else {
         setCurrentTab("articles");
         setSelectedPost(null);
@@ -1046,10 +1051,14 @@ export default function App() {
     if (selectedPost) {
       const latest = allPosts.find((p) => p.id === selectedPost.id);
       if (latest) {
-        setSelectedPost(latest);
+        if (latest.visibility === "private" && !isAdminAuthenticated) {
+          setSelectedPost(null);
+        } else {
+          setSelectedPost(latest);
+        }
       }
     }
-  }, [allPosts, selectedPost?.id]);
+  }, [allPosts, selectedPost?.id, isAdminAuthenticated]);
 
   // Filter out posts that are scheduled to be published in the future or marked private
   const visiblePosts = React.useMemo(() => {

@@ -80,7 +80,7 @@ export default function Footer({
               {showWebsiteIcon && (websiteIconUrl ? (
                 <img 
                   src={websiteIconUrl} 
-                  alt={`${websiteTitle} logo`} 
+                  alt="S pro coder logo" 
                   className="w-8 h-8 rounded-xl object-cover shadow-md shadow-purple-500/20"
                   referrerPolicy="no-referrer"
                 />
@@ -89,7 +89,7 @@ export default function Footer({
                   SP
                 </div>
               ))}
-              <h2 className="font-sans font-black text-xl tracking-tight">{websiteTitle}</h2>
+              <h2 className="font-sans font-black text-xl tracking-tight">S pro coder</h2>
             </div>
             
             <p className="text-xs text-slate-300 leading-relaxed max-w-sm">
