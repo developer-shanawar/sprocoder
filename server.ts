@@ -576,7 +576,7 @@ async function injectCustomCode(template: string): Promise<string> {
 }
 
 // Dynamic Google AdSense ads.txt crawler endpoint
-app.get("/ads.txt", async (req, res) => {
+app.get(["/ads.txt", "/add.txt", "/s/add.txt", "/s/ads.txt"], async (req, res) => {
   try {
     const dbUrl = "https://fir-pro-coder-default-rtdb.firebaseio.com/settings/adsTxt.json";
     const response = await fetch(dbUrl);
@@ -586,20 +586,17 @@ app.get("/ads.txt", async (req, res) => {
     }
     
     res.setHeader("Content-Type", "text/plain; charset=utf-8");
-    if (data && typeof data === "string" && data.trim().length > 0) {
+    if (data && typeof data === "string" && data.trim().length > 0 && !data.includes("pub-0000000000000000")) {
       return res.send(data);
     } else {
-      // Default AdSense compliant ads.txt structure. Admins can customize this in the Admin Panel.
-      const defaultAdsTxt = `# S pro coder Google AdSense Configuration (Dynamic ads.txt)
-# Replace with your verified Publisher ID inside the S pro coder Admin Panel > Custom Codes & AdSense Setup
-google.com, pub-0000000000000000, DIRECT, f08c47fec0942fa0
-`;
+      // Default verified AdSense compliant ads.txt/add.txt structure
+      const defaultAdsTxt = `google.com, pub-8457467726305206, DIRECT, f08c47fec0942fa0`;
       return res.send(defaultAdsTxt);
     }
   } catch (err) {
     console.error("Error fetching ads.txt:", err);
     res.setHeader("Content-Type", "text/plain; charset=utf-8");
-    return res.send("google.com, pub-0000000000000000, DIRECT, f08c47fec0942fa0");
+    return res.send("google.com, pub-8457467726305206, DIRECT, f08c47fec0942fa0");
   }
 });
 
