@@ -315,6 +315,33 @@ const aiBlogPostSchema = {
   required: ["title", "tagline", "category", "content", "readTime", "tags", "excerpt", "author", "imageSearchKeyword"]
 };
 
+// Robust helper to extract and parse JSON from AI models
+function safeJsonParse(text: string): any {
+  const trimmed = text.trim();
+  try {
+    return JSON.parse(trimmed);
+  } catch (e) {
+    // Attempt to extract the JSON structure if there's markdown or extra words
+    const start = trimmed.indexOf("{");
+    const end = trimmed.lastIndexOf("}");
+    if (start !== -1 && end !== -1 && end > start) {
+      const candidate = trimmed.substring(start, end + 1);
+      try {
+        return JSON.parse(candidate);
+      } catch (innerError) {
+        // Try replacing unescaped newlines inside strings if any
+        try {
+          const escaped = candidate.replace(/\n/g, "\\n").replace(/\r/g, "\\r");
+          return JSON.parse(escaped);
+        } catch (finalError) {
+          throw new Error("Failed to parse AI-generated content as valid JSON.");
+        }
+      }
+    }
+    throw new Error("Could not find a valid JSON object block in the AI response.");
+  }
+}
+
 // API Endpoint: Advanced AI Article generation & Auto-System
 app.post("/api/blog/generate-ai", async (req, res) => {
   try {
@@ -387,20 +414,19 @@ You MUST respond with a raw JSON object matching this schema exactly (do not out
         throw new Error(`OpenRouter returned ${openRouterRes.status}: ${errText}`);
       }
 
-      const orData = await openRouterRes.json();
+      let orData: any;
+      try {
+        orData = await openRouterRes.json();
+      } catch {
+        throw new Error("Failed to parse OpenRouter response as JSON.");
+      }
+
       const rawText = orData.choices?.[0]?.message?.content;
       if (!rawText) {
         throw new Error("Empty response received from OpenRouter");
       }
 
-      let cleaned = rawText.trim();
-      if (cleaned.startsWith("```json")) {
-        cleaned = cleaned.substring(7);
-      }
-      if (cleaned.endsWith("```")) {
-        cleaned = cleaned.substring(0, cleaned.length - 3);
-      }
-      blogPost = JSON.parse(cleaned.trim());
+      blogPost = safeJsonParse(rawText);
     } else {
       // Fallback to local Gemini client if configured
       if (!ai) {
@@ -424,7 +450,7 @@ You MUST respond with a raw JSON object matching this schema exactly (do not out
       if (!jsonStr) {
         throw new Error("Empty response received from Gemini");
       }
-      blogPost = JSON.parse(jsonStr.trim());
+      blogPost = safeJsonParse(jsonStr);
     }
     
     // Select high-quality, relevant image URLs based on keywords or categories as base fallback
@@ -511,6 +537,34 @@ You MUST respond with a raw JSON object matching this schema exactly (do not out
     return res.status(500).json({
       error: error.message || "Failed to generate AI article. Please check server logs."
     });
+  }
+});
+
+// Dynamic Google AdSense ads.txt crawler endpoint
+app.get("/ads.txt", async (req, res) => {
+  try {
+    const dbUrl = "https://fir-pro-coder-default-rtdb.firebaseio.com/settings/adsTxt.json";
+    const response = await fetch(dbUrl);
+    let data = "";
+    if (response.ok) {
+      data = await response.json() || "";
+    }
+    
+    res.setHeader("Content-Type", "text/plain; charset=utf-8");
+    if (data && typeof data === "string" && data.trim().length > 0) {
+      return res.send(data);
+    } else {
+      // Default AdSense compliant ads.txt structure. Admins can customize this in the Admin Panel.
+      const defaultAdsTxt = `# S pro coder Google AdSense Configuration (Dynamic ads.txt)
+# Replace with your verified Publisher ID inside the S pro coder Admin Panel > Custom Codes & AdSense Setup
+google.com, pub-0000000000000000, DIRECT, f08c47fec0942fa0
+`;
+      return res.send(defaultAdsTxt);
+    }
+  } catch (err) {
+    console.error("Error fetching ads.txt:", err);
+    res.setHeader("Content-Type", "text/plain; charset=utf-8");
+    return res.send("google.com, pub-0000000000000000, DIRECT, f08c47fec0942fa0");
   }
 });
 

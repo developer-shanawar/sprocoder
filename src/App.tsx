@@ -15,6 +15,7 @@ import { INITIAL_POSTS } from "./data";
 import Header from "./components/Header";
 import Footer from "./components/Footer";
 import HeroSection from "./components/HeroSection";
+import AdSenseUnit from "./components/AdSenseUnit";
 
 // Lazy loaded components for split chunks and optimized load speed
 const AdminPanel = React.lazy(() => import("./components/AdminPanel"));
@@ -88,7 +89,14 @@ export default function App() {
   // User auth state
   const [currentUser, setCurrentUser] = useState<UserAccount | null>(() => {
     const cached = localStorage.getItem("spro_user");
-    return cached ? JSON.parse(cached) : null;
+    if (!cached) return null;
+    try {
+      return JSON.parse(cached);
+    } catch (e) {
+      console.error("Failed to parse cached user:", e);
+      localStorage.removeItem("spro_user");
+      return null;
+    }
   });
 
   // Admin auth state
@@ -181,6 +189,19 @@ export default function App() {
   const [disclaimerContent, setDisclaimerContent] = useState("");
   const [customHeadCode, setCustomHeadCode] = useState("");
   const [customBodyCode, setCustomBodyCode] = useState("");
+  const [enableAdSense, setEnableAdSense] = useState<boolean>(() => {
+    if (typeof window !== "undefined") {
+      const cached = localStorage.getItem("spro_enable_adsense");
+      if (cached !== null) return cached === "true";
+    }
+    return false;
+  });
+  const [showCookieConsent, setShowCookieConsent] = useState<boolean>(() => {
+    if (typeof window !== "undefined") {
+      return localStorage.getItem("spro_cookie_consent") !== "accepted";
+    }
+    return false;
+  });
 
   // Search and Category filters
   const [searchQuery, setSearchQuery] = useState("");
@@ -817,7 +838,35 @@ export default function App() {
     const catRef = ref(db, DB_PATHS.CATEGORIES);
     const unsubCat = onValue(catRef, (snapshot) => {
       if (snapshot.exists()) {
-        setCategories(snapshot.val());
+        const val = snapshot.val();
+        if (Array.isArray(val)) {
+          setCategories(val.filter(Boolean));
+        } else if (typeof val === "object" && val !== null) {
+          // Firebase converted array to object with numeric/custom keys, e.g. { "0": "AI", "1": "Web" }
+          const arr = Object.keys(val)
+            .sort((a, b) => {
+              const numA = Number(a);
+              const numB = Number(b);
+              if (isNaN(numA) || isNaN(numB)) return a.localeCompare(b);
+              return numA - numB;
+            })
+            .map((k) => val[k])
+            .filter(Boolean) as string[];
+          setCategories(arr);
+        } else if (typeof val === "string") {
+          try {
+            const parsed = JSON.parse(val);
+            if (Array.isArray(parsed)) {
+              setCategories(parsed.filter(Boolean));
+            } else {
+              setCategories([val]);
+            }
+          } catch {
+            setCategories([val]);
+          }
+        } else {
+          setCategories([]);
+        }
       } else {
         // Bootstrap categories
         const defaultCats = ["Artificial Intelligence", "Web Development", "AI Tools", "Cybersecurity", "Cloud Computing"];
@@ -909,6 +958,16 @@ export default function App() {
       }
     });
 
+    // Sync AdSense Toggle Setup
+    const enableAdSenseRef = ref(db, "settings/enableAdSense");
+    const unsubEnableAdSense = onValue(enableAdSenseRef, (snapshot) => {
+      if (snapshot.exists()) {
+        const val = snapshot.val() === true;
+        setEnableAdSense(val);
+        localStorage.setItem("spro_enable_adsense", String(val));
+      }
+    });
+
     return () => {
       unsubPosts();
       unsubCat();
@@ -919,6 +978,7 @@ export default function App() {
       unsubTitle();
       unsubDesc();
       unsubCustomCode();
+      unsubEnableAdSense();
     };
   }, []);
 
@@ -1579,6 +1639,12 @@ export default function App() {
                     )}
                   </div>
                 </div>
+
+                {enableAdSense && (
+                  <div className="pt-6 border-t border-purple-100/60" id="adsense-left-rail-container">
+                    <AdSenseUnit slot="left-sidebar" format="rectangle" />
+                  </div>
+                )}
               </div>
 
                {/* Middle Column: Articles Feed */}
@@ -1646,6 +1712,13 @@ export default function App() {
                       </div>
                     );
                   })}
+
+                  {enableAdSense && homeFeedPosts.length > 0 && (
+                    <div className="py-2" id="adsense-feed-bottom-container">
+                      <AdSenseUnit slot="feed-bottom" format="horizontal" />
+                    </div>
+                  )}
+
                   {homeFeedPosts.length === 0 && (
                     <div className="p-8 text-center bg-white/30 backdrop-blur-md rounded-2xl border border-white/50 text-gray-500 text-xs">
                       No matching S pro coder articles found in this stream.
@@ -1711,6 +1784,12 @@ export default function App() {
                 <React.Suspense fallback={<LoadingSpinner />}>
                   <YouTubeShowcase />
                 </React.Suspense>
+
+                {enableAdSense && (
+                  <div className="pt-6 border-t border-purple-100/60" id="adsense-right-rail-container">
+                    <AdSenseUnit slot="right-sidebar" format="rectangle" />
+                  </div>
+                )}
               </div>
 
             </div>
@@ -1969,6 +2048,50 @@ export default function App() {
         showWebsiteIcon={showWebsiteIcon}
         websiteTitle={websiteTitle}
       />
+
+      {/* COOKIE CONSENT / GDPR BANNER FOR GOOGLE ADSENSE COMPLIANCE */}
+      {showCookieConsent && (
+        <div 
+          className="fixed bottom-4 left-4 right-4 md:left-auto md:right-4 md:max-w-md bg-white border-2 border-black rounded-3xl p-5 shadow-2xl z-50 animate-in slide-in-from-bottom duration-500" 
+          id="cookie-consent-banner"
+        >
+          <div className="space-y-4">
+            <div className="flex items-start gap-3">
+              <div className="p-2 bg-purple-100 rounded-xl shrink-0 mt-0.5">
+                <Globe className="w-4 h-4 text-purple-600" />
+              </div>
+              <div>
+                <h4 className="text-xs font-black text-purple-950 uppercase tracking-wider">
+                  Cookie & Privacy Consent
+                </h4>
+                <p className="text-[11px] text-gray-600 leading-relaxed mt-1">
+                  We use cookies and third-party advertising services (like Google AdSense) to deliver personalized content, analyze traffic, and support this free site. By clicking "Accept All", you consent to our use of cookies in accordance with our <span className="font-bold underline cursor-pointer text-purple-700 hover:text-purple-950" onClick={() => { setCurrentTab("privacy"); setSelectedPost(null); }}>Privacy Policy</span>.
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2 pt-1">
+              <button 
+                onClick={() => {
+                  localStorage.setItem("spro_cookie_consent", "accepted");
+                  setShowCookieConsent(false);
+                }}
+                className="flex-1 bg-purple-600 hover:bg-purple-700 text-white font-bold text-xs py-2 rounded-xl active:scale-95 transition-transform cursor-pointer shadow-md shadow-purple-100"
+              >
+                Accept All
+              </button>
+              <button 
+                onClick={() => {
+                  localStorage.setItem("spro_cookie_consent", "declined");
+                  setShowCookieConsent(false);
+                }}
+                className="px-3 bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold text-xs py-2 rounded-xl transition-colors cursor-pointer"
+              >
+                Reject
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
     </div>
   );

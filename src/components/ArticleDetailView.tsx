@@ -17,6 +17,7 @@ import { BlogPost, Comment } from "../types";
 import { motion, AnimatePresence } from "motion/react";
 import Markdown from "react-markdown";
 import rehypeRaw from "rehype-raw";
+import AdSenseUnit from "./AdSenseUnit";
 
 const AdRenderer = ({ code }: { code: string }) => {
   const containerRef = React.useRef<HTMLDivElement>(null);
@@ -245,6 +246,17 @@ export default function ArticleDetailView({
           
           {/* Left Column: Article Body (8 cols on desktop) */}
           <div className="lg:col-span-8 space-y-6">
+            {(() => {
+              const enableAdSense = typeof window !== "undefined" && localStorage.getItem("spro_enable_adsense") === "true";
+              if (enableAdSense) {
+                return (
+                  <div className="mb-6" id="article-top-adsense">
+                    <AdSenseUnit slot="article-top" format="horizontal" />
+                  </div>
+                );
+              }
+              return null;
+            })()}
             <article className="prose prose-purple max-w-none text-purple-950">
               <div className="text-sm sm:text-base leading-relaxed text-slate-800 text-left sm:text-justify">
                 {(() => {

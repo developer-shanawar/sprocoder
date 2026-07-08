@@ -163,6 +163,10 @@ export default function AdminPanel({ onClose, categories, setCategories, onLogou
   const [customHeadCode, setCustomHeadCode] = useState("");
   const [customBodyCode, setCustomBodyCode] = useState("");
   const [customCodeSaveSuccess, setCustomCodeSaveSuccess] = useState(false);
+  
+  // AdSense / ads.txt integration states
+  const [adsTxt, setAdsTxt] = useState("");
+  const [enableAdSense, setEnableAdSense] = useState(false);
 
   // Article rich text area ref
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -370,6 +374,19 @@ export default function AdminPanel({ onClose, categories, setCategories, onLogou
         const val = snapshot.val();
         setCustomHeadCode(val.headCode || "");
         setCustomBodyCode(val.bodyCode || "");
+      }
+    });
+
+    // 13.5. Load AdSense and ads.txt settings
+    get(ref(db, "settings/adsTxt")).then((snapshot) => {
+      if (snapshot.exists()) {
+        setAdsTxt(snapshot.val() || "");
+      }
+    });
+
+    get(ref(db, "settings/enableAdSense")).then((snapshot) => {
+      if (snapshot.exists()) {
+        setEnableAdSense(snapshot.val() === true);
       }
     });
 
@@ -584,11 +601,25 @@ export default function AdminPanel({ onClose, categories, setCategories, onLogou
         })
       });
       
-      const data = await response.json();
+      const responseText = await response.text();
       clearInterval(stepsInterval);
       
       if (!response.ok) {
-        throw new Error(data.error || "Failed to generate AI article.");
+        let errMsg = "Failed to generate AI article.";
+        try {
+          const errData = JSON.parse(responseText);
+          errMsg = errData.error || errMsg;
+        } catch {
+          errMsg = `Server error (${response.status}): ${responseText.substring(0, 150)}`;
+        }
+        throw new Error(errMsg);
+      }
+      
+      let data;
+      try {
+        data = JSON.parse(responseText);
+      } catch {
+        throw new Error("Invalid response format received from AI server. Failed to parse article JSON.");
       }
       
       setAiGenerationStep(6); // Final success step
@@ -944,16 +975,20 @@ export default function AdminPanel({ onClose, categories, setCategories, onLogou
     setLoading(true);
     setCustomCodeSaveSuccess(false);
     try {
-      await set(ref(db, "settings/customCode"), {
-        headCode: customHeadCode,
-        bodyCode: customBodyCode
-      });
+      await Promise.all([
+        set(ref(db, "settings/customCode"), {
+          headCode: customHeadCode,
+          bodyCode: customBodyCode
+        }),
+        set(ref(db, "settings/adsTxt"), adsTxt),
+        set(ref(db, "settings/enableAdSense"), enableAdSense)
+      ]);
       setCustomCodeSaveSuccess(true);
       setTimeout(() => setCustomCodeSaveSuccess(false), 3000);
-      alert("Verification & Ad Scripts injected successfully!");
+      alert("Verification, AdSense, and ads.txt settings saved successfully!");
     } catch (err) {
       console.error(err);
-      alert("Failed to inject scripts.");
+      alert("Failed to update scripts and ad settings.");
     } finally {
       setLoading(false);
     }
@@ -2932,6 +2967,79 @@ export default function AdminPanel({ onClose, categories, setCategories, onLogou
                   <div className="flex items-center justify-between text-[10px] text-gray-400">
                     <span>Supports HTML tags, script scripts, div elements, etc.</span>
                     <span>Length: {customBodyCode.length} chars</span>
+                  </div>
+                </div>
+
+                {/* GOOGLE ADSENSE INTEGRATION */}
+                <div className="space-y-4 p-5 rounded-2xl bg-purple-50/70 border border-purple-100">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <div className="p-2 bg-purple-100 rounded-lg">
+                        <Globe className="w-4 h-4 text-purple-600" />
+                      </div>
+                      <div>
+                        <label className="text-xs font-black text-purple-900 uppercase tracking-wider block">
+                          Google AdSense Integration Layout
+                        </label>
+                        <p className="text-[10px] text-gray-500">
+                          Activate AdSense layout-optimized placeholders to earn revenue.
+                        </p>
+                      </div>
+                    </div>
+                    
+                    {/* Toggle Switch */}
+                    <button
+                      onClick={() => setEnableAdSense(!enableAdSense)}
+                      className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none cursor-pointer ${enableAdSense ? "bg-purple-600" : "bg-gray-300"}`}
+                    >
+                      <span
+                        className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${enableAdSense ? "translate-x-6" : "translate-x-1"}`}
+                      />
+                    </button>
+                  </div>
+
+                  {enableAdSense && (
+                    <div className="p-3 bg-purple-100/50 rounded-xl text-[10px] text-purple-950 border border-purple-200/50 space-y-1">
+                      <p className="font-bold flex items-center gap-1">
+                        <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-ping" />
+                        AdSense Layout Active!
+                      </p>
+                      <p className="text-gray-600 leading-normal">
+                        Optimized, high-converting advertisement placeholders will be rendered on key positions (Sidebar, Article Top, Feed Footer) labeled as "Advertisement" to guarantee full compliance with Google Publisher Policies.
+                      </p>
+                    </div>
+                  )}
+                </div>
+
+                {/* ADS.TXT CUSTOMIZER */}
+                <div className="space-y-2 p-5 rounded-2xl bg-purple-50/70 border border-purple-100">
+                  <div className="flex items-center justify-between">
+                    <label className="text-xs font-black text-purple-900 uppercase tracking-wider block">
+                      ads.txt Content (Publisher Authorization)
+                    </label>
+                    <a 
+                      href="/ads.txt" 
+                      target="_blank" 
+                      rel="noopener noreferrer"
+                      className="text-[9px] bg-purple-100 hover:bg-purple-200 text-purple-700 font-bold px-2 py-0.5 rounded transition-colors flex items-center gap-0.5"
+                    >
+                      <span>View Live ads.txt</span>
+                      <Globe className="w-3 h-3" />
+                    </a>
+                  </div>
+                  <p className="text-[10px] text-gray-500 leading-normal">
+                    Authorized Digital Sellers (ads.txt) is a Google-mandated protocol to secure your ad revenue. Add your publisher ID below to authorize your site.
+                  </p>
+                  <textarea 
+                    rows={4}
+                    value={adsTxt}
+                    onChange={(e) => setAdsTxt(e.target.value)}
+                    placeholder="google.com, pub-0000000000000000, DIRECT, f08c47fec0942fa0"
+                    className="w-full p-3 rounded-xl border border-purple-200 bg-white text-xs font-mono focus:outline-none focus:border-purple-500 shadow-sm leading-relaxed"
+                  />
+                  <div className="flex items-center gap-1.5 text-[9px] text-gray-400">
+                    <AlertCircle className="w-3.5 h-3.5 text-purple-400 shrink-0" />
+                    <span>Format: <code>domain, publisher-id, status, cert-authority-id</code> (e.g. google.com, pub-0000000000000000, DIRECT, f08c47fec0942fa0)</span>
                   </div>
                 </div>
 
