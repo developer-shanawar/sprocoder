@@ -126,6 +126,7 @@ app.get([
 </div>
           `;
           template = template.replace('<div id="root"></div>', `<div id="root">${privateLayout}</div>`);
+          template = await injectCustomCode(template);
           return res.status(403).set({ "Content-Type": "text/html" }).end(template);
         }
 
@@ -192,7 +193,7 @@ app.get([
         `;
 
         template = template.replace('<div id="root"></div>', `<div id="root">${staticLayout}</div>`);
-
+        template = await injectCustomCode(template);
         return res.status(200).set({ "Content-Type": "text/html" }).end(template);
       }
     }
@@ -540,6 +541,40 @@ You MUST respond with a raw JSON object matching this schema exactly (do not out
   }
 });
 
+// Dynamic helper to inject AdSense, verification codes, and custom meta tags into HTML template
+async function injectCustomCode(template: string): Promise<string> {
+  try {
+    const response = await fetch("https://fir-pro-coder-default-rtdb.firebaseio.com/settings.json");
+    if (response.ok) {
+      const settings = await response.json();
+      const customCode = settings?.customCode || {};
+      const headCode = customCode.headCode || "";
+      const bodyCode = customCode.bodyCode || "";
+      
+      let modified = template;
+      if (headCode && typeof headCode === "string" && headCode.trim().length > 0) {
+        if (modified.includes("</head>")) {
+          // Put custom code right before closing </head> so that it parses with max compatibility
+          modified = modified.replace("</head>", `${headCode}\n</head>`);
+        } else {
+          modified = `${headCode}\n${modified}`;
+        }
+      }
+      if (bodyCode && typeof bodyCode === "string" && bodyCode.trim().length > 0) {
+        if (modified.includes("</body>")) {
+          modified = modified.replace("</body>", `${bodyCode}\n</body>`);
+        } else {
+          modified = `${modified}\n${bodyCode}`;
+        }
+      }
+      return modified;
+    }
+  } catch (err) {
+    console.error("Error fetching or injecting customCode inside server.ts:", err);
+  }
+  return template;
+}
+
 // Dynamic Google AdSense ads.txt crawler endpoint
 app.get("/ads.txt", async (req, res) => {
   try {
@@ -593,6 +628,7 @@ async function setupViteOrStatic() {
         if (fs.existsSync(templatePath)) {
           let template = fs.readFileSync(templatePath, "utf-8");
           template = await vite.transformIndexHtml(url, template);
+          template = await injectCustomCode(template);
           res.status(200).set({ "Content-Type": "text/html" }).end(template);
         } else {
           next();
@@ -604,9 +640,32 @@ async function setupViteOrStatic() {
     });
   } else {
     const distPath = path.join(process.cwd(), "dist");
-    app.use(express.static(distPath));
-    app.get("*", (req, res) => {
-      res.sendFile(path.join(distPath, "index.html"));
+    // Serve static files with index: false to prevent serving raw index.html on root
+    app.use(express.static(distPath, { index: false }));
+    
+    // Serve index.html with custom code (AdSense and meta verification tags) injected dynamically
+    app.get("*", async (req, res, next) => {
+      const url = req.originalUrl;
+      
+      // Allow API endpoints and standard static assets with dot extensions to fall through (except .html paths which we pre-render)
+      if (url.startsWith("/api") || (url.includes(".") && !url.endsWith(".html"))) {
+        return next();
+      }
+
+      try {
+        const fs = await import("fs");
+        const templatePath = path.join(distPath, "index.html");
+        if (fs.existsSync(templatePath)) {
+          let template = fs.readFileSync(templatePath, "utf-8");
+          template = await injectCustomCode(template);
+          return res.status(200).set({ "Content-Type": "text/html" }).send(template);
+        } else {
+          return next();
+        }
+      } catch (err) {
+        console.error("Failed to serve production index.html:", err);
+        return next();
+      }
     });
   }
 
