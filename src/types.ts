@@ -34,6 +34,8 @@ export interface BlogPost {
   fakeViews?: number; // Custom fake views for public readers
   thumbnailUrl: string; // Dynamic thumbnail URL (ImgBB support)
   isAiGenerated?: boolean;
+  keywords?: string; // Target SEO, EEO, GEO keywords
+  competitiveTrends?: string; // Latest search and competitive patterns
   comments?: Comment[];
   publishStatus?: "direct" | "scheduled";
   scheduledDate?: string;

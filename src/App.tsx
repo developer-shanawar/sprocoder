@@ -15,7 +15,6 @@ import { INITIAL_POSTS } from "./data";
 import Header from "./components/Header";
 import Footer from "./components/Footer";
 import HeroSection from "./components/HeroSection";
-import AdSenseUnit from "./components/AdSenseUnit";
 
 // Lazy loaded components for split chunks and optimized load speed
 const AdminPanel = React.lazy(() => import("./components/AdminPanel"));
@@ -1640,11 +1639,7 @@ export default function App() {
                   </div>
                 </div>
 
-                {enableAdSense && (
-                  <div className="pt-6 border-t border-purple-100/60" id="adsense-left-rail-container">
-                    <AdSenseUnit slot="left-sidebar" format="rectangle" />
-                  </div>
-                )}
+
               </div>
 
                {/* Middle Column: Articles Feed */}
@@ -1713,11 +1708,7 @@ export default function App() {
                     );
                   })}
 
-                  {enableAdSense && homeFeedPosts.length > 0 && (
-                    <div className="py-2" id="adsense-feed-bottom-container">
-                      <AdSenseUnit slot="feed-bottom" format="horizontal" />
-                    </div>
-                  )}
+
 
                   {homeFeedPosts.length === 0 && (
                     <div className="p-8 text-center bg-white/30 backdrop-blur-md rounded-2xl border border-white/50 text-gray-500 text-xs">
@@ -1785,11 +1776,7 @@ export default function App() {
                   <YouTubeShowcase />
                 </React.Suspense>
 
-                {enableAdSense && (
-                  <div className="pt-6 border-t border-purple-100/60" id="adsense-right-rail-container">
-                    <AdSenseUnit slot="right-sidebar" format="rectangle" />
-                  </div>
-                )}
+
               </div>
 
             </div>

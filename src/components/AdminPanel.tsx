@@ -522,6 +522,8 @@ export default function AdminPanel({ onClose, categories, setCategories, onLogou
         views: existingPost ? (existingPost.views || 0) : 0,
         thumbnailUrl: finalThumbnail,
         isAiGenerated: existingPost ? (existingPost.isAiGenerated || false) : false,
+        keywords: existingPost ? existingPost.keywords : "",
+        competitiveTrends: existingPost ? existingPost.competitiveTrends : "",
         comments: existingPost ? (existingPost.comments || []) : [],
         publishStatus,
         scheduledDate: publishStatus === "scheduled" ? scheduledDate : "",

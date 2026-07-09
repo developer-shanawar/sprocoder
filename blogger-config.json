@@ -1,0 +1,49 @@
+{
+  "themeName": "S pro coder - Premium Blogger Theme",
+  "version": "1.0.0",
+  "author": "Shanawar Ali (developershanawar@gmail.com)",
+  "websiteTitle": "S pro coder",
+  "colorScheme": {
+    "primary": "#7c3aed",
+    "primaryHover": "#6d28d9",
+    "background": "#faf9ff",
+    "cardBackground": "#ffffff",
+    "text": "#0f172a",
+    "headerBg": "#f4f0ff",
+    "border": "#000000"
+  },
+  "fonts": {
+    "headings": "Space Grotesk",
+    "body": "Inter",
+    "mono": "JetBrains Mono"
+  },
+  "adsense": {
+    "publisherId": "ca-pub-8457467726305206",
+    "autoAds": true,
+    "slots": {
+      "leftSidebar": true,
+      "rightSidebar": true,
+      "feedTop": true,
+      "feedBottom": true
+    }
+  },
+  "socialLinks": {
+    "gmail": "developershanawar@gmail.com",
+    "telegram": "https://t.me/example"
+  },
+  "navigationTabs": [
+    { "label": "Home", "target": "home" },
+    { "label": "Articles", "target": "articles" },
+    { "label": "About", "target": "about" },
+    { "label": "Contact", "target": "contact" },
+    { "label": "Privacy Policy", "target": "privacy" },
+    { "label": "Terms of Use", "target": "terms" },
+    { "label": "Disclaimer", "target": "disclaimer" }
+  ],
+  "features": {
+    "cookieConsentBanner": true,
+    "responsiveSidebarWidgets": true,
+    "floatingNeoBrutalistNavbar": true,
+    "interactiveSinglePageHybridTabs": true
+  }
+}

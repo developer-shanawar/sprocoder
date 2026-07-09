@@ -17,7 +17,6 @@ import { BlogPost, Comment } from "../types";
 import { motion, AnimatePresence } from "motion/react";
 import Markdown from "react-markdown";
 import rehypeRaw from "rehype-raw";
-import AdSenseUnit from "./AdSenseUnit";
 
 const AdRenderer = ({ code }: { code: string }) => {
   const containerRef = React.useRef<HTMLDivElement>(null);
@@ -246,17 +245,6 @@ export default function ArticleDetailView({
           
           {/* Left Column: Article Body (8 cols on desktop) */}
           <div className="lg:col-span-8 space-y-6">
-            {(() => {
-              const enableAdSense = typeof window !== "undefined" && localStorage.getItem("spro_enable_adsense") === "true";
-              if (enableAdSense) {
-                return (
-                  <div className="mb-6" id="article-top-adsense">
-                    <AdSenseUnit slot="article-top" format="horizontal" />
-                  </div>
-                );
-              }
-              return null;
-            })()}
             <article className="prose prose-purple max-w-none text-purple-950">
               <div className="text-sm sm:text-base leading-relaxed text-slate-800 text-left sm:text-justify">
                 {(() => {
@@ -318,6 +306,32 @@ export default function ArticleDetailView({
                 })()}
               </div>
             </article>
+            
+            {/* SEO, EEO & GEO Optimization Summary */}
+            {(post.keywords || post.competitiveTrends) && (
+              <div className="p-5 rounded-2xl bg-emerald-50/40 border border-emerald-100/80 space-y-3 mt-6">
+                <div className="flex items-center gap-2 text-emerald-900 font-bold text-xs uppercase tracking-wider font-sans">
+                  <span className="flex h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
+                  <span>AI Search Engine Optimization (SEO/EEO/GEO)</span>
+                </div>
+                {post.keywords && (
+                  <div className="text-xs text-slate-700">
+                    <span className="font-bold text-emerald-900">Target Keywords: </span>
+                    <span className="font-mono text-[11px] bg-white border border-emerald-100 px-2 py-0.5 rounded text-emerald-800">
+                      {post.keywords}
+                    </span>
+                  </div>
+                )}
+                {post.competitiveTrends && (
+                  <div className="text-xs text-slate-700 space-y-1">
+                    <div className="font-bold text-emerald-900">Market & Competitive Trends:</div>
+                    <p className="leading-relaxed pl-3 border-l-2 border-emerald-200 text-slate-600 italic">
+                      {post.competitiveTrends}
+                    </p>
+                  </div>
+                )}
+              </div>
+            )}
 
             {/* Hashtags and Keywords */}
             <div className="flex flex-wrap gap-1.5 pt-6 border-t border-purple-100">

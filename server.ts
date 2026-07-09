@@ -292,28 +292,30 @@ app.post("/api/blog/generate", async (req, res) => {
   }
 });
 
-// New AI schema for Q&A article formatting
+// New AI schema for Q&A article formatting with EEO, SEO, GEO optimization
 const aiBlogPostSchema = {
   type: Type.OBJECT,
   properties: {
-    title: { type: Type.STRING, description: "Highly engaging, elite, and catchy article title." },
-    tagline: { type: Type.STRING, description: "Compelling subtitle / tagline for the article." },
-    category: { type: Type.STRING, description: "The category of the article (must match the requested category or be a highly powerful trending category)." },
+    title: { type: Type.STRING, description: "Highly engaging and catchy SEO-optimized & GEO-optimized article title." },
+    tagline: { type: Type.STRING, description: "Compelling tagline highlighting expertise (EEO)." },
+    category: { type: Type.STRING, description: "The category of the article (matches or fits requested or trending category)." },
     content: { 
       type: Type.STRING, 
-      description: "Full-length detailed article body in English. MUST be structured as a sequence of high-quality Q&A (Question & Answer) sections. Each Question must be wrapped EXACTLY in: <div class=\"p-4 bg-emerald-50 border-l-4 border-emerald-500 rounded-r-xl text-emerald-900 font-bold my-4\">Q: [Question Text]</div>. The answer must follow immediately as highly professional, rich, and sophisticated English paragraphs. No markdown headers inside the green highlighted div, only standard text inside it. No extra empty spaces or simple English, at least 500 words total across all sections." 
+      description: "Q&A formatted article body. Formulate intriguing questions and answers in simple, conversational, human-like English. Avoid high-level academic English or complex vocabulary. Each question must be wrapped exactly in: <div class=\"p-4 bg-emerald-50 border-l-4 border-emerald-500 rounded-r-xl text-emerald-900 font-bold my-4\">Q: [Question Text]</div>. Keep answers highly informative yet very concise, punchy, and dense to minimize token usage." 
     },
-    readTime: { type: Type.STRING, description: "Calculated read time, e.g., '6 min read'." },
+    readTime: { type: Type.STRING, description: "Calculated read time, e.g., '3 min read'." },
     tags: {
       type: Type.ARRAY,
       items: { type: Type.STRING },
-      description: "Array of 4-5 lowercase keyword tags suitable for filtering."
+      description: "Array of 3-4 lowercase keyword tags suitable for filtering."
     },
-    excerpt: { type: Type.STRING, description: "A brief, compelling 2-sentence summary of the article." },
+    excerpt: { type: Type.STRING, description: "A brief, compelling 2-sentence summary." },
     author: { type: Type.STRING, description: "Author name, e.g., 'Chroma Analyst' or 'S Pro Sage'." },
-    imageSearchKeyword: { type: Type.STRING, description: "Unsplash search keyword, e.g., 'artificial intelligence neural', 'cybersecurity hacking', 'web coding', or 'quantum computing node'." }
+    imageSearchKeyword: { type: Type.STRING, description: "Unsplash search keyword, e.g., 'artificial intelligence' or 'coding'." },
+    keywords: { type: Type.STRING, description: "Comma-separated target SEO, EEO, and GEO keywords." },
+    competitiveTrends: { type: Type.STRING, description: "A summary of the current competitive trends and search patterns for this topic." }
   },
-  required: ["title", "tagline", "category", "content", "readTime", "tags", "excerpt", "author", "imageSearchKeyword"]
+  required: ["title", "tagline", "category", "content", "readTime", "tags", "excerpt", "author", "imageSearchKeyword", "keywords", "competitiveTrends"]
 };
 
 // Robust helper to extract and parse JSON from AI models
@@ -346,113 +348,59 @@ function safeJsonParse(text: string): any {
 // API Endpoint: Advanced AI Article generation & Auto-System
 app.post("/api/blog/generate-ai", async (req, res) => {
   try {
-    const { option, category, publishTime, openRouterKey, huggingFaceKey, imgbbKey } = req.body;
+    const { option, category, publishTime, huggingFaceKey, imgbbKey } = req.body;
+    let blogPost: any = null;
 
     let prompt = "";
     if (option === "manual") {
-      prompt = `Write a deeply engaging, professional, high-quality tech/science article in the category: "${category}". 
-The article MUST NOT use simple English or contain any mock templates, and must be at least 500 words of rich content.
-The article MUST be structured as a sequence of Questions and Answers (Q&A format).
-For each section, formulate an intriguing, powerful question and follow it with a highly detailed, professional, and educational answer.
-Each Question MUST be wrapped exactly in the following HTML tag so it can be styled in green on the website:
-<div class="p-4 bg-emerald-50 border-l-4 border-emerald-500 rounded-r-xl text-emerald-900 font-bold my-4">Q: [Intriguing Question Here]</div>
-Follow each question immediately with several paragraphs of sophisticated, clean answer text (using normal markdown, no extra spaces or mock placeholder files).
-Generate a catchy title, compelling subtitle/tagline, a brief 2-sentence excerpt, and 4-5 relevant tags/keywords.`;
+      prompt = `Write an optimized tech/science article for the category: "${category}".
+The article MUST be structured strictly as a sequence of Questions and Answers (Q&A format).
+For each section, formulate an intriguing question and follow it with a conversational, professional, and educational answer.
+Each Question MUST be wrapped exactly in the following HTML container:
+<div class="p-4 bg-emerald-50 border-l-4 border-emerald-500 rounded-r-xl text-emerald-900 font-bold my-4">Q: [Target Question]</div>
+
+Ensure the article is optimized for EEO (Experience, Expertise, Authoritativeness, and Trustworthiness), SEO (Search Engine Optimization), and GEO (Generative Engine Optimization).
+Ensure you include highly relevant target keywords, optimized title, and highlight the latest competitive trends for this topic.
+Keep the language extremely simple, direct, conversational, and human-like. Strictly avoid high-level academic English, complex jargon, and robotic transition phrases (avoid words like 'delve', 'moreover', 'tapestry', 'in conclusion').
+Ensure the minimum tokens are used: make the answers punchy, dense, high-signal, and extremely concise without any fluff or verbose padding. Limit the total content to the absolute essentials.`;
     } else {
       // Auto system
       prompt = `First, scan the market trends to identify a trending, powerful tech or science category (e.g. AI Agents, Web3 development, Quantum Computing, Serverless Edge, or advanced cybersecurity). 
-Select the absolute best trending category.
-Then, write an elite, high-quality, professional tech/science article for this selected category.
-The article MUST NOT use simple English or contain any mock templates, and must be at least 500 words of rich content.
-The article MUST be structured as a sequence of Questions and Answers (Q&A format).
-For each section, formulate an intriguing, powerful question and follow it with a highly detailed, professional, and educational answer.
-Each Question MUST be wrapped exactly in the following HTML tag so it can be styled in green on the website:
-<div class="p-4 bg-emerald-50 border-l-4 border-emerald-500 rounded-r-xl text-emerald-900 font-bold my-4">Q: [Intriguing Question Here]</div>
-Follow each question immediately with several paragraphs of sophisticated, clean answer text (using normal markdown, no extra spaces or mock placeholder files).
-Generate a catchy title, compelling subtitle/tagline, a brief 2-sentence excerpt, and 4-5 relevant tags/keywords. Make sure the generated category is stored in the 'category' field.`;
+Select the absolute best trending category and store it in the 'category' field.
+Then, write an elite, highly optimized tech/science article for this selected category.
+The article MUST be structured strictly as a sequence of Questions and Answers (Q&A format).
+For each section, formulate an intriguing question and follow it with a conversational, professional, and educational answer.
+Each Question MUST be wrapped exactly in the following HTML container:
+<div class="p-4 bg-emerald-50 border-l-4 border-emerald-500 rounded-r-xl text-emerald-900 font-bold my-4">Q: [Target Question]</div>
+
+Ensure the article is optimized for EEO (Experience, Expertise, Authoritativeness, and Trustworthiness), SEO (Search Engine Optimization), and GEO (Generative Engine Optimization).
+Ensure you include highly relevant target keywords, optimized title, and highlight the latest competitive trends for this topic.
+Keep the language extremely simple, direct, conversational, and human-like. Strictly avoid high-level academic English, complex jargon, and robotic transition phrases.
+Ensure the minimum tokens are used: make the answers punchy, dense, high-signal, and extremely concise without any fluff or verbose padding. Limit the total content to the absolute essentials.`;
     }
 
-    let blogPost: any = null;
-
-    if (openRouterKey) {
-      console.log("Generating text content via OpenRouter...");
-      const openRouterRes = await fetch("https://openrouter.ai/api/v1/chat/completions", {
-        method: "POST",
-        headers: {
-          "Authorization": `Bearer ${openRouterKey}`,
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify({
-          model: "google/gemini-2.5-flash",
-          messages: [
-            {
-              role: "system",
-              content: `You are an elite, award-winning blogger, technology journalist, and tech researcher who writes deeply engaging, polished articles in professional and sophisticated English. You structure articles using Q&A formats where the questions are embedded in clean, green-bordered styled div tags to serve as stunning reading elements.
-You MUST respond with a raw JSON object matching this schema exactly (do not output any markdown code blocks or wrapping, just the raw JSON object):
-{
-  "title": "catchy title",
-  "tagline": "compelling subtitle/tagline",
-  "category": "category name",
-  "content": "detailed article content with Q&A format using <div class=\"p-4 bg-emerald-50 border-l-4 border-emerald-500 rounded-r-xl text-emerald-900 font-bold my-4\">Q: [Question]</div> tags. Each question must be wrapped in this exact div tag. Formulate the intriguing question and follow with highly detailed, professional, and educational answers in sophisticated English.",
-  "readTime": "e.g. 5 min read",
-  "tags": ["tag1", "tag2"],
-  "excerpt": "A brief, compelling 2-sentence summary of the article.",
-  "author": "e.g. S Pro Sage",
-  "imageSearchKeyword": "Unsplash search keyword, e.g. artificial intelligence neural"
-}`
-            },
-            {
-              role: "user",
-              content: prompt
-            }
-          ],
-          response_format: { type: "json_object" }
-        })
+    if (!ai) {
+      return res.status(503).json({
+        error: "Secure local Gemini client is not configured on S pro coder. Please add your GEMINI_API_KEY in Settings > Secrets."
       });
-
-      if (!openRouterRes.ok) {
-        const errText = await openRouterRes.text();
-        throw new Error(`OpenRouter returned ${openRouterRes.status}: ${errText}`);
-      }
-
-      let orData: any;
-      try {
-        orData = await openRouterRes.json();
-      } catch {
-        throw new Error("Failed to parse OpenRouter response as JSON.");
-      }
-
-      const rawText = orData.choices?.[0]?.message?.content;
-      if (!rawText) {
-        throw new Error("Empty response received from OpenRouter");
-      }
-
-      blogPost = safeJsonParse(rawText);
-    } else {
-      // Fallback to local Gemini client if configured
-      if (!ai) {
-        return res.status(503).json({
-          error: "No OpenRouter key provided and local Gemini API key is missing. Please configure keys in Settings."
-        });
-      }
-
-      console.log("Generating text content via local Gemini client...");
-      const response = await ai.models.generateContent({
-        model: "gemini-3.5-flash",
-        contents: prompt,
-        config: {
-          systemInstruction: "You are an elite, award-winning blogger, technology journalist, and tech researcher who writes deeply engaging, polished articles in professional and sophisticated English. You structure articles using Q&A formats where the questions are embedded in clean, green-bordered styled div tags to serve as stunning reading elements.",
-          responseMimeType: "application/json",
-          responseSchema: aiBlogPostSchema
-        }
-      });
-
-      const jsonStr = response.text;
-      if (!jsonStr) {
-        throw new Error("Empty response received from Gemini");
-      }
-      blogPost = safeJsonParse(jsonStr);
     }
+
+    console.log("Generating text content via secure server-side Gemini SDK client...");
+    const response = await ai.models.generateContent({
+      model: "gemini-3.5-flash",
+      contents: prompt,
+      config: {
+        systemInstruction: "You are a world-class technology analyst who writes helpful, human-like technical Q&As. Your writing is optimized for EEO, SEO, and GEO. You use direct, conversational, and simple English, completely avoiding high-level complex academic terminology or robotic transition clichés. You keep answers high-signal and extremely concise to minimize token usage.",
+        responseMimeType: "application/json",
+        responseSchema: aiBlogPostSchema
+      }
+    });
+
+    const jsonStr = response.text;
+    if (!jsonStr) {
+      throw new Error("Empty response received from Gemini SDK");
+    }
+    blogPost = safeJsonParse(jsonStr);
     
     // Select high-quality, relevant image URLs based on keywords or categories as base fallback
     const kw = (blogPost.imageSearchKeyword || "").toLowerCase() + " " + (blogPost.category || "").toLowerCase();
