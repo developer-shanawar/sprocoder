@@ -17,62 +17,7 @@ import { BlogPost, Comment } from "../types";
 import { motion, AnimatePresence } from "motion/react";
 import Markdown from "react-markdown";
 import rehypeRaw from "rehype-raw";
-
-const AdRenderer = ({ code }: { code: string }) => {
-  const containerRef = React.useRef<HTMLDivElement>(null);
-
-  React.useEffect(() => {
-    if (!containerRef.current || !code) return;
-
-    // Clear previous contents
-    containerRef.current.innerHTML = "";
-
-    // Create a safe container
-    const wrapper = document.createElement("div");
-    wrapper.className = "flex flex-col items-center justify-center my-6 py-4 px-2 bg-yellow-50/10 border-2 border-dashed border-yellow-200/60 rounded-2xl max-w-full overflow-hidden text-center";
-    
-    // Tiny elegant label for transparency and compliance
-    const label = document.createElement("span");
-    label.className = "text-[9px] text-yellow-600/60 uppercase tracking-widest font-mono block mb-2 font-bold";
-    label.innerText = "Advertisement Accent";
-    wrapper.appendChild(label);
-
-    // Dynamic iframe or script container to execute nested ad code safely
-    const adContentContainer = document.createElement("div");
-    adContentContainer.className = "w-full flex items-center justify-center min-h-[50px] overflow-auto";
-    wrapper.appendChild(adContentContainer);
-    
-    containerRef.current.appendChild(wrapper);
-
-    // Try parsing and executing scripts
-    try {
-      const tempDiv = document.createElement("div");
-      tempDiv.innerHTML = code;
-      const scripts = tempDiv.getElementsByTagName("script");
-
-      // Set HTML without scripts first
-      const cleanHTML = code.replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, "");
-      adContentContainer.innerHTML = cleanHTML;
-
-      // Execute scripts in order
-      Array.from(scripts).forEach((script) => {
-        const newScript = document.createElement("script");
-        Array.from(script.attributes).forEach((attr) => {
-          newScript.setAttribute(attr.name, attr.value);
-        });
-        if (script.innerHTML) {
-          newScript.innerHTML = script.innerHTML;
-        }
-        adContentContainer.appendChild(newScript);
-      });
-    } catch (err) {
-      console.error("Ad integration parse error:", err);
-      adContentContainer.innerHTML = code;
-    }
-  }, [code]);
-
-  return <div ref={containerRef} className="w-full mx-auto" />;
-};
+import AdRenderer from "./AdRenderer";
 
 interface ArticleDetailViewProps {
   post: BlogPost;
@@ -86,6 +31,7 @@ interface ArticleDetailViewProps {
   onAddComment: (commentText: string) => void;
   onAddReply: (commentId: string, replyText: string) => void;
   currentUser: any;
+  adsConfig?: any;
 }
 
 export default function ArticleDetailView({
@@ -99,7 +45,8 @@ export default function ArticleDetailView({
   isLiked,
   onAddComment,
   onAddReply,
-  currentUser
+  currentUser,
+  adsConfig = null
 }: ArticleDetailViewProps) {
   const [newComment, setNewComment] = useState("");
   const [activeReplyCommentId, setActiveReplyCommentId] = useState<string | null>(null);
@@ -413,6 +360,13 @@ export default function ArticleDetailView({
                     </div>
                   ))}
                 </div>
+              </div>
+            )}
+
+            {/* ARTICLE SIDEBAR AD SLOT */}
+            {adsConfig?.enableAds && adsConfig?.articleSidebar && (
+              <div id="article-sidebar-ad-slot" className="animate-in fade-in">
+                <AdRenderer code={adsConfig.articleSidebar} className="max-w-[320px] mx-auto bg-slate-100/40 border border-slate-200/50" />
               </div>
             )}
 

@@ -23,6 +23,7 @@ const YouTubeShowcase = React.lazy(() => import("./components/YouTubeShowcase"))
 const ArticleDetailView = React.lazy(() => import("./components/ArticleDetailView"));
 const AdminAuth = React.lazy(() => import("./components/AdminAuth"));
 const UserProfile = React.lazy(() => import("./components/UserProfile"));
+import AdRenderer from "./components/AdRenderer";
 
 const LoadingSpinner = () => (
   <div className="flex justify-center items-center py-16">
@@ -202,6 +203,7 @@ export default function App() {
     belowFeatured: "",
     aboveFooter: "",
     rightSidebar: "",
+    articleSidebar: "",
     enableAds: false
   });
   const [showCookieConsent, setShowCookieConsent] = useState<boolean>(() => {
@@ -986,6 +988,7 @@ export default function App() {
           belowFeatured: val.belowFeatured || "",
           aboveFooter: val.aboveFooter || "",
           rightSidebar: val.rightSidebar || "",
+          articleSidebar: val.articleSidebar || "",
           enableAds: val.enableAds === true
         });
       }
@@ -1504,9 +1507,8 @@ export default function App() {
         
         {/* HEADER AD SLOT */}
         {adsConfig.enableAds && adsConfig.headerBanner && (
-          <div className="w-full max-w-[720px] mx-auto mb-8 bg-slate-100/40 rounded-2xl border border-slate-200/50 p-2 text-center text-[10px] text-gray-400 relative overflow-hidden flex justify-center items-center min-h-[90px] shadow-sm animate-in fade-in" id="header-banner-ad-slot">
-            <span className="absolute top-1 left-2 text-[8px] uppercase tracking-widest text-gray-400/80 font-bold font-sans">Advertisement</span>
-            <div className="w-full flex justify-center" dangerouslySetInnerHTML={{ __html: adsConfig.headerBanner }} />
+          <div id="header-banner-ad-slot" className="w-full max-w-[720px] mx-auto mb-8 animate-in fade-in">
+            <AdRenderer code={adsConfig.headerBanner} />
           </div>
         )}
         
@@ -1532,6 +1534,7 @@ export default function App() {
               onAddComment={(text) => handleAddComment(selectedPost, text)}
               onAddReply={(commentId, text) => handleAddReply(selectedPost, commentId, text)}
               currentUser={currentUser}
+              adsConfig={adsConfig}
             />
           </React.Suspense>
         ) : (
@@ -1553,9 +1556,8 @@ export default function App() {
 
             {/* BELOW FEATURED AD SLOT */}
             {adsConfig.enableAds && adsConfig.belowFeatured && (
-              <div className="w-full max-w-[720px] mx-auto my-6 bg-slate-100/40 rounded-2xl border border-slate-200/50 p-2 text-center text-[10px] text-gray-400 relative overflow-hidden flex justify-center items-center min-h-[90px] shadow-sm animate-in fade-in" id="below-featured-ad-slot">
-                <span className="absolute top-1 left-2 text-[8px] uppercase tracking-widest text-gray-400/80 font-bold font-sans">Advertisement</span>
-                <div className="w-full flex justify-center" dangerouslySetInnerHTML={{ __html: adsConfig.belowFeatured }} />
+              <div id="below-featured-ad-slot" className="w-full max-w-[720px] mx-auto my-6 animate-in fade-in">
+                <AdRenderer code={adsConfig.belowFeatured} />
               </div>
             )}
 
@@ -1819,9 +1821,8 @@ export default function App() {
 
                 {/* RIGHT SIDEBAR AD SLOT */}
                 {adsConfig.enableAds && adsConfig.rightSidebar && (
-                  <div className="w-full max-w-[320px] mx-auto bg-slate-100/40 rounded-2xl border border-slate-200/50 p-2 text-center text-[10px] text-gray-400 relative overflow-hidden flex flex-col justify-center items-center min-h-[250px] shadow-sm animate-in fade-in" id="right-sidebar-ad-slot">
-                    <span className="absolute top-1 left-2 text-[8px] uppercase tracking-widest text-gray-400/80 font-bold font-sans">Advertisement</span>
-                    <div className="w-full mt-4 flex justify-center" dangerouslySetInnerHTML={{ __html: adsConfig.rightSidebar }} />
+                  <div id="right-sidebar-ad-slot" className="w-full max-w-[320px] mx-auto animate-in fade-in">
+                    <AdRenderer code={adsConfig.rightSidebar} />
                   </div>
                 )}
 
@@ -2074,9 +2075,8 @@ export default function App() {
 
       {/* ABOVE FOOTER AD SLOT */}
       {adsConfig.enableAds && adsConfig.aboveFooter && (
-        <div className="w-full max-w-[720px] mx-auto my-8 bg-slate-100/40 rounded-2xl border border-slate-200/50 p-2 text-center text-[10px] text-gray-400 relative overflow-hidden flex justify-center items-center min-h-[90px] shadow-sm animate-in fade-in" id="above-footer-ad-slot">
-          <span className="absolute top-1 left-2 text-[8px] uppercase tracking-widest text-gray-400/80 font-bold font-sans">Advertisement</span>
-          <div className="w-full flex justify-center" dangerouslySetInnerHTML={{ __html: adsConfig.aboveFooter }} />
+        <div id="above-footer-ad-slot" className="w-full max-w-[720px] mx-auto my-8 animate-in fade-in">
+          <AdRenderer code={adsConfig.aboveFooter} />
         </div>
       )}
 

@@ -59,6 +59,7 @@ export default function AdminPanel({ onClose, categories, setCategories, onLogou
   const [belowFeaturedAd, setBelowFeaturedAd] = useState("");
   const [aboveFooterAd, setAboveFooterAd] = useState("");
   const [rightSidebarAd, setRightSidebarAd] = useState("");
+  const [articleSidebarAd, setArticleSidebarAd] = useState("");
   const [enableAds, setEnableAds] = useState(false);
   const [adsSaveSuccess, setAdsSaveSuccess] = useState(false);
 
@@ -406,6 +407,7 @@ export default function AdminPanel({ onClose, categories, setCategories, onLogou
         setBelowFeaturedAd(val.belowFeatured || "");
         setAboveFooterAd(val.aboveFooter || "");
         setRightSidebarAd(val.rightSidebar || "");
+        setArticleSidebarAd(val.articleSidebar || "");
         setEnableAds(val.enableAds === true);
       }
     });
@@ -1083,6 +1085,7 @@ export default function AdminPanel({ onClose, categories, setCategories, onLogou
         belowFeatured: belowFeaturedAd,
         aboveFooter: aboveFooterAd,
         rightSidebar: rightSidebarAd,
+        articleSidebar: articleSidebarAd,
         enableAds: enableAds
       });
       setAdsSaveSuccess(true);
@@ -3586,6 +3589,18 @@ export default function AdminPanel({ onClose, categories, setCategories, onLogou
                       rows={4}
                       value={rightSidebarAd}
                       onChange={(e) => setRightSidebarAd(e.target.value)}
+                      placeholder="Paste your AdSense <ins> or custom HTML script code here..."
+                      className="w-full p-3 rounded-xl border border-purple-100 bg-white text-xs font-mono leading-relaxed focus:outline-none focus:border-purple-500"
+                    />
+                  </div>
+
+                  {/* Article Page Right Sidebar */}
+                  <div className="space-y-1 bg-purple-50/20 p-4 rounded-2xl border border-purple-100/40 md:col-span-2">
+                    <label className="text-[10px] font-black text-purple-950 uppercase tracking-wider block">Article Page Right Sidebar Slot (320px, next to Related Articles)</label>
+                    <textarea
+                      rows={4}
+                      value={articleSidebarAd}
+                      onChange={(e) => setArticleSidebarAd(e.target.value)}
                       placeholder="Paste your AdSense <ins> or custom HTML script code here..."
                       className="w-full p-3 rounded-xl border border-purple-100 bg-white text-xs font-mono leading-relaxed focus:outline-none focus:border-purple-500"
                     />
