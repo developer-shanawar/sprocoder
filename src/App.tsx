@@ -195,6 +195,15 @@ export default function App() {
     }
     return false;
   });
+
+  // Dynamic Ad Placement States
+  const [adsConfig, setAdsConfig] = useState<any>({
+    headerBanner: "",
+    belowFeatured: "",
+    aboveFooter: "",
+    rightSidebar: "",
+    enableAds: false
+  });
   const [showCookieConsent, setShowCookieConsent] = useState<boolean>(() => {
     if (typeof window !== "undefined") {
       return localStorage.getItem("spro_cookie_consent") !== "accepted";
@@ -967,6 +976,21 @@ export default function App() {
       }
     });
 
+    // Sync Ad Placements Setup
+    const adsRef = ref(db, "settings/ads");
+    const unsubAds = onValue(adsRef, (snapshot) => {
+      if (snapshot.exists()) {
+        const val = snapshot.val();
+        setAdsConfig({
+          headerBanner: val.headerBanner || "",
+          belowFeatured: val.belowFeatured || "",
+          aboveFooter: val.aboveFooter || "",
+          rightSidebar: val.rightSidebar || "",
+          enableAds: val.enableAds === true
+        });
+      }
+    });
+
     return () => {
       unsubPosts();
       unsubCat();
@@ -978,6 +1002,7 @@ export default function App() {
       unsubDesc();
       unsubCustomCode();
       unsubEnableAdSense();
+      unsubAds();
     };
   }, []);
 
@@ -1477,6 +1502,14 @@ export default function App() {
       {/* PRIMARY WORKSPACE MAIN ROUTER */}
       <main className="relative z-10 w-full max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 mt-28 flex-grow">
         
+        {/* HEADER AD SLOT */}
+        {adsConfig.enableAds && adsConfig.headerBanner && (
+          <div className="w-full max-w-[720px] mx-auto mb-8 bg-slate-100/40 rounded-2xl border border-slate-200/50 p-2 text-center text-[10px] text-gray-400 relative overflow-hidden flex justify-center items-center min-h-[90px] shadow-sm animate-in fade-in" id="header-banner-ad-slot">
+            <span className="absolute top-1 left-2 text-[8px] uppercase tracking-widest text-gray-400/80 font-bold font-sans">Advertisement</span>
+            <div className="w-full flex justify-center" dangerouslySetInnerHTML={{ __html: adsConfig.headerBanner }} />
+          </div>
+        )}
+        
         {isPostRoute && !selectedPost ? (
           <div className="flex flex-col items-center justify-center min-h-[45vh] py-16 space-y-4" id="primary-data-loading-indicator">
             <div className="animate-spin rounded-full h-10 w-10 border-t-2 border-b-2 border-purple-600 font-bold"></div>
@@ -1516,6 +1549,14 @@ export default function App() {
                 isBookmarked={currentUser?.savedArticles?.includes(featuredPost.id) || false}
                 onBookmark={() => handleToggleBookmark(featuredPost)}
               />
+            )}
+
+            {/* BELOW FEATURED AD SLOT */}
+            {adsConfig.enableAds && adsConfig.belowFeatured && (
+              <div className="w-full max-w-[720px] mx-auto my-6 bg-slate-100/40 rounded-2xl border border-slate-200/50 p-2 text-center text-[10px] text-gray-400 relative overflow-hidden flex justify-center items-center min-h-[90px] shadow-sm animate-in fade-in" id="below-featured-ad-slot">
+                <span className="absolute top-1 left-2 text-[8px] uppercase tracking-widest text-gray-400/80 font-bold font-sans">Advertisement</span>
+                <div className="w-full flex justify-center" dangerouslySetInnerHTML={{ __html: adsConfig.belowFeatured }} />
+              </div>
             )}
 
             {/* Three Column Grid: Left Category Filters (up to 10) | Middle Feed | Right search & social widgets */}
@@ -1776,6 +1817,14 @@ export default function App() {
                   <YouTubeShowcase />
                 </React.Suspense>
 
+                {/* RIGHT SIDEBAR AD SLOT */}
+                {adsConfig.enableAds && adsConfig.rightSidebar && (
+                  <div className="w-full max-w-[320px] mx-auto bg-slate-100/40 rounded-2xl border border-slate-200/50 p-2 text-center text-[10px] text-gray-400 relative overflow-hidden flex flex-col justify-center items-center min-h-[250px] shadow-sm animate-in fade-in" id="right-sidebar-ad-slot">
+                    <span className="absolute top-1 left-2 text-[8px] uppercase tracking-widest text-gray-400/80 font-bold font-sans">Advertisement</span>
+                    <div className="w-full mt-4 flex justify-center" dangerouslySetInnerHTML={{ __html: adsConfig.rightSidebar }} />
+                  </div>
+                )}
+
 
               </div>
 
@@ -2022,6 +2071,14 @@ export default function App() {
         )}
 
       </main>
+
+      {/* ABOVE FOOTER AD SLOT */}
+      {adsConfig.enableAds && adsConfig.aboveFooter && (
+        <div className="w-full max-w-[720px] mx-auto my-8 bg-slate-100/40 rounded-2xl border border-slate-200/50 p-2 text-center text-[10px] text-gray-400 relative overflow-hidden flex justify-center items-center min-h-[90px] shadow-sm animate-in fade-in" id="above-footer-ad-slot">
+          <span className="absolute top-1 left-2 text-[8px] uppercase tracking-widest text-gray-400/80 font-bold font-sans">Advertisement</span>
+          <div className="w-full flex justify-center" dangerouslySetInnerHTML={{ __html: adsConfig.aboveFooter }} />
+        </div>
+      )}
 
       {/* FOOTER COMPONENT */}
       <Footer 

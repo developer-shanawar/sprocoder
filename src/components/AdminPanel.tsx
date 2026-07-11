@@ -51,8 +51,16 @@ interface AdminPanelProps {
 }
 
 export default function AdminPanel({ onClose, categories, setCategories, onLogout }: AdminPanelProps) {
-  const [activeTab, setActiveTab] = useState<"users" | "articles" | "categories" | "messages" | "pages" | "videos" | "featured" | "analytics" | "customCode" | "aiArticle">("articles");
+  const [activeTab, setActiveTab] = useState<"users" | "articles" | "categories" | "messages" | "pages" | "videos" | "featured" | "analytics" | "customCode" | "aiArticle" | "ads">("articles");
   const [loading, setLoading] = useState(false);
+
+  // Ad Management States
+  const [headerBannerAd, setHeaderBannerAd] = useState("");
+  const [belowFeaturedAd, setBelowFeaturedAd] = useState("");
+  const [aboveFooterAd, setAboveFooterAd] = useState("");
+  const [rightSidebarAd, setRightSidebarAd] = useState("");
+  const [enableAds, setEnableAds] = useState(false);
+  const [adsSaveSuccess, setAdsSaveSuccess] = useState(false);
 
   // AI Article Generator States
   const [aiOption, setAiOption] = useState<"manual" | "auto">("manual");
@@ -390,6 +398,18 @@ export default function AdminPanel({ onClose, categories, setCategories, onLogou
       }
     });
 
+    // Load new Ad Slots configurations
+    get(ref(db, "settings/ads")).then((snapshot) => {
+      if (snapshot.exists()) {
+        const val = snapshot.val();
+        setHeaderBannerAd(val.headerBanner || "");
+        setBelowFeaturedAd(val.belowFeatured || "");
+        setAboveFooterAd(val.aboveFooter || "");
+        setRightSidebarAd(val.rightSidebar || "");
+        setEnableAds(val.enableAds === true);
+      }
+    });
+
     return () => {
       unsubUsers();
       unsubArticles();
@@ -468,7 +488,7 @@ export default function AdminPanel({ onClose, categories, setCategories, onLogou
     }
   };
 
-  // Create or Update Article
+  // Create or Update Article with Automatic Symbol Stripping & Green Q&A Formatting
   const handleSaveArticle = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!title.trim() || !category || !content.trim()) {
@@ -502,19 +522,59 @@ export default function AdminPanel({ onClose, categories, setCategories, onLogou
         }
       }
 
+      // Stripping extra symbols like _ and - from the Title
+      const cleanedTitle = title
+        .trim()
+        .replace(/[_-]+/g, " ")
+        .replace(/\s+/g, " ");
+
+      // Stripping extra symbols like _ and - from the Content, and converting Q: questions to beautiful green blocks
+      const rawLines = content.split("\n");
+      const processedLines = rawLines.map((line) => {
+        // Skip tags, codeblocks, or ad inserts
+        const trimmed = line.trim();
+        if (trimmed.startsWith("<") || trimmed.startsWith("[AD_") || trimmed.startsWith("```")) {
+          return line;
+        }
+
+        let l = line;
+        
+        // Remove rogue underscores (text_text -> text text)
+        l = l.replace(/_/g, " ");
+
+        // Clean extra hyphens, but keep list items ("- ") at start intact
+        if (trimmed.startsWith("- ")) {
+          const rest = l.substring(l.indexOf("- ") + 2);
+          l = "- " + rest.replace(/-+/g, " ").replace(/(?<!\w)-(?!\w)/g, " ");
+        } else {
+          l = l.replace(/-+/g, " ").replace(/(?<!\w)-(?!\w)/g, " ");
+        }
+
+        // Standardize question rendering into the beautiful green box
+        const questionMatch = l.trim().match(/^(Q:|Question:)\s*(.+)$/i);
+        if (questionMatch) {
+          const qText = questionMatch[2].trim();
+          return `<div class="p-4 bg-emerald-50 border-l-4 border-emerald-500 rounded-r-xl text-emerald-900 font-bold my-4">Q: ${qText}</div>`;
+        }
+
+        return l;
+      });
+
+      const cleanedContent = processedLines.join("\n").replace(/ {2,}/g, " ");
+
       const parsedTags = tagsInput.trim()
         ? tagsInput.split(",").map((t) => t.trim().replace(/^#/, "").toLowerCase()).filter(Boolean)
         : [category.toLowerCase(), "tech", "coding"];
 
       const articlePayload: BlogPost = {
         id: articleId as string,
-        title: title.trim(),
+        title: cleanedTitle,
         tagline: tagline.trim() || "A technical deep dive from S pro coder",
         category,
-        content: content.trim(),
-        readTime: `${Math.max(1, Math.ceil(content.split(/\s+/).length / 200))} min read`,
+        content: cleanedContent,
+        readTime: `${Math.max(1, Math.ceil(cleanedContent.split(/\s+/).length / 200))} min read`,
         tags: parsedTags,
-        excerpt: tagline.trim() || content.trim().slice(0, 150) + "...",
+        excerpt: tagline.trim() || cleanedContent.slice(0, 150) + "...",
         author: existingPost ? (existingPost.author || "Admin - S pro coder") : "Admin - S pro coder",
         date: existingPost ? (existingPost.date || new Date().toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" })) : new Date().toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" }),
         likes: likes || 0,
@@ -639,7 +699,48 @@ export default function AdminPanel({ onClose, categories, setCategories, onLogou
     if (!aiGeneratedArticle) return;
     setLoading(true);
     try {
-      const post = aiGeneratedArticle;
+      const post = { ...aiGeneratedArticle };
+
+      // Strip extra symbols like _ and - from Title
+      post.title = post.title
+        .trim()
+        .replace(/[_-]+/g, " ")
+        .replace(/\s+/g, " ");
+
+      // Strip extra symbols like _ and - from Content body, and format Q&As to beautiful green blocks
+      const rawLines = post.content.split("\n");
+      const processedLines = rawLines.map((line) => {
+        const trimmed = line.trim();
+        if (trimmed.startsWith("<") || trimmed.startsWith("[AD_") || trimmed.startsWith("```")) {
+          return line;
+        }
+
+        let l = line;
+        
+        // Remove rogue underscores
+        l = l.replace(/_/g, " ");
+
+        // Clean extra hyphens while preserving list items ("- ") at start
+        if (trimmed.startsWith("- ")) {
+          const rest = l.substring(l.indexOf("- ") + 2);
+          l = "- " + rest.replace(/-+/g, " ").replace(/(?<!\w)-(?!\w)/g, " ");
+        } else {
+          l = l.replace(/-+/g, " ").replace(/(?<!\w)-(?!\w)/g, " ");
+        }
+
+        // Standardize question rendering into the beautiful green box
+        const questionMatch = l.trim().match(/^(Q:|Question:)\s*(.+)$/i);
+        if (questionMatch) {
+          const qText = questionMatch[2].trim();
+          return `<div class="p-4 bg-emerald-50 border-l-4 border-emerald-500 rounded-r-xl text-emerald-900 font-bold my-4">Q: ${qText}</div>`;
+        }
+
+        return l;
+      });
+
+      post.content = processedLines.join("\n").replace(/ {2,}/g, " ");
+      post.readTime = `${Math.max(1, Math.ceil(post.content.split(/\s+/).length / 200))} min read`;
+      post.excerpt = post.tagline.trim() || post.content.slice(0, 150) + "...";
       
       // Save to Firebase database
       await set(ref(db, `${DB_PATHS.ARTICLES}/${post.id}`), post);
@@ -972,6 +1073,29 @@ export default function AdminPanel({ onClose, categories, setCategories, onLogou
     }
   };
 
+  // Save Ad Slots Config
+  const handleSaveAds = async () => {
+    setLoading(true);
+    setAdsSaveSuccess(false);
+    try {
+      await set(ref(db, "settings/ads"), {
+        headerBanner: headerBannerAd,
+        belowFeatured: belowFeaturedAd,
+        aboveFooter: aboveFooterAd,
+        rightSidebar: rightSidebarAd,
+        enableAds: enableAds
+      });
+      setAdsSaveSuccess(true);
+      setTimeout(() => setAdsSaveSuccess(false), 3000);
+      alert("Ads Slots Configuration saved successfully!");
+    } catch (err) {
+      console.error(err);
+      alert("Failed to update ads slots configuration.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
   // Save Script & Ownership Verification custom code
   const handleSaveCustomCode = async () => {
     setLoading(true);
@@ -1033,137 +1157,170 @@ export default function AdminPanel({ onClose, categories, setCategories, onLogou
           </div>
         </div>
 
-        {/* Tab Navigation */}
-        <div className="flex flex-wrap gap-2 border-b border-purple-500/10 pb-3" id="admin-tabs">
-          <button
-            onClick={() => setActiveTab("articles")}
-            className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-              activeTab === "articles" 
-                ? "bg-purple-600 text-white shadow-md shadow-purple-100" 
-                : "hover:bg-purple-50 text-purple-800"
-            }`}
-          >
-            <BookOpen className="w-4 h-4" />
-            <span>Articles ({articles.length})</span>
-          </button>
-
-          <button
-            onClick={() => setActiveTab("aiArticle")}
-            className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-              activeTab === "aiArticle" 
-                ? "bg-purple-600 text-white shadow-md shadow-purple-100" 
-                : "hover:bg-purple-50 text-purple-800 font-bold"
-            }`}
-          >
-            <Sparkles className="w-4 h-4 text-purple-500 animate-pulse" />
-            <span>AI Article Engine</span>
-          </button>
+        {/* Main Admin Grid - Responsive Left Sidebar */}
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 pt-4" id="admin-panel-grid">
           
-          <button
-            onClick={() => setActiveTab("users")}
-            className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-              activeTab === "users" 
-                ? "bg-purple-600 text-white shadow-md shadow-purple-100" 
-                : "hover:bg-purple-50 text-purple-800"
-            }`}
-          >
-            <Users className="w-4 h-4" />
-            <span>Registered Users ({users.length})</span>
-          </button>
+          {/* Left Sidebar Navigation */}
+          <div className="lg:col-span-3 space-y-4" id="admin-sidebar-nav">
+            <div className="bg-white/80 border border-purple-200/60 rounded-[28px] p-4 md:p-5 space-y-3 shadow-md backdrop-blur-md">
+              <h3 className="font-sans font-black text-purple-950 text-xs uppercase tracking-widest pl-2 mb-1 text-purple-900/70">
+                Control Center
+              </h3>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-1 gap-2">
+                <button
+                  type="button"
+                  onClick={() => setActiveTab("articles")}
+                  className={`flex items-center gap-2.5 px-4 py-3 rounded-2xl text-xs font-bold transition-all text-left cursor-pointer ${
+                    activeTab === "articles" 
+                      ? "bg-purple-600 text-white shadow-md shadow-purple-200" 
+                      : "hover:bg-purple-100/60 text-purple-900"
+                  }`}
+                >
+                  <BookOpen className="w-4 h-4 shrink-0" />
+                  <span className="truncate">Articles ({articles.length})</span>
+                </button>
 
-          <button
-            onClick={() => setActiveTab("categories")}
-            className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-              activeTab === "categories" 
-                ? "bg-purple-600 text-white shadow-md shadow-purple-100" 
-                : "hover:bg-purple-50 text-purple-800"
-            }`}
-          >
-            <Layers className="w-4 h-4" />
-            <span>Categories ({categories.length}/10)</span>
-          </button>
+                <button
+                  type="button"
+                  onClick={() => setActiveTab("aiArticle")}
+                  className={`flex items-center gap-2.5 px-4 py-3 rounded-2xl text-xs font-bold transition-all text-left cursor-pointer ${
+                    activeTab === "aiArticle" 
+                      ? "bg-purple-600 text-white shadow-md shadow-purple-200" 
+                      : "hover:bg-purple-100/60 text-purple-900 font-bold"
+                  }`}
+                >
+                  <Sparkles className="w-4 h-4 shrink-0 text-purple-500 animate-pulse" />
+                  <span className="truncate">AI Article Engine</span>
+                </button>
 
-          <button
-            onClick={() => setActiveTab("messages")}
-            className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-              activeTab === "messages" 
-                ? "bg-purple-600 text-white shadow-md shadow-purple-100" 
-                : "hover:bg-purple-50 text-purple-800"
-            }`}
-          >
-            <MessageSquare className="w-4 h-4" />
-            <span>Messages ({messages.length})</span>
-          </button>
+                <button
+                  type="button"
+                  onClick={() => setActiveTab("ads")}
+                  className={`flex items-center gap-2.5 px-4 py-3 rounded-2xl text-xs font-bold transition-all text-left cursor-pointer ${
+                    activeTab === "ads" 
+                      ? "bg-purple-600 text-white shadow-md shadow-purple-200" 
+                      : "hover:bg-purple-100/60 text-purple-900"
+                  }`}
+                >
+                  <Globe className="w-4 h-4 shrink-0 text-emerald-600 animate-spin-slow" />
+                  <span className="truncate">Ads Slots Manager</span>
+                </button>
+                
+                <button
+                  type="button"
+                  onClick={() => setActiveTab("users")}
+                  className={`flex items-center gap-2.5 px-4 py-3 rounded-2xl text-xs font-bold transition-all text-left cursor-pointer ${
+                    activeTab === "users" 
+                      ? "bg-purple-600 text-white shadow-md shadow-purple-200" 
+                      : "hover:bg-purple-100/60 text-purple-900"
+                  }`}
+                >
+                  <Users className="w-4 h-4 shrink-0" />
+                  <span className="truncate">Registered Users ({users.length})</span>
+                </button>
 
-          <button
-            onClick={() => setActiveTab("pages")}
-            className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-              activeTab === "pages" 
-                ? "bg-purple-600 text-white shadow-md shadow-purple-100" 
-                : "hover:bg-purple-50 text-purple-800"
-            }`}
-          >
-            <Settings className="w-4 h-4" />
-            <span>Pages & Legal Editor</span>
-          </button>
+                <button
+                  type="button"
+                  onClick={() => setActiveTab("categories")}
+                  className={`flex items-center gap-2.5 px-4 py-3 rounded-2xl text-xs font-bold transition-all text-left cursor-pointer ${
+                    activeTab === "categories" 
+                      ? "bg-purple-600 text-white shadow-md shadow-purple-200" 
+                      : "hover:bg-purple-100/60 text-purple-900"
+                  }`}
+                >
+                  <Layers className="w-4 h-4 shrink-0" />
+                  <span className="truncate">Categories ({categories.length}/10)</span>
+                </button>
 
-          <button
-            onClick={() => setActiveTab("videos")}
-            className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-              activeTab === "videos" 
-                ? "bg-purple-600 text-white shadow-md shadow-purple-100" 
-                : "hover:bg-purple-50 text-purple-800"
-            }`}
-          >
-            <Youtube className="w-4 h-4 text-red-500 fill-red-500" />
-            <span>YouTube Showcase</span>
-          </button>
+                <button
+                  type="button"
+                  onClick={() => setActiveTab("messages")}
+                  className={`flex items-center gap-2.5 px-4 py-3 rounded-2xl text-xs font-bold transition-all text-left cursor-pointer ${
+                    activeTab === "messages" 
+                      ? "bg-purple-600 text-white shadow-md shadow-purple-200" 
+                      : "hover:bg-purple-100/60 text-purple-900"
+                  }`}
+                >
+                  <MessageSquare className="w-4 h-4 shrink-0" />
+                  <span className="truncate">Messages ({messages.length})</span>
+                </button>
 
-          <button
-            onClick={() => setActiveTab("featured")}
-            className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-              activeTab === "featured" 
-                ? "bg-purple-600 text-white shadow-md shadow-purple-100" 
-                : "hover:bg-purple-50 text-purple-800"
-            }`}
-          >
-            <Star className="w-4 h-4 text-amber-500 fill-amber-500" />
-            <span>Featured Article</span>
-          </button>
+                <button
+                  type="button"
+                  onClick={() => setActiveTab("pages")}
+                  className={`flex items-center gap-2.5 px-4 py-3 rounded-2xl text-xs font-bold transition-all text-left cursor-pointer ${
+                    activeTab === "pages" 
+                      ? "bg-purple-600 text-white shadow-md shadow-purple-200" 
+                      : "hover:bg-purple-100/60 text-purple-900"
+                  }`}
+                >
+                  <Settings className="w-4 h-4 shrink-0" />
+                  <span className="truncate">Pages & Legal Editor</span>
+                </button>
 
-          <button
-            onClick={() => setActiveTab("analytics")}
-            className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-              activeTab === "analytics" 
-                ? "bg-purple-600 text-white shadow-md shadow-purple-100" 
-                : "hover:bg-purple-50 text-purple-800"
-            }`}
-          >
-            <TrendingUp className="w-4 h-4 text-emerald-500" />
-            <span>Live Analytics</span>
-          </button>
+                <button
+                  type="button"
+                  onClick={() => setActiveTab("videos")}
+                  className={`flex items-center gap-2.5 px-4 py-3 rounded-2xl text-xs font-bold transition-all text-left cursor-pointer ${
+                    activeTab === "videos" 
+                      ? "bg-purple-600 text-white shadow-md shadow-purple-200" 
+                      : "hover:bg-purple-100/60 text-purple-900"
+                  }`}
+                >
+                  <Youtube className="w-4 h-4 text-red-500 fill-red-500 shrink-0" />
+                  <span className="truncate">YouTube Showcase</span>
+                </button>
 
-          <button
-            onClick={() => setActiveTab("customCode")}
-            className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-              activeTab === "customCode" 
-                ? "bg-purple-600 text-white shadow-md shadow-purple-100" 
-                : "hover:bg-purple-50 text-purple-800"
-            }`}
-          >
-            <Globe className="w-4 h-4 text-purple-600" />
-            <span>Ad & Ownership Verification</span>
-          </button>
-        </div>
+                <button
+                  type="button"
+                  onClick={() => setActiveTab("featured")}
+                  className={`flex items-center gap-2.5 px-4 py-3 rounded-2xl text-xs font-bold transition-all text-left cursor-pointer ${
+                    activeTab === "featured" 
+                      ? "bg-purple-600 text-white shadow-md shadow-purple-200" 
+                      : "hover:bg-purple-100/60 text-purple-900"
+                  }`}
+                >
+                  <Star className="w-4 h-4 text-amber-500 fill-amber-500 shrink-0" />
+                  <span className="truncate">Featured Article</span>
+                </button>
 
-        {/* Tab Contents */}
-        <div className="min-h-[400px]">
+                <button
+                  type="button"
+                  onClick={() => setActiveTab("analytics")}
+                  className={`flex items-center gap-2.5 px-4 py-3 rounded-2xl text-xs font-bold transition-all text-left cursor-pointer ${
+                    activeTab === "analytics" 
+                      ? "bg-purple-600 text-white shadow-md shadow-purple-200" 
+                      : "hover:bg-purple-100/60 text-purple-900"
+                  }`}
+                >
+                  <TrendingUp className="w-4 h-4 text-emerald-500 shrink-0" />
+                  <span className="truncate">Live Analytics</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setActiveTab("customCode")}
+                  className={`flex items-center gap-2.5 px-4 py-3 rounded-2xl text-xs font-bold transition-all text-left cursor-pointer ${
+                    activeTab === "customCode" 
+                      ? "bg-purple-600 text-white shadow-md shadow-purple-200" 
+                      : "hover:bg-purple-100/60 text-purple-900"
+                  }`}
+                >
+                  <Globe className="w-4 h-4 text-purple-600 shrink-0" />
+                  <span className="truncate text-xs">Ad & Verification</span>
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {/* Right Main Panel Content */}
+          <div className="lg:col-span-9 min-h-[400px] space-y-6" id="admin-main-content">
           
-          {/* TAB 1: ARTICLES MANAGER */}
-          {activeTab === "articles" && (
-            <div className="space-y-6" id="tab-articles-content">
-              {/* Form to Create/Edit */}
-              <form onSubmit={handleSaveArticle} className="p-5 rounded-2xl bg-purple-50/70 border border-purple-100 space-y-4">
+            {/* TAB 1: ARTICLES MANAGER */}
+            {activeTab === "articles" && (
+              <div className="space-y-6" id="tab-articles-content">
+                {/* Form to Create/Edit */}
+                <form onSubmit={handleSaveArticle} className="p-5 rounded-2xl bg-purple-50/70 border border-purple-100 space-y-4">
                 <div className="flex items-center justify-between">
                   <h3 className="text-sm font-bold text-purple-900 flex items-center gap-1.5">
                     <Plus className="w-4 h-4" />
@@ -3347,7 +3504,110 @@ export default function AdminPanel({ onClose, categories, setCategories, onLogou
             </div>
           )}
 
-        </div>
+          {/* TAB 11: ADS SLOTS MANAGEMENT */}
+          {activeTab === "ads" && (
+            <div className="space-y-6 animate-in fade-in duration-200" id="tab-ads-content">
+              <div className="p-5 rounded-2xl bg-white border border-purple-100 space-y-4 shadow-sm">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-purple-50 pb-3 gap-3">
+                  <div className="flex items-center gap-2">
+                    <span className="p-2 rounded-xl bg-purple-50 text-purple-600">
+                      <Globe className="w-4 h-4 animate-spin-slow" />
+                    </span>
+                    <div>
+                      <h3 className="font-sans font-black text-purple-950 text-sm uppercase tracking-wider">
+                        Dynamic Ad Placements
+                      </h3>
+                      <p className="text-[10px] text-gray-400 font-bold">OPTIMIZED AND RESPONSIVE WIDGETS</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-3 bg-purple-50 px-4 py-2 rounded-2xl border border-purple-100">
+                    <span className="text-xs font-bold text-purple-950">Enable All Ads Globally</span>
+                    <button
+                      type="button"
+                      onClick={() => setEnableAds(!enableAds)}
+                      className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
+                        enableAds ? "bg-purple-600" : "bg-gray-200"
+                      }`}
+                    >
+                      <span
+                        className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
+                          enableAds ? "translate-x-5" : "translate-x-0"
+                        }`}
+                      />
+                    </button>
+                  </div>
+                </div>
+
+                <p className="text-xs text-purple-950/80 leading-relaxed bg-purple-50/50 p-3.5 rounded-xl border border-purple-100/50">
+                  Configure Google AdSense script tags, custom banners, or dynamic promo codes. The website injects these slots in strategic, high-visibility sections while fully respecting responsive layouts so content never overflows on mobile.
+                </p>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                  {/* Header Banner */}
+                  <div className="space-y-1 bg-purple-50/20 p-4 rounded-2xl border border-purple-100/40">
+                    <label className="text-[10px] font-black text-purple-950 uppercase tracking-wider block">Header Banner Slot (720px, below Menu Bar)</label>
+                    <textarea
+                      rows={4}
+                      value={headerBannerAd}
+                      onChange={(e) => setHeaderBannerAd(e.target.value)}
+                      placeholder="Paste your AdSense <ins> or custom HTML script code here..."
+                      className="w-full p-3 rounded-xl border border-purple-100 bg-white text-xs font-mono leading-relaxed focus:outline-none focus:border-purple-500"
+                    />
+                  </div>
+
+                  {/* Below Featured */}
+                  <div className="space-y-1 bg-purple-50/20 p-4 rounded-2xl border border-purple-100/40">
+                    <label className="text-[10px] font-black text-purple-950 uppercase tracking-wider block">Below Featured Article Slot (720px, Home feed)</label>
+                    <textarea
+                      rows={4}
+                      value={belowFeaturedAd}
+                      onChange={(e) => setBelowFeaturedAd(e.target.value)}
+                      placeholder="Paste your AdSense <ins> or custom HTML script code here..."
+                      className="w-full p-3 rounded-xl border border-purple-100 bg-white text-xs font-mono leading-relaxed focus:outline-none focus:border-purple-500"
+                    />
+                  </div>
+
+                  {/* Above Footer */}
+                  <div className="space-y-1 bg-purple-50/20 p-4 rounded-2xl border border-purple-100/40">
+                    <label className="text-[10px] font-black text-purple-950 uppercase tracking-wider block">Above Footer Slot (720px, Article Detail View Bottom)</label>
+                    <textarea
+                      rows={4}
+                      value={aboveFooterAd}
+                      onChange={(e) => setAboveFooterAd(e.target.value)}
+                      placeholder="Paste your AdSense <ins> or custom HTML script code here..."
+                      className="w-full p-3 rounded-xl border border-purple-100 bg-white text-xs font-mono leading-relaxed focus:outline-none focus:border-purple-500"
+                    />
+                  </div>
+
+                  {/* Right Sidebar */}
+                  <div className="space-y-1 bg-purple-50/20 p-4 rounded-2xl border border-purple-100/40">
+                    <label className="text-[10px] font-black text-purple-950 uppercase tracking-wider block">Right Sidebar Slot (320px, YouTube Video Size Sidebar Widget)</label>
+                    <textarea
+                      rows={4}
+                      value={rightSidebarAd}
+                      onChange={(e) => setRightSidebarAd(e.target.value)}
+                      placeholder="Paste your AdSense <ins> or custom HTML script code here..."
+                      className="w-full p-3 rounded-xl border border-purple-100 bg-white text-xs font-mono leading-relaxed focus:outline-none focus:border-purple-500"
+                    />
+                  </div>
+                </div>
+
+                <div className="pt-2 flex justify-end">
+                  <button
+                    type="button"
+                    onClick={handleSaveAds}
+                    disabled={loading}
+                    className="px-6 py-3 bg-purple-600 hover:bg-purple-700 text-white font-black text-xs uppercase tracking-wider rounded-xl shadow-md transition-colors cursor-pointer"
+                  >
+                    {loading ? "Saving configs..." : "Save Ad Slots Setup"}
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          </div> {/* Closes lg:col-span-9 */}
+        </div> {/* Closes grid grid-cols-1 lg:grid-cols-12 */}
 
       </div>
     </div>
