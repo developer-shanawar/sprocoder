@@ -297,6 +297,22 @@ export default function App() {
     if (!path || path === "/" || path === "") {
       setCurrentTab("home");
       setSelectedPost(null);
+    } else if (path === "/tech-news") {
+      setCurrentTab("home");
+      setSelectedCategory("Technology");
+      setSelectedPost(null);
+    } else if (path === "/ai-news") {
+      setCurrentTab("home");
+      setSelectedCategory("Artificial Intelligence");
+      setSelectedPost(null);
+    } else if (path === "/ai-tools") {
+      setCurrentTab("home");
+      setSelectedCategory("AI Tools");
+      setSelectedPost(null);
+    } else if (path === "/games") {
+      setCurrentTab("home");
+      setSelectedCategory("Games");
+      setSelectedPost(null);
     } else if (path === "/blog" || path === "/articles") {
       setCurrentTab("articles");
       setSelectedPost(null);
@@ -484,7 +500,17 @@ export default function App() {
     } else {
       switch (currentTab) {
         case "home":
-          targetPath = "/";
+          if (selectedCategory === "Technology") {
+            targetPath = "/tech-news";
+          } else if (selectedCategory === "Artificial Intelligence") {
+            targetPath = "/ai-news";
+          } else if (selectedCategory === "AI Tools") {
+            targetPath = "/ai-tools";
+          } else if (selectedCategory === "Games") {
+            targetPath = "/games";
+          } else {
+            targetPath = "/";
+          }
           break;
         case "articles":
           targetPath = "/blog";
@@ -522,7 +548,7 @@ export default function App() {
       window.history.pushState(null, "", targetPath);
     }
     setCurrentPath(targetPath);
-  }, [currentTab, selectedPost]);
+  }, [currentTab, selectedPost, selectedCategory]);
 
   // Real-time Visitor hit tracker for Web Analytics
   useEffect(() => {

@@ -1,0 +1,111 @@
+{
+  "siteMetadata": {
+    "name": "S pro coder",
+    "branding": "S PRO CODER",
+    "tagline": "Premium Full-Stack Developer & Modern Technology Portal",
+    "description": "Premium dynamic publishing, high-performance real-time database syncing, and customizable microservices.",
+    "version": "1.0.0",
+    "author": {
+      "name": "Shanawar Ali",
+      "email": "developershanawar@gmail.com",
+      "telegram": "https://t.me/example"
+    },
+    "canonicalUrl": "https://sprocoder.com",
+    "copyright": "© 2026 S PRO CODER. All Rights Reserved."
+  },
+  "stylingTheme": {
+    "vibe": "Swiss Modern Slate & Vibrant Purple Accent",
+    "mode": "Dark Glassmorphism with deep space gradient backdrop",
+    "fonts": {
+      "headings": "Space Grotesk",
+      "body": "Plus Jakarta Sans",
+      "mono": "JetBrains Mono"
+    },
+    "colors": {
+      "primary": "#7e22ce",
+      "secondary": "#ec4899",
+      "background": "#0b0514",
+      "cardBackground": "rgba(255, 255, 255, 0.03)",
+      "text": "#e2e8f0"
+    }
+  },
+  "databaseConfiguration": {
+    "provider": "Firebase Realtime Database",
+    "referenceUrls": {
+      "articles": "articles",
+      "settings_ads": "settings/ads",
+      "settings_customCode": "settings/customCode",
+      "logo_url": "settings/logoIconUrl",
+      "contact_messages": "messages",
+      "categories": "categories"
+    }
+  },
+  "adPlacements": {
+    "status": "Managed globally via Admin Ads Panel",
+    "slots": [
+      {
+        "id": "headerBanner",
+        "label": "Header Horizontal Banner Slot",
+        "description": "Appears directly below the sticky navigation bar, full-width."
+      },
+      {
+        "id": "belowFeatured",
+        "label": "Below Featured Spacer Slot",
+        "description": "In-feed ad slot separating featured items from the article grid."
+      },
+      {
+        "id": "rightSidebar",
+        "label": "Right Sidebar Widget Slot",
+        "description": "Appears inside the home page sidebar below the YouTube block."
+      },
+      {
+        "id": "articleSidebar",
+        "label": "Article Detail Sidebar Slot",
+        "description": "Displayed next to related articles in single-post detail views."
+      },
+      {
+        "id": "aboveFooter",
+        "label": "Above Footer Banner Slot",
+        "description": "Sticky banner placement appearing directly above the page footer."
+      }
+    ]
+  },
+  "categories": [
+    "Technology",
+    "Design",
+    "Philosophy",
+    "Future",
+    "Lifestyle"
+  ],
+  "showcasePlaylist": {
+    "service": "YouTube",
+    "embedUrl": "https://www.youtube.com/embed/videoseries?list=PL_XxeI7A-m_K16Nf7N84Yg0B5A79f6n0E",
+    "description": "Latest real-time development showcases, microservices tutorials, and coding marathons."
+  },
+  "sampleArticles": [
+    {
+      "title": "Mastering Real-time Database Architecture in 2026",
+      "tagline": "How to design lightning fast web pipelines using serverless streams.",
+      "category": "Technology",
+      "readTime": "6 min read",
+      "author": "S Pro Coder",
+      "date": "July 12, 2026",
+      "likes": 42,
+      "thumbnailUrl": "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&w=800&q=80",
+      "excerpt": "A deep exploration into high-performance web socket triggers, Realtime Database syncing, and zero-latency client updates.",
+      "content": "## Introduction\n\nReal-time database systems have taken the web application development landscape by storm. In 2026, the demand for instant page rendering, collaborative canvases, and zero-delay data replication is higher than ever.\n\n### Core Pillars of Zero-Latency Apps\n\n1. **Event-driven synchronization:** Data shouldn't be polled; it should stream.\n2. **Local client optimistic state updates:** Renders changes instantly on screen before DB acknowledges.\n3. **Efficient Delta Syncing:** Transmitting only changes to minimize payload sizes."
+    },
+    {
+      "title": "The Aesthetics of Brutalist Web Design",
+      "tagline": "Why high-contrast typography and raw spacing are winning the layout game.",
+      "category": "Design",
+      "readTime": "4 min read",
+      "author": "Aura Designer",
+      "date": "July 10, 2026",
+      "likes": 28,
+      "thumbnailUrl": "https://images.unsplash.com/photo-1600132806370-bf17e65e942f?auto=format&fit=crop&w=800&q=80",
+      "excerpt": "How modern creators are shedding complex web gradients to embrace raw spacing, high-contrast display fonts, and solid border structures.",
+      "content": "## Designing with Intention\n\nModern interfaces often overcomplicate visuals with gratuitous animations, complex drop shadows, and purple-to-blue default gradients. Brutalism brings design back to its core roots:\n\n- **Space Grotesk Display Headings:** Giving elements a robust structure.\n- **Pure Flat Colors:** Using solid black or white card overlays.\n- **Thick High-Contrast Outlines:** Defining functional components clearly."
+    }
+  ]
+}

@@ -130,6 +130,30 @@ app.get([
           return res.status(403).set({ "Content-Type": "text/html" }).end(template);
         }
 
+        const articleJsonLd = {
+          "@context": "https://schema.org",
+          "@type": "NewsArticle",
+          "headline": matched.title,
+          "datePublished": matched.date || "2026-07-16",
+          "image": [
+            matched.thumbnailUrl || "https://images.unsplash.com/photo-1620712943543-bcc4688e7485?auto=format&fit=crop&w=1200&q=80"
+          ],
+          "author": {
+            "@type": "Person",
+            "name": matched.author || "S Pro Coder Writer",
+            "url": "https://www.sprocoder.online"
+          },
+          "publisher": {
+            "@type": "Organization",
+            "name": "S Pro Coder",
+            "logo": {
+              "@type": "ImageObject",
+              "url": "https://images.unsplash.com/photo-1620712943543-bcc4688e7485?auto=format&fit=crop&w=200&q=80"
+            }
+          },
+          "description": matched.excerpt || matched.tagline || ""
+        };
+
         // Beautiful SEO Title & dynamic initial state
         const seoMeta = `
     <title>${matched.title} | S pro coder</title>
@@ -137,6 +161,9 @@ app.get([
     <meta property="og:title" content="${matched.title}" />
     <meta property="og:description" content="${(matched.excerpt || matched.tagline || "").replace(/"/g, '&quot;')}" />
     <meta property="og:type" content="article" />
+    <script type="application/ld+json">
+      ${JSON.stringify(articleJsonLd)}
+    </script>
     <script>
       window.__INITIAL_POST__ = ${JSON.stringify(matched).replace(/</g, '\\u003c')};
     </script>
@@ -201,6 +228,245 @@ app.get([
     console.error("Failed to pre-render requested article page:", error);
   }
 
+  next();
+});
+
+// Dynamic pre-rendering for the main pages and category hubs
+app.get([
+  "/",
+  "/tech-news",
+  "/ai-news",
+  "/ai-tools",
+  "/games",
+  "/home"
+], async (req, res, next) => {
+  const targetPath = req.path;
+  
+  try {
+    const dbUrl = "https://fir-pro-coder-default-rtdb.firebaseio.com/articles.json";
+    const dbRes = await fetch(dbUrl);
+    const articlesMap = dbRes.ok ? (await dbRes.json() || {}) : {};
+    const articles = Object.values(articlesMap).filter((a: any) => a && a.visibility !== "private");
+
+    let pageTitle = "S Pro Coder | Tech News, AI News, AI Tools & Games";
+    let pageDesc = "Stay updated with S Pro Coder! Explore the latest tech news, breakthrough AI news, professional reviews of AI tools, and gaming guides and updates.";
+    let pageH1 = "S Pro Coder | Premium Technology Portal, AI Insights & Gaming Hub";
+    let seoCopy = "";
+    let filteredArticles = [...articles];
+
+    if (targetPath === "/tech-news") {
+      pageTitle = "Tech News & Latest Technology Updates | S Pro Coder";
+      pageDesc = "Read the latest tech news, software development trends, and gadget reviews on S Pro Coder. Expert analysis on modern technology updates.";
+      pageH1 = "Latest Technology News & Software Development Trends";
+      seoCopy = `Welcome to the S Pro Coder Tech News division, your primary source for up-to-the-minute updates, reviews, and deep-dive analysis on consumer hardware, enterprise software, and global tech industry movements. We monitor the fast-paced world of technology to deliver highly accurate, bite-sized, and expert-level news to developers, system administrators, and technology enthusiasts globally.
+
+      Our tech news coverage spans across multiple critical domains, including cloud computing advancements, serverless database infrastructures, mobile computing, cybersecurity, and open-source frameworks. We break down complex technical announcements into accessible insights, helping you understand how industry shifts impact your daily coding workflows, business decisions, and tech stack choices.
+
+      In addition to major product launches and industry mergers, we place a strong emphasis on developer-centric news. We cover updates from key web development platforms like Vite, React, Next.js, and Tailwind CSS. Understanding changes in these ecosystems is vital for maintaining scalable, secure, and modern applications. We provide comparative analyses, performance benchmarks, and implementation advice for newly released APIs.
+
+      Security is another cornerstone of our technology coverage. With threat landscapes growing more sophisticated each day, our cybersecurity updates highlight vital vulnerability reports, patch notes, and best practices for securing cloud workloads. From encryption protocol updates to zero-trust architecture guidelines, we help you keep your applications safe.
+
+      Explore our extensive repository of technology articles, comparative guides, and reviews. Whether you are interested in the physical hardware powering the servers of tomorrow or the software packages driving frontend interfaces today, our tech news portal is designed to keep you informed, inspired, and prepared for what comes next.`;
+      
+      filteredArticles = articles.filter((a: any) => {
+        const cat = (a.category || "").toLowerCase();
+        return cat.includes("tech") || cat.includes("web") || cat.includes("code") || cat.includes("programming") || cat.includes("security") || cat.includes("cloud");
+      });
+    } else if (targetPath === "/ai-news") {
+      pageTitle = "AI News & Artificial Intelligence Breakthroughs | S Pro Coder";
+      pageDesc = "Stay ahead with latest AI news, generative AI developments, machine learning breakthroughs, and expert AI research news on S Pro Coder.";
+      pageH1 = "Breakthrough AI News & Generative Machine Learning Updates";
+      seoCopy = `Step into the future with the S Pro Coder Artificial Intelligence News hub, where we decode the latest advancements, research, and ethics surrounding machine learning, deep neural networks, and generative AI systems. AI is transforming every major sector of human industry, and our goal is to provide a clear, technical, yet highly readable chronicle of this historical transition.
+
+      We cover breakthroughs from top artificial intelligence research labs and industry giants, tracking the release of new large language models (LLMs), multimodal transformers, image synthesis systems, and automated agentic pipelines. Our coverage explains how these complex technologies operate under the hood, translating theoretical research papers into practical developer insights.
+
+      Beyond model architectures, we discuss the societal and business implications of the AI revolution. We explore the rise of cognitive compute clusters, natural language understanding, generative design patterns, and deep learning algorithms. Our analysis dives into topics such as model fine-tuning, retrieval-augmented generation (RAG), and cost-efficient edge execution.
+
+      Whether you are an AI developer looking to integrate advanced Gemini API features into your web application, or a tech enthusiast curious about the ethical considerations of autonomous decision-making systems, our AI news section is your intellectual companion. We cover topics like bias mitigation, alignment protocols, and open-weights vs proprietary model debates.
+
+      Stay informed about the tools, researchers, and companies shaping the next decade of computer science. Our AI news feeds are updated regularly to ensure you never miss a milestone in this exponentially accelerating field. Read our articles today and explore how neural computation is rewriting the rules of software development and human productivity.`;
+      
+      filteredArticles = articles.filter((a: any) => {
+        const cat = (a.category || "").toLowerCase();
+        return cat.includes("artificial") || cat.includes("intelligence") || cat.includes("ai news") || cat.includes("machine learning");
+      });
+    } else if (targetPath === "/ai-tools") {
+      pageTitle = "AI Tools Reviews, Directory & Productivity Guides | S Pro Coder";
+      pageDesc = "Discover the latest AI tools and platforms to boost your productivity. In-depth reviews, comparative guides, and tutorials for AI tools.";
+      pageH1 = "Latest AI Tools Directory, Reviews & Productivity Guides";
+      seoCopy = `Maximize your operational efficiency with the S Pro Coder AI Tools review portal, a comprehensive directory and evaluation playground for the world's most innovative artificial intelligence utilities. As hundreds of new AI-powered applications launch every single day, our team separates the high-signal systems from the noise, providing unbiased reviews, comparison grids, and setup tutorials.
+
+      Our reviews focus on key productivity niches, including AI code assistants, automated content generators, video rendering systems, intelligent design interfaces, and developer-centric API tools. We evaluate each platform based on concrete criteria: response speed, API ease of use, formatting precision, price-to-value ratio, and data security standards.
+
+      We understand that choosing the right AI helper can make or break your team's workflow. That is why our guides do not just list features—they provide end-to-end integration walkthroughs. Learn how to plug model endpoints into your existing web services, write optimal prompts for generative workflows, and leverage local edge processors for private data processing.
+
+      Our directory covers general productivity helpers as well as advanced dev tools like GitHub Copilot, Cursor, Gemini Studio, and Hugging Face pipelines. We help you find the best tool for code generation, layout styling, database modeling, and unit testing.
+
+      Whether you are a solo freelancer looking to double your daily output or an enterprise engineering lead seeking to streamline your development lifecycle, our AI tools directory provides the actionable guidance you need to succeed. Browse our latest tool reviews, check our comparisons, and start integrating artificial intelligence into your daily routines today.`;
+      
+      filteredArticles = articles.filter((a: any) => {
+        const cat = (a.category || "").toLowerCase();
+        return cat.includes("tool") || cat.includes("ai tool");
+      });
+    } else if (targetPath === "/games") {
+      pageTitle = "Gaming News, Game Reviews & Expert Guides | S Pro Coder";
+      pageDesc = "Get the latest gaming news, upcoming game reviews, and gaming guides for console, PC, and mobile gaming. Your ultimate gaming hub at S Pro Coder.";
+      pageH1 = "Latest Gaming News, Game Reviews & Strategy Guides";
+      seoCopy = `Immerse yourself in the world of gaming with the S Pro Coder Gaming portal, a dedicated space for reviews, news, patch details, and comprehensive gameplay guides. From hardware updates on cutting-edge graphics cards and next-gen consoles to exhaustive strategy reviews of indie hits and triple-A releases, we cover everything a passionate gamer needs.
+
+      Our gaming coverage is driven by a simple belief: gaming is a major pillar of modern technology and creative expression. We track the development of advanced rendering pipelines, real-time physics engines, and virtual environments, explaining how game developers push hardware to its absolute limits to craft immersive experiences.
+
+      We cover gaming news across all platforms, including PlayStation, Xbox, Nintendo Switch, PC, and mobile gaming ecosystems. Our news feeds bring you immediate updates on release dates, trailers, console patches, and industry developer updates. When a major title is announced, we analyze its mechanics, engine, and hardware requirements.
+
+      In addition to news, our detailed strategy guides and gameplay walkthroughs help you conquer difficult levels, optimize your character builds, and master game mechanics. Whether you are looking for secrets in an expansive open-world RPG, competitive tactics for multiplayer shooters, or system optimization tips for PC games, we write guides that are easy to follow and highly detailed.
+
+      Read our latest game reviews to make informed choices before purchasing your next title. We assess games on narrative depth, mechanical fluidity, visual art direction, and sound design. Our gaming corner is where technology and play collide—explore our articles and take your gaming experience to the next level.`;
+      
+      filteredArticles = articles.filter((a: any) => {
+        const cat = (a.category || "").toLowerCase();
+        return cat.includes("game") || cat.includes("gaming") || cat.includes("play");
+      });
+    } else {
+      // Homepage /
+      seoCopy = `Welcome to S Pro Coder, the ultimate online sanctuary built for software developers, technology enthusiasts, AI practitioners, and passionate gamers. Our platform is dedicated to bringing you the most precise, high-fidelity updates from the ever-evolving landscapes of modern consumer technology, artificial intelligence breakthroughs, emerging web tools, and immersive gaming experiences.
+
+      In the era of rapid technological disruption, staying informed is no longer a luxury—it is a necessity. Our mission is to filter the noise and provide deep, structured, and informative coverage of the latest tech updates. Whether you are searching for reviews of next-generation smartphones, in-depth coding tutorials, artificial intelligence algorithm breakthroughs, or the latest patches and guides for trending video games, S Pro Coder has you covered.
+
+      Our artificial intelligence section explores the boundaries of generative AI systems, natural language models, and agentic workflows. We review the latest AI tools to help developers and creatives automate their workflows, optimize their processes, and build intelligent products. From LLM comparison guides to hands-on reviews of neural design software, we give you the exact technical details you need to make informed decisions.
+
+      For the development community, we specialize in modern framework walkthroughs, focusing on React, Vite, Node.js, and serverless edge databases. Our tutorials are written by experienced engineers who understand the nuances of building high-performance, real-time web applications.
+
+      Furthermore, our gaming corner delivers comprehensive news on upcoming titles, console hardware, gaming guides, and game reviews. We believe that technology and gaming go hand-in-hand, and we aim to foster a community where developers and gamers alike can find high-quality, readable content. Explore our curated categories and start your journey towards technological mastery today.`;
+    }
+
+    const isProduction = process.env.NODE_ENV === "production";
+    const templatePath = isProduction
+      ? path.resolve(process.cwd(), "dist", "index.html")
+      : path.resolve(process.cwd(), "index.html");
+
+    const fs = await import("fs");
+    if (fs.existsSync(templatePath)) {
+      let template = fs.readFileSync(templatePath, "utf-8");
+
+      if (!isProduction && viteDevServerInstance) {
+        template = await viteDevServerInstance.transformIndexHtml(req.originalUrl, template);
+      }
+
+      // Inject custom SEO title and description meta tags
+      const headerMeta = `
+    <title>${pageH1} | S Pro Coder</title>
+    <meta name="description" content="${pageDesc.replace(/"/g, '&quot;')}" />
+    <meta property="og:title" content="${pageTitle}" />
+    <meta property="og:description" content="${pageDesc.replace(/"/g, '&quot;')}" />
+    <meta property="og:url" content="https://www.sprocoder.online${targetPath}" />
+    <meta property="og:type" content="website" />
+    <meta property="og:image" content="https://images.unsplash.com/photo-1620712943543-bcc4688e7485?auto=format&fit=crop&w=1200&q=80" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="${pageTitle}" />
+    <meta name="twitter:description" content="${pageDesc.replace(/"/g, '&quot;')}" />
+    <meta name="twitter:image" content="https://images.unsplash.com/photo-1620712943543-bcc4688e7485?auto=format&fit=crop&w=1200&q=80" />
+      `;
+
+      if (template.includes("<title>")) {
+        template = template.replace(/<title>.*?<\/title>/i, headerMeta);
+      } else {
+        template = template.replace("</head>", `${headerMeta}\n</head>`);
+      }
+
+      // Render static HTML layout matching S Pro Coder elegant Slate-theme styles
+      let articlesHtml = "";
+      if (filteredArticles.length > 0) {
+        articlesHtml = filteredArticles.map((art: any) => {
+          const slug = slugify(art.title);
+          const excerpt = art.excerpt || art.tagline || "";
+          const thumbnail = art.thumbnailUrl || "https://images.unsplash.com/photo-1620712943543-bcc4688e7485?auto=format&fit=crop&w=600&q=80";
+          return `
+        <article style="background: rgba(255, 255, 255, 0.03); border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 1.5rem; padding: 2rem; margin-bottom: 2rem; box-shadow: 0 4px 30px rgba(0, 0, 0, 0.1); backdrop-filter: blur(5px); -webkit-backdrop-filter: blur(5px); max-width: 100%;">
+          <div style="display: flex; gap: 1.5rem; flex-wrap: wrap-reverse; align-items: start;">
+            <div style="flex: 1; min-width: 280px;">
+              <div style="display: flex; gap: 1rem; align-items: center; margin-bottom: 1rem; flex-wrap: wrap;">
+                <span style="background-color: #7e22ce; color: #ffffff; padding: 0.25rem 0.75rem; font-size: 0.75rem; font-weight: 700; border-radius: 9999px; text-transform: uppercase;">${art.category || "General"}</span>
+                <span style="color: #94a3b8; font-size: 0.75rem; font-family: monospace;">${art.date || "July 2026"}</span>
+                <span style="color: #94a3b8; font-size: 0.75rem;">${art.readTime || "5 min read"}</span>
+              </div>
+              <h2 style="font-size: 1.5rem; font-weight: 800; color: #f8fafc; margin-top: 0; margin-bottom: 0.75rem; line-height: 1.35; letter-spacing: -0.02em;">
+                <a href="/blog/${slug}" style="color: #f8fafc; text-decoration: none; border-bottom: 2px solid transparent; transition: border-bottom 0.2s;">${art.title}</a>
+              </h2>
+              <p style="color: #cbd5e1; font-size: 1rem; line-height: 1.6; margin-bottom: 1.5rem; font-style: italic;">${art.tagline || ""}</p>
+              <p style="color: #94a3b8; font-size: 0.95rem; line-height: 1.6; margin-bottom: 1.5rem;">${excerpt}</p>
+              <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem;">
+                <span style="font-size: 0.875rem; color: #c084fc; font-weight: 600;">By ${art.author || "S Pro Coder"}</span>
+                <a href="/blog/${slug}" style="display: inline-flex; align-items: center; font-size: 0.875rem; font-weight: 700; color: #c084fc; text-decoration: none; border-bottom: 1.5px solid #c084fc;">Read Full Article →</a>
+              </div>
+            </div>
+            <div style="width: 140px; height: 100px; overflow: hidden; border-radius: 1rem;">
+              <img src="${thumbnail}" alt="${art.title.replace(/"/g, '&quot;')}" loading="lazy" style="width: 100%; height: 100%; object-fit: cover;" />
+            </div>
+          </div>
+        </article>
+          `;
+        }).join("");
+      } else {
+        articlesHtml = `
+        <div style="background: rgba(255, 255, 255, 0.03); border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 1.5rem; padding: 3rem; text-align: center;">
+          <p style="color: #94a3b8; font-size: 1rem;">No articles found in this category yet. Check back soon for premium updates!</p>
+        </div>
+        `;
+      }
+
+      const staticLayout = `
+<div style="background-color: #0b0514; color: #f8fafc; font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif; min-height: 100vh; padding: 2rem 1rem; -webkit-font-smoothing: antialiased;">
+  <div style="max-width: 64rem; margin: 0 auto;">
+    
+    <!-- Header -->
+    <header style="display: flex; justify-content: space-between; align-items: center; padding-bottom: 2rem; border-bottom: 1px solid rgba(255, 255, 255, 0.08); margin-bottom: 3rem; flex-wrap: wrap; gap: 1.5rem;">
+      <div style="display: flex; align-items: center; gap: 1rem;">
+        <div style="width: 2.75rem; height: 2.75rem; background: linear-gradient(135deg, #a855f7, #6366f1); border-radius: 1rem; display: flex; align-items: center; justify-content: center; font-weight: 900; color: #ffffff; font-size: 1.25rem;">S</div>
+        <span style="font-size: 1.25rem; font-weight: 900; letter-spacing: 0.05em; color: #ffffff;">S PRO CODER</span>
+      </div>
+      <nav style="display: flex; gap: 1.5rem; flex-wrap: wrap;">
+        <a href="/" style="color: #f8fafc; font-size: 0.875rem; font-weight: 700; text-decoration: none;">Home</a>
+        <a href="/tech-news" style="color: #f8fafc; font-size: 0.875rem; font-weight: 700; text-decoration: none;">Tech News</a>
+        <a href="/ai-news" style="color: #f8fafc; font-size: 0.875rem; font-weight: 700; text-decoration: none;">AI News</a>
+        <a href="/ai-tools" style="color: #f8fafc; font-size: 0.875rem; font-weight: 700; text-decoration: none;">AI Tools</a>
+        <a href="/games" style="color: #f8fafc; font-size: 0.875rem; font-weight: 700; text-decoration: none;">Games</a>
+      </nav>
+    </header>
+
+    <!-- H1 Heading & SEO Copy -->
+    <main>
+      <section style="margin-bottom: 4rem;">
+        <h1 style="font-size: 2.5rem; font-weight: 900; letter-spacing: -0.04em; color: #ffffff; margin-top: 0; margin-bottom: 1.5rem; line-height: 1.15; background: linear-gradient(to right, #ffffff, #c084fc); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">${pageH1}</h1>
+        <div style="font-size: 1.1rem; line-height: 1.75; color: #cbd5e1; max-width: 52rem; border-left: 4px solid #a855f7; padding-left: 1.5rem; margin-bottom: 2rem;">
+          ${seoCopy.split("\n\n").map(p => `<p style="margin-bottom: 1.25rem;">${p.trim()}</p>`).join("")}
+        </div>
+      </section>
+
+      <!-- Articles Grid -->
+      <section style="margin-top: 4rem;">
+        <h2 style="font-size: 1.75rem; font-weight: 800; color: #ffffff; margin-bottom: 2rem; border-bottom: 2px solid rgba(255, 255, 255, 0.08); padding-bottom: 0.75rem;">Latest Published Stories</h2>
+        <div style="display: grid; grid-template-columns: 1fr; gap: 1.5rem;">
+          ${articlesHtml}
+        </div>
+      </section>
+    </main>
+
+    <!-- Footer -->
+    <footer style="margin-top: 6rem; padding-top: 2rem; border-top: 1px solid rgba(255, 255, 255, 0.08); text-align: center; color: #94a3b8; font-size: 0.875rem;">
+      <p>© 2026 S PRO CODER. All Rights Reserved. Crafted for maximum performance and premium speed.</p>
+    </footer>
+
+  </div>
+</div>
+      `;
+
+      template = template.replace('<div id="root"></div>', `<div id="root">${staticLayout}</div>`);
+      template = await injectCustomCode(template);
+      return res.status(200).set({ "Content-Type": "text/html" }).end(template);
+    }
+  } catch (error) {
+    console.error("Failed to pre-render route:", error);
+  }
   next();
 });
 
