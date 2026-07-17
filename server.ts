@@ -33,15 +33,15 @@ function parseMarkdown(md: string): string {
     .replace(/</g, "&lt;")
     .replace(/>/g, "&gt;")
     // Headers
-    .replace(/^### (.*$)/gim, '<h3 style="font-size: 1.25rem; font-weight: 700; color: #f1f5f9; margin-top: 1.5rem; margin-bottom: 0.5rem; font-family: system-ui, -apple-system, sans-serif;">$1</h3>')
-    .replace(/^## (.*$)/gim, '<h2 style="font-size: 1.5rem; font-weight: 800; color: #ffffff; margin-top: 2rem; margin-bottom: 0.75rem; font-family: system-ui, -apple-system, sans-serif; border-left: 4px solid #a855f7; padding-left: 0.75rem;">$1</h2>')
-    .replace(/^# (.*$)/gim, '<h1 style="font-size: 1.875rem; font-weight: 950; color: #ffffff; margin-top: 2.5rem; margin-bottom: 1rem; font-family: system-ui, -apple-system, sans-serif;">$1</h1>')
+    .replace(/^### (.*$)/gim, '<h3 style="font-size: 1.25rem; font-weight: 700; color: #1e1b4b; margin-top: 1.5rem; margin-bottom: 0.5rem; font-family: system-ui, -apple-system, sans-serif;">$1</h3>')
+    .replace(/^## (.*$)/gim, '<h2 style="font-size: 1.5rem; font-weight: 800; color: #0f172a; margin-top: 2rem; margin-bottom: 0.75rem; font-family: system-ui, -apple-system, sans-serif; border-left: 4px solid #7c3aed; padding-left: 0.75rem;">$1</h2>')
+    .replace(/^# (.*$)/gim, '<h1 style="font-size: 1.875rem; font-weight: 950; color: #0f172a; margin-top: 2.5rem; margin-bottom: 1rem; font-family: system-ui, -apple-system, sans-serif;">$1</h1>')
     // Blockquotes
-    .replace(/^\> (.*$)/gim, '<blockquote style="border-left: 4px solid #a855f7; padding: 0.75rem 1rem; font-style: italic; color: #cbd5e1; background-color: rgba(168, 85, 247, 0.05); border-radius: 0 0.75rem 0.75rem 0; margin: 1.5rem 0;">$1</blockquote>')
+    .replace(/^\> (.*$)/gim, '<blockquote style="border-left: 4px solid #7c3aed; padding: 0.75rem 1rem; font-style: italic; color: #4b5563; background-color: rgba(124, 58, 237, 0.05); border-radius: 0 0.75rem 0.75rem 0; margin: 1.5rem 0;">$1</blockquote>')
     // Bold
-    .replace(/\*\*(.*)\*\*/gim, '<strong style="color: #ffffff; font-weight: 700;">$1</strong>')
+    .replace(/\*\*(.*)\*\*/gim, '<strong style="color: #0f172a; font-weight: 700;">$1</strong>')
     // Lists
-    .replace(/^\- (.*$)/gim, '<li style="margin-left: 1.5rem; list-style-type: disc; color: #cbd5e1; margin-bottom: 0.5rem; line-height: 1.75;">$1</li>')
+    .replace(/^\- (.*$)/gim, '<li style="margin-left: 1.5rem; list-style-type: disc; color: #334155; margin-bottom: 0.5rem; line-height: 1.75;">$1</li>')
     // Paragraphs
     .split('\n\n')
     .map(para => {
@@ -50,9 +50,114 @@ function parseMarkdown(md: string): string {
       if (trimmed.startsWith('<h') || trimmed.startsWith('<blockquote') || trimmed.startsWith('<li')) {
         return trimmed;
       }
-      return `<p style="color: #cbd5e1; line-height: 1.75; margin-bottom: 1.25rem; text-align: justify; font-size: 1rem;">${trimmed}</p>`;
+      return `<p style="color: #334155; line-height: 1.75; margin-bottom: 1.25rem; text-align: justify; font-size: 1rem;">${trimmed}</p>`;
     })
     .join('\n');
+}
+
+// Renders structured metadata tables for LLMs and Search Crawlers
+function renderStaticLLMMetadataTable(article: any): string {
+  const specs = [
+    { label: "Document Type", value: "Technical Insights & News Article" },
+    { label: "Primary Title", value: article.title || "Untitled" },
+    { label: "Category & Domain", value: article.category || "General Technology" },
+    { label: "Authoring Authority", value: article.author || "S Pro Coder" },
+    { label: "Publication Date", value: article.date || "July 2026" },
+    { label: "Estimated Reading Time", value: article.readTime || "5 minutes" },
+    { label: "Key Focus Keywords", value: article.tags ? article.tags.join(", ") : "technology, artificial intelligence" },
+    { label: "Indexed URL", value: `https://www.sprocoder.online/blog/${slugify(article.title)}` }
+  ];
+
+  let rows = specs.map(spec => `
+    <tr style="border-bottom: 1px solid #e2e8f0;">
+      <td style="padding: 0.75rem 1rem; font-weight: 700; color: #1e1b4b; background-color: #f8fafc; font-size: 0.825rem; font-family: monospace; width: 35%; text-transform: uppercase; letter-spacing: 0.05em;">${spec.label}</td>
+      <td style="padding: 0.75rem 1rem; color: #334155; font-size: 0.875rem;">${spec.value}</td>
+    </tr>
+  `).join("");
+
+  return `
+  <section style="margin-top: 3rem; margin-bottom: 3rem; border: 2px solid #000000; border-radius: 16px; overflow: hidden; background-color: #ffffff; box-shadow: 4px 4px 0px 0px #000000;" id="llm-data-extraction-table">
+    <div style="background-color: #f4f0ff; padding: 1rem; border-bottom: 2px solid #000000; display: flex; align-items: center; gap: 0.5rem;">
+      <span style="font-size: 1.25rem;">📊</span>
+      <h3 style="margin: 0; font-size: 0.9rem; font-weight: 900; letter-spacing: 0.05em; color: #1e1b4b; text-transform: uppercase;">LLM Knowledge Graph & GEO Data Index</h3>
+    </div>
+    <table style="width: 100%; border-collapse: collapse; text-align: left;">
+      <tbody>
+        ${rows}
+      </tbody>
+    </table>
+  </section>
+  `;
+}
+
+// Inject standard SEO, Open Graph, Twitter, Canonical, and Schema.org tags into template
+function injectDynamicSEOTags(template: string, title: string, desc: string, image: string, canonicalUrl: string, articleSchema?: any): string {
+  // Remove existing title, description, og, twitter, and canonical tags to avoid duplicates
+  let cleaned = template
+    .replace(/<title>.*?<\/title>/gi, "")
+    .replace(/<meta\s+name="description"\s+content=".*?"\s*\/?>/gi, "")
+    .replace(/<meta\s+property="og:.*?"\s+content=".*?"\s*\/?>/gi, "")
+    .replace(/<meta\s+name="twitter:.*?"\s+content=".*?"\s*\/?>/gi, "")
+    .replace(/<link\s+rel="canonical"\s+href=".*?"\s*\/?>/gi, "")
+    .replace(/<script\s+type="application\/ld\+json">[\s\S]*?<\/script>/gi, "");
+
+  const seoMetaHtml = `
+  <title>${title} | S pro coder</title>
+  <meta name="description" content="${desc.replace(/"/g, '&quot;')}" />
+  <link rel="canonical" href="${canonicalUrl}" />
+  
+  <!-- Open Graph -->
+  <meta property="og:type" content="${articleSchema ? 'article' : 'website'}" />
+  <meta property="og:url" content="${canonicalUrl}" />
+  <meta property="og:title" content="${title} | S pro coder" />
+  <meta property="og:description" content="${desc.replace(/"/g, '&quot;')}" />
+  <meta property="og:image" content="${image}" />
+
+  <!-- Twitter Card -->
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:url" content="${canonicalUrl}" />
+  <meta name="twitter:title" content="${title} | S pro coder" />
+  <meta name="twitter:description" content="${desc.replace(/"/g, '&quot;')}" />
+  <meta name="twitter:image" content="${image}" />
+  `;
+
+  let schemaHtml = "";
+  if (articleSchema) {
+    schemaHtml = `
+  <script type="application/ld+json">
+    ${JSON.stringify(articleSchema, null, 2)}
+  </script>
+    `;
+  } else {
+    const websiteJsonLd = {
+      "@context": "https://schema.org",
+      "@type": "WebSite",
+      "name": "S Pro Coder",
+      "url": "https://www.sprocoder.online/",
+      "description": "Premium dynamic publishing portal covering Tech News, AI News, AI Tools, and Games.",
+      "publisher": {
+        "@type": "Organization",
+        "name": "S Pro Coder",
+        "logo": {
+          "@type": "ImageObject",
+          "url": image
+        }
+      },
+      "potentialAction": {
+        "@type": "SearchAction",
+        "target": "https://www.sprocoder.online/blog?search={search_term_string}",
+        "query-input": "required name=search_term_string"
+      }
+    };
+    schemaHtml = `
+  <script type="application/ld+json">
+    ${JSON.stringify(websiteJsonLd, null, 2)}
+  </script>
+    `;
+  }
+
+  cleaned = cleaned.replace("</head>", `${seoMetaHtml}\n${schemaHtml}\n</head>`);
+  return cleaned;
 }
 
 // Global Vite reference for server-side pre-rendering transformation in development
@@ -167,77 +272,81 @@ app.get([
           "description": matched.excerpt || matched.tagline || ""
         };
 
-        // Beautiful SEO Title & dynamic initial state
-        const seoMeta = `
-    <title>${matched.title} | S pro coder</title>
-    <meta name="description" content="${(matched.excerpt || matched.tagline || "").replace(/"/g, '&quot;')}" />
-    <meta property="og:title" content="${matched.title}" />
-    <meta property="og:description" content="${(matched.excerpt || matched.tagline || "").replace(/"/g, '&quot;')}" />
-    <meta property="og:type" content="article" />
-    <meta property="og:image" content="${matched.thumbnailUrl || ''}" />
-    <script type="application/ld+json">
-      ${JSON.stringify(articleJsonLd)}
-    </script>
+        // Inject dynamic SEO tags dynamically using the clean helper to prevent duplicates
+        template = injectDynamicSEOTags(
+          template,
+          matched.title,
+          matched.excerpt || matched.tagline || "",
+          matched.thumbnailUrl || "https://images.unsplash.com/photo-1620712943543-bcc4688e7485?auto=format&fit=crop&w=1200&q=80",
+          `https://www.sprocoder.online/blog/${slugify(matched.title)}`,
+          articleJsonLd
+        );
+
+        // Inject the Hydration State
+        const hydrationScript = `
     <script>
       window.__INITIAL_POST__ = ${JSON.stringify(matched).replace(/</g, '\\u003c')};
     </script>
         `;
+        template = template.replace("</head>", `${hydrationScript}\n</head>`);
 
-        if (template.includes("<title>")) {
-          template = template.replace(/<title>.*?<\/title>/i, seoMeta);
-        } else {
-          template = template.replace("</head>", `${seoMeta}\n</head>`);
-        }
-
-        // Render static layout of the article instantly matching our design tokens (Slate Theme)
+        // Render static layout of the article instantly matching our design tokens (Slate Theme) with Off-White Neo-brutalist styling to completely solve the direct load flash issue
         const staticLayout = `
-<div style="min-height: 100vh; background-color: #0b0514; color: #cbd5e1; font-family: system-ui, -apple-system, sans-serif; -webkit-font-smoothing: antialiased;">
-  <header style="position: sticky; top: 0; z-index: 50; background-color: rgba(11, 5, 20, 0.8); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); border-bottom: 1px solid rgba(168, 85, 247, 0.15); padding: 1rem 1.5rem;">
-    <div style="max-width: 64rem; margin: 0 auto; display: flex; align-items: center; justify-content: space-between;">
+<div style="min-height: 100vh; background-color: #f8fafc; color: #334155; font-family: system-ui, -apple-system, sans-serif; -webkit-font-smoothing: antialiased; padding: 2rem 1rem;">
+  <div style="max-width: 56rem; margin: 0 auto;">
+    <header style="background-color: #f4f0ff; border: 2px solid #000000; border-radius: 20px; padding: 1rem 1.5rem; display: flex; align-items: center; justify-content: space-between; margin-bottom: 2.5rem; box-shadow: 4px 4px 0px 0px #000000;">
       <a href="/" style="display: flex; align-items: center; gap: 0.75rem; text-decoration: none;">
-        <div style="width: 2.5rem; height: 2.5rem; border-radius: 0.75rem; background-color: rgba(168, 85, 247, 0.15); border: 1px solid rgba(168, 85, 247, 0.3); display: flex; align-items: center; justify-content: center; font-weight: 900; color: #c084fc; font-size: 1.25rem;">S</div>
-        <span style="font-weight: 900; color: #ffffff; letter-spacing: 0.05em; font-size: 1rem; text-transform: uppercase;">S PRO CODER</span>
+        <div style="width: 2.5rem; height: 2.5rem; border-radius: 0.75rem; background-color: #7c3aed; display: flex; align-items: center; justify-content: center; font-weight: 900; color: #ffffff; font-size: 1.25rem;">S</div>
+        <span style="font-weight: 900; color: #1e1b4b; letter-spacing: 0.05em; font-size: 1rem; text-transform: uppercase;">S PRO CODER</span>
       </a>
-      <div>
-        <span style="font-size: 0.75rem; color: #c084fc; font-family: monospace; letter-spacing: 0.1em; text-transform: uppercase; background-color: rgba(168, 85, 247, 0.1); border: 1px solid rgba(168, 85, 247, 0.2); padding: 0.25rem 0.75rem; border-radius: 0.5rem;">Article Reader</span>
-      </div>
-    </div>
-  </header>
-
-  <main style="max-width: 48rem; margin: 0 auto; padding: 3rem 1.5rem;">
-    <div style="margin-bottom: 2rem;">
-      <a href="/" style="text-decoration: none; display: inline-flex; align-items: center; gap: 0.5rem; font-size: 0.875rem; font-weight: 700; color: #c084fc; transition: color 0.2s;">
-        ← Back to Tech Stream
-      </a>
-    </div>
-
-    <header style="margin-bottom: 2.5rem;">
-      <div style="display: flex; align-items: center; gap: 0.75rem; margin-bottom: 1rem;">
-        <span style="padding: 0.25rem 0.75rem; font-size: 0.75rem; font-weight: 700; background-color: rgba(168, 85, 247, 0.15); color: #c084fc; border: 1px solid rgba(168, 85, 247, 0.3); border-radius: 0.5rem; text-transform: uppercase; letter-spacing: 0.05em;">${matched.category || "Tech News"}</span>
-        <span style="font-size: 0.75rem; color: #94a3b8; font-family: monospace;">${matched.readTime || '5 min read'}</span>
-      </div>
-      <h1 style="font-size: 2.25rem; font-weight: 900; color: #ffffff; letter-spacing: -0.025em; line-height: 1.25; margin-bottom: 1rem; font-family: system-ui, -apple-system, sans-serif;">${matched.title}</h1>
-      <p style="font-size: 1.125rem; color: #94a3b8; font-style: italic; line-height: 1.625; margin-bottom: 1.5rem;">${matched.tagline || ""}</p>
-
-      ${matched.thumbnailUrl ? `
-      <div style="width: 100%; border-radius: 1.5rem; overflow: hidden; margin-bottom: 2rem; border: 1px solid rgba(168, 85, 247, 0.15);">
-        <img src="${matched.thumbnailUrl}" alt="${matched.title}" style="width: 100%; height: auto; display: block; object-fit: cover;" loading="lazy" referrerPolicy="no-referrer" />
-      </div>
-      ` : ""}
-
-      <div style="display: flex; align-items: center; gap: 1rem; margin-top: 1.5rem; padding-top: 1.5rem; border-top: 1px solid rgba(168, 85, 247, 0.1);">
-        <div style="width: 2.5rem; height: 2.5rem; border-radius: 0.75rem; background-color: #7c3aed; color: #ffffff; display: flex; align-items: center; justify-content: center; font-weight: 800; font-family: monospace; font-size: 0.875rem;">${matched.author ? matched.author.charAt(0).toUpperCase() : 'S'}</div>
-        <div>
-          <p style="font-size: 0.875rem; font-weight: 700; color: #ffffff; margin: 0;">${matched.author || 'S Pro Coder'}</p>
-          <p style="font-size: 0.75rem; color: #94a3b8; margin: 0;">${matched.date || 'Just now'}</p>
-        </div>
-      </div>
+      <nav style="display: flex; gap: 1rem;">
+        <a href="/" style="color: #1e1b4b; font-size: 0.825rem; font-weight: 800; text-decoration: none; border-bottom: 1.5px solid transparent; padding-bottom: 2px;">Home</a>
+        <a href="/tech-news" style="color: #1e1b4b; font-size: 0.825rem; font-weight: 800; text-decoration: none; border-bottom: 1.5px solid transparent; padding-bottom: 2px;">Tech News</a>
+        <a href="/ai-news" style="color: #1e1b4b; font-size: 0.825rem; font-weight: 800; text-decoration: none; border-bottom: 1.5px solid transparent; padding-bottom: 2px;">AI News</a>
+        <a href="/ai-tools" style="color: #1e1b4b; font-size: 0.825rem; font-weight: 800; text-decoration: none; border-bottom: 1.5px solid transparent; padding-bottom: 2px;">AI Tools</a>
+        <a href="/games" style="color: #1e1b4b; font-size: 0.825rem; font-weight: 800; text-decoration: none; border-bottom: 1.5px solid transparent; padding-bottom: 2px;">Games</a>
+      </nav>
     </header>
 
-    <article style="font-size: 1.05rem; color: #cbd5e1; line-height: 1.8;">
-      ${parseMarkdown(matched.content || "")}
-    </article>
-  </main>
+    <main style="background-color: #ffffff; border: 2px solid #000000; border-radius: 24px; padding: 2rem md:padding: 3rem; box-shadow: 6px 6px 0px 0px #000000; margin-bottom: 3rem;">
+      <div style="margin-bottom: 2rem;">
+        <a href="/" style="text-decoration: none; display: inline-flex; align-items: center; gap: 0.5rem; font-size: 0.875rem; font-weight: 800; color: #7c3aed; transition: color 0.2s;">
+          ← Back to Tech Stream
+        </a>
+      </div>
+
+      <header style="margin-bottom: 2.5rem; border-bottom: 2px solid #e2e8f0; padding-bottom: 2rem;">
+        <div style="display: flex; align-items: center; gap: 0.75rem; margin-bottom: 1rem; flex-wrap: wrap;">
+          <span style="padding: 0.25rem 0.75rem; font-size: 0.75rem; font-weight: 800; background-color: #f4f0ff; color: #7c3aed; border: 1.5px solid #000000; border-radius: 8px; text-transform: uppercase; letter-spacing: 0.05em;">${matched.category || "Tech News"}</span>
+          <span style="font-size: 0.75rem; color: #64748b; font-family: monospace; font-weight: 700;">${matched.readTime || '5 min read'}</span>
+          <span style="font-size: 0.75rem; color: #64748b; font-weight: 700;">${matched.date || 'July 2026'}</span>
+        </div>
+        <h1 style="font-size: 2.25rem; font-weight: 950; color: #0f172a; letter-spacing: -0.025em; line-height: 1.25; margin-bottom: 1rem; font-family: system-ui, -apple-system, sans-serif;">${matched.title}</h1>
+        <p style="font-size: 1.125rem; color: #475569; font-style: italic; line-height: 1.625; margin-bottom: 1.5rem;">${matched.tagline || ""}</p>
+
+        ${matched.thumbnailUrl ? `
+        <div style="width: 100%; border-radius: 16px; overflow: hidden; margin-bottom: 2rem; border: 2px solid #000000;">
+          <img src="${matched.thumbnailUrl}" alt="${matched.title.replace(/"/g, '&quot;')}" style="width: 100%; height: auto; display: block; object-fit: cover;" loading="lazy" referrerPolicy="no-referrer" />
+        </div>
+        ` : ""}
+
+        <div style="display: flex; align-items: center; gap: 1rem; margin-top: 1.5rem;">
+          <div style="width: 2.5rem; height: 2.5rem; border-radius: 0.75rem; background-color: #7c3aed; color: #ffffff; display: flex; align-items: center; justify-content: center; font-weight: 900; font-size: 0.875rem;">${matched.author ? matched.author.charAt(0).toUpperCase() : 'S'}</div>
+          <div>
+            <p style="font-size: 0.875rem; font-weight: 800; color: #0f172a; margin: 0;">${matched.author || 'S Pro Coder'}</p>
+            <p style="font-size: 0.75rem; color: #64748b; margin: 0; font-family: monospace;">Published: ${matched.date || 'Just now'}</p>
+          </div>
+        </div>
+      </header>
+
+      <!-- LLM & GEO Structural Knowledge Extraction Table (renders beautifully on the page, fully readable by AI search engines and crawler bots) -->
+      ${renderStaticLLMMetadataTable(matched)}
+
+      <article style="font-size: 1.05rem; color: #334155; line-height: 1.8;" id="pre-rendered-article-body">
+        ${parseMarkdown(matched.content || "")}
+      </article>
+    </main>
+  </div>
 </div>
         `;
 
@@ -374,28 +483,16 @@ app.get([
         template = await viteDevServerInstance.transformIndexHtml(req.originalUrl, template);
       }
 
-      // Inject custom SEO title and description meta tags
-      const headerMeta = `
-    <title>${pageH1} | S Pro Coder</title>
-    <meta name="description" content="${pageDesc.replace(/"/g, '&quot;')}" />
-    <meta property="og:title" content="${pageTitle}" />
-    <meta property="og:description" content="${pageDesc.replace(/"/g, '&quot;')}" />
-    <meta property="og:url" content="https://www.sprocoder.online${targetPath}" />
-    <meta property="og:type" content="website" />
-    <meta property="og:image" content="https://images.unsplash.com/photo-1620712943543-bcc4688e7485?auto=format&fit=crop&w=1200&q=80" />
-    <meta name="twitter:card" content="summary_large_image" />
-    <meta name="twitter:title" content="${pageTitle}" />
-    <meta name="twitter:description" content="${pageDesc.replace(/"/g, '&quot;')}" />
-    <meta name="twitter:image" content="https://images.unsplash.com/photo-1620712943543-bcc4688e7485?auto=format&fit=crop&w=1200&q=80" />
-      `;
+      // Inject custom SEO title and description meta tags using the clean helper to prevent duplicates
+      template = injectDynamicSEOTags(
+        template,
+        pageH1,
+        pageDesc,
+        "https://images.unsplash.com/photo-1620712943543-bcc4688e7485?auto=format&fit=crop&w=1200&q=80",
+        `https://www.sprocoder.online${targetPath}`
+      );
 
-      if (template.includes("<title>")) {
-        template = template.replace(/<title>.*?<\/title>/i, headerMeta);
-      } else {
-        template = template.replace("</head>", `${headerMeta}\n</head>`);
-      }
-
-      // Render static HTML layout matching S Pro Coder elegant Slate-theme styles
+      // Render static HTML layout matching S Pro Coder elegant Slate-theme styles with Off-White Neo-brutalist elements
       let articlesHtml = "";
       if (filteredArticles.length > 0) {
         articlesHtml = filteredArticles.map((art: any) => {
@@ -403,25 +500,25 @@ app.get([
           const excerpt = art.excerpt || art.tagline || "";
           const thumbnail = art.thumbnailUrl || "https://images.unsplash.com/photo-1620712943543-bcc4688e7485?auto=format&fit=crop&w=600&q=80";
           return `
-        <article style="background: rgba(255, 255, 255, 0.03); border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 1.5rem; padding: 2rem; margin-bottom: 2rem; box-shadow: 0 4px 30px rgba(0, 0, 0, 0.1); backdrop-filter: blur(5px); -webkit-backdrop-filter: blur(5px); max-width: 100%;">
+        <article style="background: #ffffff; border: 2px solid #000000; border-radius: 20px; padding: 2rem; margin-bottom: 2rem; box-shadow: 4px 4px 0px 0px #000000; max-width: 100%;">
           <div style="display: flex; gap: 1.5rem; flex-wrap: wrap-reverse; align-items: start;">
             <div style="flex: 1; min-width: 280px;">
               <div style="display: flex; gap: 1rem; align-items: center; margin-bottom: 1rem; flex-wrap: wrap;">
-                <span style="background-color: #7e22ce; color: #ffffff; padding: 0.25rem 0.75rem; font-size: 0.75rem; font-weight: 700; border-radius: 9999px; text-transform: uppercase;">${art.category || "General"}</span>
-                <span style="color: #94a3b8; font-size: 0.75rem; font-family: monospace;">${art.date || "July 2026"}</span>
-                <span style="color: #94a3b8; font-size: 0.75rem;">${art.readTime || "5 min read"}</span>
+                <span style="background-color: #f4f0ff; color: #7c3aed; border: 1.5px solid #000000; padding: 0.25rem 0.75rem; font-size: 0.75rem; font-weight: 800; border-radius: 8px; text-transform: uppercase;">${art.category || "General"}</span>
+                <span style="color: #64748b; font-size: 0.75rem; font-family: monospace; font-weight: 700;">${art.date || "July 2026"}</span>
+                <span style="color: #64748b; font-size: 0.75rem; font-weight: 700;">${art.readTime || "5 min read"}</span>
               </div>
-              <h2 style="font-size: 1.5rem; font-weight: 800; color: #f8fafc; margin-top: 0; margin-bottom: 0.75rem; line-height: 1.35; letter-spacing: -0.02em;">
-                <a href="/blog/${slug}" style="color: #f8fafc; text-decoration: none; border-bottom: 2px solid transparent; transition: border-bottom 0.2s;">${art.title}</a>
+              <h2 style="font-size: 1.5rem; font-weight: 900; color: #0f172a; margin-top: 0; margin-bottom: 0.75rem; line-height: 1.35; letter-spacing: -0.02em;">
+                <a href="/blog/${slug}" style="color: #0f172a; text-decoration: none; border-bottom: 2px solid transparent; transition: border-bottom 0.2s;">${art.title}</a>
               </h2>
-              <p style="color: #cbd5e1; font-size: 1rem; line-height: 1.6; margin-bottom: 1.5rem; font-style: italic;">${art.tagline || ""}</p>
-              <p style="color: #94a3b8; font-size: 0.95rem; line-height: 1.6; margin-bottom: 1.5rem;">${excerpt}</p>
+              <p style="color: #475569; font-size: 1rem; line-height: 1.6; margin-bottom: 1.5rem; font-style: italic;">${art.tagline || ""}</p>
+              <p style="color: #334155; font-size: 0.95rem; line-height: 1.6; margin-bottom: 1.5rem;">${excerpt}</p>
               <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem;">
-                <span style="font-size: 0.875rem; color: #c084fc; font-weight: 600;">By ${art.author || "S Pro Coder"}</span>
-                <a href="/blog/${slug}" style="display: inline-flex; align-items: center; font-size: 0.875rem; font-weight: 700; color: #c084fc; text-decoration: none; border-bottom: 1.5px solid #c084fc;">Read Full Article →</a>
+                <span style="font-size: 0.875rem; color: #0f172a; font-weight: 800;">By ${art.author || "S Pro Coder"}</span>
+                <a href="/blog/${slug}" style="display: inline-flex; align-items: center; font-size: 0.875rem; font-weight: 800; color: #7c3aed; text-decoration: none; border-bottom: 1.5px solid #7c3aed;">Read Full Article →</a>
               </div>
             </div>
-            <div style="width: 140px; height: 100px; overflow: hidden; border-radius: 1rem;">
+            <div style="width: 140px; height: 100px; overflow: hidden; border-radius: 12px; border: 1.5px solid #000000;">
               <img src="${thumbnail}" alt="${art.title.replace(/"/g, '&quot;')}" loading="lazy" style="width: 100%; height: 100%; object-fit: cover;" />
             </div>
           </div>
@@ -430,43 +527,43 @@ app.get([
         }).join("");
       } else {
         articlesHtml = `
-        <div style="background: rgba(255, 255, 255, 0.03); border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 1.5rem; padding: 3rem; text-align: center;">
-          <p style="color: #94a3b8; font-size: 1rem;">No articles found in this category yet. Check back soon for premium updates!</p>
+        <div style="background: #ffffff; border: 2px solid #000000; border-radius: 20px; padding: 3rem; text-align: center; box-shadow: 4px 4px 0px 0px #000000;">
+          <p style="color: #64748b; font-size: 1rem; font-weight: 700;">No articles found in this category yet. Check back soon for premium updates!</p>
         </div>
         `;
       }
 
       const staticLayout = `
-<div style="background-color: #0b0514; color: #f8fafc; font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif; min-height: 100vh; padding: 2rem 1rem; -webkit-font-smoothing: antialiased;">
+<div style="background-color: #f8fafc; color: #334155; font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif; min-height: 100vh; padding: 2rem 1rem; -webkit-font-smoothing: antialiased;">
   <div style="max-width: 64rem; margin: 0 auto;">
     
     <!-- Header -->
-    <header style="display: flex; justify-content: space-between; align-items: center; padding-bottom: 2rem; border-bottom: 1px solid rgba(255, 255, 255, 0.08); margin-bottom: 3rem; flex-wrap: wrap; gap: 1.5rem;">
+    <header style="background-color: #f4f0ff; border: 2px solid #000000; border-radius: 20px; padding: 1rem 1.5rem; display: flex; justify-content: space-between; align-items: center; margin-bottom: 2.5rem; box-shadow: 4px 4px 0px 0px #000000; flex-wrap: wrap; gap: 1.5rem;">
       <div style="display: flex; align-items: center; gap: 1rem;">
-        <div style="width: 2.75rem; height: 2.75rem; background: linear-gradient(135deg, #a855f7, #6366f1); border-radius: 1rem; display: flex; align-items: center; justify-content: center; font-weight: 900; color: #ffffff; font-size: 1.25rem;">S</div>
-        <span style="font-size: 1.25rem; font-weight: 900; letter-spacing: 0.05em; color: #ffffff;">S PRO CODER</span>
+        <div style="width: 2.5rem; height: 2.5rem; background-color: #7c3aed; border-radius: 0.75rem; display: flex; align-items: center; justify-content: center; font-weight: 900; color: #ffffff; font-size: 1.25rem;">S</div>
+        <span style="font-size: 1.25rem; font-weight: 950; letter-spacing: 0.05em; color: #1e1b4b;">S PRO CODER</span>
       </div>
       <nav style="display: flex; gap: 1.5rem; flex-wrap: wrap;">
-        <a href="/" style="color: #f8fafc; font-size: 0.875rem; font-weight: 700; text-decoration: none;">Home</a>
-        <a href="/tech-news" style="color: #f8fafc; font-size: 0.875rem; font-weight: 700; text-decoration: none;">Tech News</a>
-        <a href="/ai-news" style="color: #f8fafc; font-size: 0.875rem; font-weight: 700; text-decoration: none;">AI News</a>
-        <a href="/ai-tools" style="color: #f8fafc; font-size: 0.875rem; font-weight: 700; text-decoration: none;">AI Tools</a>
-        <a href="/games" style="color: #f8fafc; font-size: 0.875rem; font-weight: 700; text-decoration: none;">Games</a>
+        <a href="/" style="color: #1e1b4b; font-size: 0.875rem; font-weight: 800; text-decoration: none;">Home</a>
+        <a href="/tech-news" style="color: #1e1b4b; font-size: 0.875rem; font-weight: 800; text-decoration: none;">Tech News</a>
+        <a href="/ai-news" style="color: #1e1b4b; font-size: 0.875rem; font-weight: 800; text-decoration: none;">AI News</a>
+        <a href="/ai-tools" style="color: #1e1b4b; font-size: 0.875rem; font-weight: 800; text-decoration: none;">AI Tools</a>
+        <a href="/games" style="color: #1e1b4b; font-size: 0.875rem; font-weight: 800; text-decoration: none;">Games</a>
       </nav>
     </header>
 
     <!-- H1 Heading & SEO Copy -->
-    <main>
+    <main style="background-color: #ffffff; border: 2px solid #000000; border-radius: 24px; padding: 2rem; md:padding: 3rem; box-shadow: 6px 6px 0px 0px #000000; margin-bottom: 3rem;">
       <section style="margin-bottom: 4rem;">
-        <h1 style="font-size: 2.5rem; font-weight: 900; letter-spacing: -0.04em; color: #ffffff; margin-top: 0; margin-bottom: 1.5rem; line-height: 1.15; background: linear-gradient(to right, #ffffff, #c084fc); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">${pageH1}</h1>
-        <div style="font-size: 1.1rem; line-height: 1.75; color: #cbd5e1; max-width: 52rem; border-left: 4px solid #a855f7; padding-left: 1.5rem; margin-bottom: 2rem;">
+        <h1 style="font-size: 2.25rem; font-weight: 950; letter-spacing: -0.04em; color: #0f172a; margin-top: 0; margin-bottom: 1.5rem; line-height: 1.15;">${pageH1}</h1>
+        <div style="font-size: 1.1rem; line-height: 1.75; color: #334155; max-width: 52rem; border-left: 4px solid #7c3aed; padding-left: 1.5rem; margin-bottom: 2rem;">
           ${seoCopy.split("\n\n").map(p => `<p style="margin-bottom: 1.25rem;">${p.trim()}</p>`).join("")}
         </div>
       </section>
 
       <!-- Articles Grid -->
       <section style="margin-top: 4rem;">
-        <h2 style="font-size: 1.75rem; font-weight: 800; color: #ffffff; margin-bottom: 2rem; border-bottom: 2px solid rgba(255, 255, 255, 0.08); padding-bottom: 0.75rem;">Latest Published Stories</h2>
+        <h2 style="font-size: 1.75rem; font-weight: 900; color: #0f172a; margin-bottom: 2rem; border-bottom: 2px solid #e2e8f0; padding-bottom: 0.75rem;">Latest Published Stories</h2>
         <div style="display: grid; grid-template-columns: 1fr; gap: 1.5rem;">
           ${articlesHtml}
         </div>
@@ -474,7 +571,7 @@ app.get([
     </main>
 
     <!-- Footer -->
-    <footer style="margin-top: 6rem; padding-top: 2rem; border-top: 1px solid rgba(255, 255, 255, 0.08); text-align: center; color: #94a3b8; font-size: 0.875rem;">
+    <footer style="margin-top: 6rem; padding: 2rem; border-top: 2px solid #e2e8f0; text-align: center; color: #64748b; font-size: 0.875rem;">
       <p>© 2026 S PRO CODER. All Rights Reserved. Crafted for maximum performance and premium speed.</p>
     </footer>
 

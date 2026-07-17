@@ -15,12 +15,12 @@ import { INITIAL_POSTS } from "./data";
 import Header from "./components/Header";
 import Footer from "./components/Footer";
 import HeroSection from "./components/HeroSection";
+import ArticleDetailView from "./components/ArticleDetailView";
 
 // Lazy loaded components for split chunks and optimized load speed
 const AdminPanel = React.lazy(() => import("./components/AdminPanel"));
 const ContactForm = React.lazy(() => import("./components/ContactForm"));
 const YouTubeShowcase = React.lazy(() => import("./components/YouTubeShowcase"));
-const ArticleDetailView = React.lazy(() => import("./components/ArticleDetailView"));
 const AdminAuth = React.lazy(() => import("./components/AdminAuth"));
 const UserProfile = React.lazy(() => import("./components/UserProfile"));
 import AdRenderer from "./components/AdRenderer";
@@ -702,18 +702,84 @@ export default function App() {
   useEffect(() => {
     if (typeof window === "undefined") return;
 
-    // Dynamic Title
-    const finalTitle = selectedPost 
-      ? `${selectedPost.title} | ${websiteTitle}` 
-      : `${websiteTitle} - Professional Developer Sanctuary`;
+    let finalTitle = `${websiteTitle} - Tech News, AI News, AI Tools & Games`;
+    let finalDesc = websiteDescription;
+    let finalUrl = "https://www.sprocoder.online/";
+    let finalImage = "https://images.unsplash.com/photo-1620712943543-bcc4688e7485?auto=format&fit=crop&w=1200&q=80";
+
+    if (selectedPost) {
+      finalTitle = `${selectedPost.title} | ${websiteTitle}`;
+      finalDesc = selectedPost.tagline || selectedPost.excerpt || websiteDescription;
+      finalUrl = `https://www.sprocoder.online/blog/${slugify(selectedPost.title)}`;
+      if (selectedPost.thumbnailUrl) {
+        finalImage = selectedPost.thumbnailUrl;
+      }
+    } else {
+      switch (currentTab) {
+        case "home":
+          if (selectedCategory === "Technology") {
+            finalTitle = "Tech News & Latest Technology Updates | S Pro Coder";
+            finalDesc = "Read the latest tech news, software development trends, and gadget reviews on S Pro Coder. Expert analysis on modern technology updates.";
+            finalUrl = "https://www.sprocoder.online/tech-news";
+          } else if (selectedCategory === "Artificial Intelligence") {
+            finalTitle = "AI News & Artificial Intelligence Breakthroughs | S Pro Coder";
+            finalDesc = "Stay ahead with latest AI news, generative AI developments, machine learning breakthroughs, and expert AI research news on S Pro Coder.";
+            finalUrl = "https://www.sprocoder.online/ai-news";
+          } else if (selectedCategory === "AI Tools") {
+            finalTitle = "AI Tools Reviews, Directory & Productivity Guides | S Pro Coder";
+            finalDesc = "Discover the latest AI tools and platforms to boost your productivity. In-depth reviews, comparative guides, and tutorials for AI tools.";
+            finalUrl = "https://www.sprocoder.online/ai-tools";
+          } else if (selectedCategory === "Games") {
+            finalTitle = "Gaming News, Game Reviews & Expert Guides | S Pro Coder";
+            finalDesc = "Get the latest gaming news, upcoming game reviews, and gaming guides for console, PC, and mobile gaming. Your ultimate gaming hub at S Pro Coder.";
+            finalUrl = "https://www.sprocoder.online/games";
+          } else {
+            finalTitle = "S Pro Coder | Tech News, AI News, AI Tools & Games";
+            finalDesc = "Stay updated with S Pro Coder! Explore the latest tech news, breakthrough AI news, professional reviews of AI tools, and gaming guides and updates.";
+            finalUrl = "https://www.sprocoder.online/";
+          }
+          break;
+        case "articles":
+          finalTitle = "Browse All Technology & AI Articles | S Pro Coder";
+          finalDesc = "Dive deep into our full stream of clean developer tutorials, next-generation artificial intelligence insights, and gaming walkthroughs.";
+          finalUrl = "https://www.sprocoder.online/blog";
+          break;
+        case "about":
+          finalTitle = "About S Pro Coder | Premium Technology Portal";
+          finalDesc = "Meet S Pro Coder, an advanced technical hub and AI resource portal. We specialize in clean developer tutorials, software design, and next-gen news.";
+          finalUrl = "https://www.sprocoder.online/about-us";
+          break;
+        case "contact":
+          finalTitle = "Contact Us & Support | S Pro Coder";
+          finalDesc = "Have questions, feedback, or advertising inquiries? Reach out to S Pro Coder support directly via our contact channels or dynamic form.";
+          finalUrl = "https://www.sprocoder.online/contact-us";
+          break;
+        case "privacy":
+          finalTitle = "Privacy Policy | S Pro Coder";
+          finalDesc = "Read the S Pro Coder Privacy Policy to learn how we securely protect, manage, and process reader information in compliance with global standards.";
+          finalUrl = "https://www.sprocoder.online/privacy-policy";
+          break;
+        case "terms":
+          finalTitle = "Terms and Conditions | S Pro Coder";
+          finalDesc = "Review the official Terms of Service and Conditions governing the S Pro Coder portal access, user registrations, and publishing rules.";
+          finalUrl = "https://www.sprocoder.online/terms-and-conditions";
+          break;
+        case "disclaimer":
+          finalTitle = "Content Disclaimer | S Pro Coder";
+          finalDesc = "Read the legal content disclaimer for S Pro Coder regarding technical tutorials, AI tool recommendations, and video game reviews.";
+          finalUrl = "https://www.sprocoder.online/disclaimer";
+          break;
+        default:
+          finalTitle = `${websiteTitle} - Tech News, AI News, AI Tools & Games`;
+          finalDesc = websiteDescription;
+          finalUrl = "https://www.sprocoder.online/";
+      }
+    }
+
+    // Update title
     document.title = finalTitle;
 
-    // Dynamic Description
-    const finalDesc = selectedPost 
-      ? (selectedPost.tagline || selectedPost.excerpt || websiteDescription) 
-      : websiteDescription;
-
-    // Update Meta Description tag
+    // Update Meta Description
     let metaDesc = document.querySelector('meta[name="description"]');
     if (!metaDesc) {
       metaDesc = document.createElement('meta');
@@ -722,33 +788,48 @@ export default function App() {
     }
     metaDesc.setAttribute('content', finalDesc);
 
-    // Update Open Graph (OG) social tags
-    let ogTitle = document.querySelector('meta[property="og:title"]');
-    if (!ogTitle) {
-      ogTitle = document.createElement('meta');
-      ogTitle.setAttribute('property', 'og:title');
-      document.head.appendChild(ogTitle);
+    // Update Canonical URL
+    let linkCanonical = document.querySelector('link[rel="canonical"]');
+    if (!linkCanonical) {
+      linkCanonical = document.createElement('link');
+      linkCanonical.setAttribute('rel', 'canonical');
+      document.head.appendChild(linkCanonical);
     }
-    ogTitle.setAttribute('content', finalTitle);
+    linkCanonical.setAttribute('href', finalUrl);
 
-    let ogDesc = document.querySelector('meta[property="og:description"]');
-    if (!ogDesc) {
-      ogDesc = document.createElement('meta');
-      ogDesc.setAttribute('property', 'og:description');
-      document.head.appendChild(ogDesc);
-    }
-    ogDesc.setAttribute('content', finalDesc);
-
-    if (selectedPost) {
-      let ogImage = document.querySelector('meta[property="og:image"]');
-      if (!ogImage) {
-        ogImage = document.createElement('meta');
-        ogImage.setAttribute('property', 'og:image');
-        document.head.appendChild(ogImage);
+    // Update Open Graph (OG) tags
+    const updateOgMeta = (property: string, value: string) => {
+      let meta = document.querySelector(`meta[property="${property}"]`);
+      if (!meta) {
+        meta = document.createElement('meta');
+        meta.setAttribute('property', property);
+        document.head.appendChild(meta);
       }
-      ogImage.setAttribute('content', selectedPost.thumbnailUrl);
-    }
-  }, [selectedPost, websiteTitle, websiteDescription]);
+      meta.setAttribute('content', value);
+    };
+
+    updateOgMeta("og:title", finalTitle);
+    updateOgMeta("og:description", finalDesc);
+    updateOgMeta("og:url", finalUrl);
+    updateOgMeta("og:image", finalImage);
+    updateOgMeta("og:type", selectedPost ? "article" : "website");
+
+    // Update Twitter Tags
+    const updateTwitterMeta = (name: string, value: string) => {
+      let meta = document.querySelector(`meta[name="${name}"]`);
+      if (!meta) {
+        meta = document.createElement('meta');
+        meta.setAttribute('name', name);
+        document.head.appendChild(meta);
+      }
+      meta.setAttribute('content', value);
+    };
+
+    updateTwitterMeta("twitter:title", finalTitle);
+    updateTwitterMeta("twitter:description", finalDesc);
+    updateTwitterMeta("twitter:image", finalImage);
+    updateTwitterMeta("twitter:url", finalUrl);
+  }, [selectedPost, currentTab, selectedCategory, websiteTitle, websiteDescription]);
 
   // 1. Monitor Firebase Auth state change for automatic browser session restoration (Auto-Login)
   useEffect(() => {
@@ -1546,23 +1627,21 @@ export default function App() {
             </p>
           </div>
         ) : (selectedPost && (currentTab === "home" || currentTab === "articles")) ? (
-          <React.Suspense fallback={<LoadingSpinner />}>
-            <ArticleDetailView 
-              key={selectedPost.id}
-              post={selectedPost}
-              allPosts={allPosts}
-              onSelectPost={handleSelectPost}
-              onClose={() => setSelectedPost(null)}
-              isBookmarked={currentUser?.savedArticles?.includes(selectedPost.id) || false}
-              onToggleBookmark={() => handleToggleBookmark(selectedPost)}
-              isLiked={currentUser?.likedArticles?.includes(selectedPost.id) || false}
-              onLike={() => handleLikeArticle(selectedPost)}
-              onAddComment={(text) => handleAddComment(selectedPost, text)}
-              onAddReply={(commentId, text) => handleAddReply(selectedPost, commentId, text)}
-              currentUser={currentUser}
-              adsConfig={adsConfig}
-            />
-          </React.Suspense>
+          <ArticleDetailView 
+            key={selectedPost.id}
+            post={selectedPost}
+            allPosts={allPosts}
+            onSelectPost={handleSelectPost}
+            onClose={() => setSelectedPost(null)}
+            isBookmarked={currentUser?.savedArticles?.includes(selectedPost.id) || false}
+            onToggleBookmark={() => handleToggleBookmark(selectedPost)}
+            isLiked={currentUser?.likedArticles?.includes(selectedPost.id) || false}
+            onLike={() => handleLikeArticle(selectedPost)}
+            onAddComment={(text) => handleAddComment(selectedPost, text)}
+            onAddReply={(commentId, text) => handleAddReply(selectedPost, commentId, text)}
+            currentUser={currentUser}
+            adsConfig={adsConfig}
+          />
         ) : (
           <>
             {/* VIEW 1: HOME PAGE */}

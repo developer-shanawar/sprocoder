@@ -255,6 +255,54 @@ export default function ArticleDetailView({
               </div>
             </article>
             
+            {/* AI, GEO & LLM Knowledge Summary Table */}
+            <div className="my-6 p-5 sm:p-6 bg-white border-2 border-black rounded-[20px] shadow-[4px_4px_0px_0px_#000000] overflow-hidden" id="llm-knowledge-extraction-container">
+              <div className="flex items-center gap-2 mb-4">
+                <span className="text-lg">📊</span>
+                <h3 className="font-sans font-black text-purple-950 text-xs sm:text-sm uppercase tracking-widest">
+                  AI Knowledge Graph & GEO Data Index
+                </h3>
+              </div>
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-xs sm:text-sm border-collapse">
+                  <tbody>
+                    <tr className="border-b border-purple-100">
+                      <td className="p-3 font-mono font-bold text-purple-800 w-[35%] bg-purple-50/35 uppercase tracking-wider text-[10px]">Document Type</td>
+                      <td className="p-3 text-slate-800 font-semibold">Technical News & Insights Article</td>
+                    </tr>
+                    <tr className="border-b border-purple-100">
+                      <td className="p-3 font-mono font-bold text-purple-800 bg-purple-50/35 uppercase tracking-wider text-[10px]">Primary Title</td>
+                      <td className="p-3 text-slate-900 font-extrabold">{post.title}</td>
+                    </tr>
+                    <tr className="border-b border-purple-100">
+                      <td className="p-3 font-mono font-bold text-purple-800 bg-purple-50/35 uppercase tracking-wider text-[10px]">Category & Domain</td>
+                      <td className="p-3 text-slate-800 font-semibold">{post.category || "General Tech"}</td>
+                    </tr>
+                    <tr className="border-b border-purple-100">
+                      <td className="p-3 font-mono font-bold text-purple-800 bg-purple-50/35 uppercase tracking-wider text-[10px]">Key Focus & Excerpt</td>
+                      <td className="p-3 text-slate-800 italic">"{post.tagline || post.excerpt}"</td>
+                    </tr>
+                    <tr className="border-b border-purple-100">
+                      <td className="p-3 font-mono font-bold text-purple-800 bg-purple-50/35 uppercase tracking-wider text-[10px]">Author Authority</td>
+                      <td className="p-3 text-slate-800 font-semibold">{post.author || "S Pro Coder Author"}</td>
+                    </tr>
+                    <tr className="border-b border-purple-100">
+                      <td className="p-3 font-mono font-bold text-purple-800 bg-purple-50/35 uppercase tracking-wider text-[10px]">Target Keywords</td>
+                      <td className="p-3 text-teal-800 font-mono font-bold">{post.keywords || post.tags?.join(", ") || "N/A"}</td>
+                    </tr>
+                    <tr className="border-b border-purple-100">
+                      <td className="p-3 font-mono font-bold text-purple-800 bg-purple-50/35 uppercase tracking-wider text-[10px]">Reading Time</td>
+                      <td className="p-3 text-slate-800 font-semibold font-mono">{post.readTime || "5 minutes"}</td>
+                    </tr>
+                    <tr>
+                      <td className="p-3 font-mono font-bold text-purple-800 bg-purple-50/35 uppercase tracking-wider text-[10px]">Published Date</td>
+                      <td className="p-3 text-slate-800 font-semibold font-mono">{post.date || "July 2026"}</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+            
             {/* SEO, EEO & GEO Optimization Summary */}
             {(post.keywords || post.competitiveTrends) && (
               <div className="p-5 rounded-2xl bg-emerald-50/40 border border-emerald-100/80 space-y-3 mt-6">

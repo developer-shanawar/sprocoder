@@ -300,21 +300,28 @@ export default function Header({
         {/* Desktop Links */}
         <div className="hidden md:flex items-center gap-1.5" id="nav-links-desktop">
           {(["home", "articles", "about", "contact"] as const).map((tab) => (
-            <button
+            <a
               key={tab}
-              onClick={() => {
+              href={
+                tab === "home" ? "/" : 
+                tab === "articles" ? "/blog" : 
+                tab === "about" ? "/about-us" : 
+                tab === "contact" ? "/contact-us" : "/"
+              }
+              onClick={(e) => {
+                e.preventDefault();
                 setCurrentTab(tab);
                 setIsMobileMenuOpen(false);
               }}
-              className={`px-4 py-1.5 rounded-full text-xs font-bold capitalize transition-all duration-200 cursor-pointer ${
+              className={`px-4 py-1.5 rounded-full text-xs font-bold capitalize transition-all duration-200 cursor-pointer inline-block ${
                 currentTab === tab 
                   ? "bg-purple-700 text-white shadow-none" 
                   : "text-purple-950/80 hover:text-purple-700 hover:bg-purple-100/50"
               }`}
               id={`nav-link-${tab}`}
             >
-              {tab}
-            </button>
+              {tab === "home" ? "Home" : tab === "articles" ? "Latest Articles" : tab}
+            </a>
           ))}
           {isAdminUser && (
             <button
@@ -603,20 +610,27 @@ export default function Header({
                 {/* Mobile Links */}
                 <div className="flex flex-col gap-2" id="nav-links-mobile">
                   {(["home", "articles", "about", "contact"] as const).map((tab) => (
-                    <button
+                    <a
                       key={tab}
-                      onClick={() => {
+                      href={
+                        tab === "home" ? "/" : 
+                        tab === "articles" ? "/blog" : 
+                        tab === "about" ? "/about-us" : 
+                        tab === "contact" ? "/contact-us" : "/"
+                      }
+                      onClick={(e) => {
+                        e.preventDefault();
                         setCurrentTab(tab);
                         setIsMobileMenuOpen(false);
                       }}
-                      className={`w-full text-left px-4 py-3 rounded-xl text-xs font-bold capitalize transition-all cursor-pointer ${
+                      className={`w-full text-left px-4 py-3 rounded-xl text-xs font-bold capitalize transition-all cursor-pointer block ${
                         currentTab === tab 
                           ? "bg-purple-700 text-white shadow-none" 
                           : "text-purple-950 hover:bg-purple-50"
                       }`}
                     >
-                      {tab}
-                    </button>
+                      {tab === "home" ? "Home Portal" : tab === "articles" ? "Latest Articles" : tab}
+                    </a>
                   ))}
                   {isAdminUser && (
                     <button

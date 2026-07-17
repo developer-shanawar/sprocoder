@@ -131,14 +131,24 @@ export default function Footer({
             <ul className="space-y-2 text-xs">
               {(["home", "articles", "about", "contact"] as const).map((tab) => (
                 <li key={tab}>
-                  <button
-                    onClick={() => setCurrentTab(tab)}
-                    className={`text-slate-300 hover:text-white capitalize transition-all cursor-pointer ${
+                  <a
+                    href={
+                      tab === "home" ? "/" : 
+                      tab === "articles" ? "/blog" : 
+                      tab === "about" ? "/about-us" : 
+                      tab === "contact" ? "/contact-us" : "/"
+                    }
+                    onClick={(e) => {
+                      e.preventDefault();
+                      setCurrentTab(tab);
+                      window.scrollTo({ top: 0, behavior: "smooth" });
+                    }}
+                    className={`text-slate-300 hover:text-white capitalize transition-all cursor-pointer inline-block ${
                       currentTab === tab ? "text-purple-400 font-bold" : ""
                     }`}
                   >
-                    {tab}
-                  </button>
+                    {tab === "home" ? "Home Portal" : tab === "articles" ? "Latest Articles" : tab}
+                  </a>
                 </li>
               ))}
             </ul>
@@ -151,34 +161,49 @@ export default function Footer({
             </h3>
             <ul className="space-y-2 text-xs">
               <li>
-                <button 
-                  onClick={() => setCurrentTab("privacy")} 
+                <a 
+                  href="/privacy-policy"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    setCurrentTab("privacy");
+                    window.scrollTo({ top: 0, behavior: "smooth" });
+                  }} 
                   className={`text-slate-300 hover:text-white transition-all text-left block cursor-pointer ${
                     currentTab === "privacy" ? "text-purple-400 font-bold font-mono" : ""
                   }`}
                 >
                   Privacy Policy Guidelines
-                </button>
+                </a>
               </li>
               <li>
-                <button 
-                  onClick={() => setCurrentTab("terms")} 
+                <a 
+                  href="/terms-and-conditions"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    setCurrentTab("terms");
+                    window.scrollTo({ top: 0, behavior: "smooth" });
+                  }} 
                   className={`text-slate-300 hover:text-white transition-all text-left block cursor-pointer ${
                     currentTab === "terms" ? "text-purple-400 font-bold font-mono" : ""
                   }`}
                 >
                   Terms and Conditions of Use
-                </button>
+                </a>
               </li>
               <li>
-                <button 
-                  onClick={() => setCurrentTab("disclaimer")} 
+                <a 
+                  href="/disclaimer"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    setCurrentTab("disclaimer");
+                    window.scrollTo({ top: 0, behavior: "smooth" });
+                  }} 
                   className={`text-slate-300 hover:text-white transition-all text-left block cursor-pointer ${
                     currentTab === "disclaimer" ? "text-purple-400 font-bold font-mono" : ""
                   }`}
                 >
                   Legal Disclaimer
-                </button>
+                </a>
               </li>
             </ul>
           </div>
