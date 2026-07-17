@@ -181,6 +181,7 @@ export default function ArticleDetailView({
             className="max-w-full h-auto max-h-[480px] rounded-2xl shadow-sm object-contain cursor-zoom-in group-hover:opacity-95 transition-opacity"
             id="reader-original-thumbnail"
             referrerPolicy="no-referrer"
+            loading="lazy"
           />
           <span className="absolute bottom-4 right-4 bg-purple-950/80 backdrop-blur-md text-white text-[9px] px-2.5 py-1 rounded-lg font-mono font-bold opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none">
             Click Image to Expand

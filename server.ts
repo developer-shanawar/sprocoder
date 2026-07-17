@@ -3,6 +3,7 @@ import path from "path";
 import { createServer as createViteServer } from "vite";
 import { GoogleGenAI, Type } from "@google/genai";
 import dotenv from "dotenv";
+import { INITIAL_POSTS } from "./src/data";
 
 dotenv.config();
 
@@ -32,15 +33,15 @@ function parseMarkdown(md: string): string {
     .replace(/</g, "&lt;")
     .replace(/>/g, "&gt;")
     // Headers
-    .replace(/^### (.*$)/gim, '<h3 style="font-size: 1.125rem; font-weight: 700; color: #1e293b; margin-top: 1rem; margin-bottom: 0.5rem;">$1</h3>')
-    .replace(/^## (.*$)/gim, '<h2 style="font-size: 1.5rem; font-weight: 700; color: #1e293b; margin-top: 1.5rem; margin-bottom: 0.75rem;">$1</h2>')
-    .replace(/^# (.*$)/gim, '<h1 style="font-size: 1.875rem; font-weight: 900; color: #0f172a; margin-top: 2rem; margin-bottom: 1rem;">$1</h1>')
+    .replace(/^### (.*$)/gim, '<h3 style="font-size: 1.25rem; font-weight: 700; color: #f1f5f9; margin-top: 1.5rem; margin-bottom: 0.5rem; font-family: system-ui, -apple-system, sans-serif;">$1</h3>')
+    .replace(/^## (.*$)/gim, '<h2 style="font-size: 1.5rem; font-weight: 800; color: #ffffff; margin-top: 2rem; margin-bottom: 0.75rem; font-family: system-ui, -apple-system, sans-serif; border-left: 4px solid #a855f7; padding-left: 0.75rem;">$1</h2>')
+    .replace(/^# (.*$)/gim, '<h1 style="font-size: 1.875rem; font-weight: 950; color: #ffffff; margin-top: 2.5rem; margin-bottom: 1rem; font-family: system-ui, -apple-system, sans-serif;">$1</h1>')
     // Blockquotes
-    .replace(/^\> (.*$)/gim, '<blockquote style="border-left-width: 4px; border-color: #a855f7; padding-left: 1rem; font-style: italic; color: #475569; margin: 1rem 0;">$1</blockquote>')
+    .replace(/^\> (.*$)/gim, '<blockquote style="border-left: 4px solid #a855f7; padding: 0.75rem 1rem; font-style: italic; color: #cbd5e1; background-color: rgba(168, 85, 247, 0.05); border-radius: 0 0.75rem 0.75rem 0; margin: 1.5rem 0;">$1</blockquote>')
     // Bold
-    .replace(/\*\*(.*)\*\*/gim, '<strong>$1</strong>')
+    .replace(/\*\*(.*)\*\*/gim, '<strong style="color: #ffffff; font-weight: 700;">$1</strong>')
     // Lists
-    .replace(/^\- (.*$)/gim, '<li style="margin-left: 1rem; list-style-type: disc; color: #334155;">$1</li>')
+    .replace(/^\- (.*$)/gim, '<li style="margin-left: 1.5rem; list-style-type: disc; color: #cbd5e1; margin-bottom: 0.5rem; line-height: 1.75;">$1</li>')
     // Paragraphs
     .split('\n\n')
     .map(para => {
@@ -49,7 +50,7 @@ function parseMarkdown(md: string): string {
       if (trimmed.startsWith('<h') || trimmed.startsWith('<blockquote') || trimmed.startsWith('<li')) {
         return trimmed;
       }
-      return `<p style="color: #334155; line-height: 1.625; margin-bottom: 1rem;">${trimmed}</p>`;
+      return `<p style="color: #cbd5e1; line-height: 1.75; margin-bottom: 1.25rem; text-align: justify; font-size: 1rem;">${trimmed}</p>`;
     })
     .join('\n');
 }
@@ -72,18 +73,30 @@ app.get([
   const slug = rawSlug.replace(/\.html$/, "");
 
   try {
-    const dbUrl = "https://fir-pro-coder-default-rtdb.firebaseio.com/articles.json";
-    const response = await fetch(dbUrl);
-    if (!response.ok) {
-      throw new Error("Failed to fetch articles database");
+    let articles: any[] = [];
+    try {
+      const dbUrl = "https://fir-pro-coder-default-rtdb.firebaseio.com/articles.json";
+      const response = await fetch(dbUrl);
+      if (response.ok) {
+        const articlesMap: Record<string, any> = await response.json() || {};
+        articles = Object.values(articlesMap);
+      }
+    } catch (dbErr) {
+      console.warn("Database fetch failed or timed out during pre-rendering, falling back...", dbErr);
     }
-    const articlesMap: Record<string, any> = await response.json() || {};
-    const articles = Object.values(articlesMap);
 
-    const matched = articles.find((article: any) => {
+    let matched = articles.find((article: any) => {
       if (!article) return false;
       return slugify(article.title) === slug || article.id === slug;
     });
+
+    // Fallback Reset Engine: Check static INITIAL_POSTS if no database article is matched
+    if (!matched) {
+      matched = INITIAL_POSTS.find((article: any) => {
+        if (!article) return false;
+        return slugify(article.title) === slug || article.id === slug;
+      });
+    }
 
     if (matched) {
       const isProduction = process.env.NODE_ENV === "production";
@@ -112,15 +125,15 @@ app.get([
           }
 
           const privateLayout = `
-<div style="min-height: 100vh; background-color: #f8fafc; color: #0f172a; font-family: ui-sans-serif, system-ui, sans-serif; display: flex; align-items: center; justify-content: center; padding: 2rem;">
-  <div style="max-width: 28rem; text-align: center; background-color: #ffffff; padding: 2.5rem; border-radius: 1.5rem; border: 1px solid #f1f5f9; box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.05);">
-    <div style="width: 4rem; height: 4rem; border-radius: 9999px; background-color: #ffe4e6; display: flex; align-items: center; justify-content: center; margin: 0 auto 1.5rem;">
+<div style="min-height: 100vh; background-color: #0b0514; color: #cbd5e1; font-family: system-ui, -apple-system, sans-serif; display: flex; align-items: center; justify-content: center; padding: 2rem;">
+  <div style="max-width: 28rem; text-align: center; background-color: rgba(255, 255, 255, 0.03); backdrop-filter: blur(12px); padding: 2.5rem; border-radius: 2rem; border: 1px solid rgba(168, 85, 247, 0.2); box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);">
+    <div style="width: 4rem; height: 4rem; border-radius: 1rem; background-color: rgba(244, 63, 94, 0.15); display: flex; align-items: center; justify-content: center; margin: 0 auto 1.5rem; border: 1px solid rgba(244, 63, 94, 0.3);">
       <svg style="width: 2rem; height: 2rem; color: #f43f5e;" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
         <path stroke-linecap="round" stroke-linejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
       </svg>
     </div>
-    <h1 style="font-size: 1.5rem; font-weight: 800; color: #0f172a; margin-bottom: 0.75rem;">Private Article</h1>
-    <p style="color: #64748b; font-size: 0.875rem; line-height: 1.5; margin-bottom: 1.5rem;">This article has been set to private by the administrator and is not accessible publicly.</p>
+    <h1 style="font-size: 1.5rem; font-weight: 800; color: #ffffff; margin-bottom: 0.75rem;">Private Article</h1>
+    <p style="color: #94a3b8; font-size: 0.875rem; line-height: 1.5; margin-bottom: 1.5rem;">This article has been set to private by the administrator and is not accessible publicly.</p>
     <a href="/" style="display: inline-block; background-color: #7c3aed; color: #ffffff; padding: 0.75rem 1.5rem; border-radius: 0.75rem; font-size: 0.875rem; font-weight: 700; text-decoration: none; transition: background-color 0.2s;">Return Home</a>
   </div>
 </div>
@@ -161,6 +174,7 @@ app.get([
     <meta property="og:title" content="${matched.title}" />
     <meta property="og:description" content="${(matched.excerpt || matched.tagline || "").replace(/"/g, '&quot;')}" />
     <meta property="og:type" content="article" />
+    <meta property="og:image" content="${matched.thumbnailUrl || ''}" />
     <script type="application/ld+json">
       ${JSON.stringify(articleJsonLd)}
     </script>
@@ -175,44 +189,52 @@ app.get([
           template = template.replace("</head>", `${seoMeta}\n</head>`);
         }
 
-        // Render static layout of the article instantly matching our design tokens
+        // Render static layout of the article instantly matching our design tokens (Slate Theme)
         const staticLayout = `
-<div style="min-height: 100vh; background-color: #f8fafc; color: #0f172a; font-family: ui-sans-serif, system-ui, sans-serif; -webkit-font-smoothing: antialiased;">
-  <header style="position: sticky; top: 0; z-index: 50; background-color: rgba(255, 255, 255, 0.85); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); border-bottom: 1px solid #faf5ff; padding: 1rem 1.5rem;">
+<div style="min-height: 100vh; background-color: #0b0514; color: #cbd5e1; font-family: system-ui, -apple-system, sans-serif; -webkit-font-smoothing: antialiased;">
+  <header style="position: sticky; top: 0; z-index: 50; background-color: rgba(11, 5, 20, 0.8); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); border-bottom: 1px solid rgba(168, 85, 247, 0.15); padding: 1rem 1.5rem;">
     <div style="max-width: 64rem; margin: 0 auto; display: flex; align-items: center; justify-content: space-between;">
-      <div style="display: flex; align-items: center; gap: 0.75rem;">
-        <div style="width: 2.5rem; height: 2.5rem; border-radius: 9999px; background-color: #f3e8ff; display: flex; align-items: center; justify-content: center; font-weight: 700; color: #9333ea; font-size: 1.125rem;">S</div>
-        <span style="font-weight: 900; color: #3b0764; letter-spacing: 0.05em; font-size: 1rem; text-transform: uppercase;">S PRO CODER</span>
-      </div>
+      <a href="/" style="display: flex; align-items: center; gap: 0.75rem; text-decoration: none;">
+        <div style="width: 2.5rem; height: 2.5rem; border-radius: 0.75rem; background-color: rgba(168, 85, 247, 0.15); border: 1px solid rgba(168, 85, 247, 0.3); display: flex; align-items: center; justify-content: center; font-weight: 900; color: #c084fc; font-size: 1.25rem;">S</div>
+        <span style="font-weight: 900; color: #ffffff; letter-spacing: 0.05em; font-size: 1rem; text-transform: uppercase;">S PRO CODER</span>
+      </a>
       <div>
-        <span style="font-size: 0.75rem; color: #9333ea; font-family: monospace; letter-spacing: 0.1em; text-transform: uppercase;">Article Preview</span>
+        <span style="font-size: 0.75rem; color: #c084fc; font-family: monospace; letter-spacing: 0.1em; text-transform: uppercase; background-color: rgba(168, 85, 247, 0.1); border: 1px solid rgba(168, 85, 247, 0.2); padding: 0.25rem 0.75rem; border-radius: 0.5rem;">Article Reader</span>
       </div>
     </div>
   </header>
 
   <main style="max-width: 48rem; margin: 0 auto; padding: 3rem 1.5rem;">
     <div style="margin-bottom: 2rem;">
-      <span style="font-size: 0.875rem; font-weight: 700; color: #9333ea;">← Back to Articles</span>
+      <a href="/" style="text-decoration: none; display: inline-flex; align-items: center; gap: 0.5rem; font-size: 0.875rem; font-weight: 700; color: #c084fc; transition: color 0.2s;">
+        ← Back to Tech Stream
+      </a>
     </div>
 
-    <header style="margin-bottom: 2rem;">
+    <header style="margin-bottom: 2.5rem;">
       <div style="display: flex; align-items: center; gap: 0.75rem; margin-bottom: 1rem;">
-        <span style="padding: 0.25rem 0.75rem; font-size: 0.75rem; font-weight: 600; background-color: #f3e8ff; color: #7e22ce; border-radius: 9999px; text-transform: uppercase; letter-spacing: 0.05em;">${matched.category || "Design"}</span>
-        <span style="font-size: 0.75rem; color: #64748b;">${matched.readTime || '5 min read'}</span>
+        <span style="padding: 0.25rem 0.75rem; font-size: 0.75rem; font-weight: 700; background-color: rgba(168, 85, 247, 0.15); color: #c084fc; border: 1px solid rgba(168, 85, 247, 0.3); border-radius: 0.5rem; text-transform: uppercase; letter-spacing: 0.05em;">${matched.category || "Tech News"}</span>
+        <span style="font-size: 0.75rem; color: #94a3b8; font-family: monospace;">${matched.readTime || '5 min read'}</span>
       </div>
-      <h1 style="font-size: 2.25rem; font-weight: 900; color: #0f172a; letter-spacing: -0.025em; line-height: 1.25; margin-bottom: 1rem;">${matched.title}</h1>
-      <p style="font-size: 1.125rem; color: #475569; font-style: italic; line-height: 1.625; margin-bottom: 1.5rem;">${matched.tagline || ""}</p>
+      <h1 style="font-size: 2.25rem; font-weight: 900; color: #ffffff; letter-spacing: -0.025em; line-height: 1.25; margin-bottom: 1rem; font-family: system-ui, -apple-system, sans-serif;">${matched.title}</h1>
+      <p style="font-size: 1.125rem; color: #94a3b8; font-style: italic; line-height: 1.625; margin-bottom: 1.5rem;">${matched.tagline || ""}</p>
 
-      <div style="display: flex; align-items: center; gap: 1rem; margin-top: 1.5rem; padding-top: 1.5rem; border-top: 1px solid #faf5ff;">
-        <div style="width: 2.5rem; height: 2.5rem; border-radius: 9999px; background-color: #9333ea; color: #ffffff; display: flex; align-items: center; justify-content: center; font-weight: 700; font-family: monospace; font-size: 0.875rem;">${matched.author ? matched.author.charAt(0) : 'W'}</div>
+      ${matched.thumbnailUrl ? `
+      <div style="width: 100%; border-radius: 1.5rem; overflow: hidden; margin-bottom: 2rem; border: 1px solid rgba(168, 85, 247, 0.15);">
+        <img src="${matched.thumbnailUrl}" alt="${matched.title}" style="width: 100%; height: auto; display: block; object-fit: cover;" loading="lazy" referrerPolicy="no-referrer" />
+      </div>
+      ` : ""}
+
+      <div style="display: flex; align-items: center; gap: 1rem; margin-top: 1.5rem; padding-top: 1.5rem; border-top: 1px solid rgba(168, 85, 247, 0.1);">
+        <div style="width: 2.5rem; height: 2.5rem; border-radius: 0.75rem; background-color: #7c3aed; color: #ffffff; display: flex; align-items: center; justify-content: center; font-weight: 800; font-family: monospace; font-size: 0.875rem;">${matched.author ? matched.author.charAt(0).toUpperCase() : 'S'}</div>
         <div>
-          <p style="font-size: 0.875rem; font-weight: 700; color: #1e293b; margin: 0;">${matched.author || 'Aura Writer'}</p>
-          <p style="font-size: 0.75rem; color: #64748b; margin: 0;">${matched.date || 'Just now'}</p>
+          <p style="font-size: 0.875rem; font-weight: 700; color: #ffffff; margin: 0;">${matched.author || 'S Pro Coder'}</p>
+          <p style="font-size: 0.75rem; color: #94a3b8; margin: 0;">${matched.date || 'Just now'}</p>
         </div>
       </div>
     </header>
 
-    <article style="font-size: 1rem; color: #334155; line-height: 1.75;">
+    <article style="font-size: 1.05rem; color: #cbd5e1; line-height: 1.8;">
       ${parseMarkdown(matched.content || "")}
     </article>
   </main>

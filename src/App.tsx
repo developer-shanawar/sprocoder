@@ -1671,6 +1671,7 @@ export default function App() {
                                 alt={art.title}
                                 className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
                                 referrerPolicy="no-referrer"
+                                loading="lazy"
                               />
                               <span className="absolute bottom-1.5 right-1.5 bg-black/80 px-1.5 py-0.5 rounded font-mono text-[8px] text-white font-extrabold uppercase tracking-wider">
                                 {art.readTime || "Read"}

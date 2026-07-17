@@ -181,6 +181,7 @@ export default function UserProfile({
                 alt={currentUser.name} 
                 className="w-16 h-16 rounded-2xl object-cover border-2 border-white/40 shadow-inner"
                 referrerPolicy="no-referrer"
+                loading="lazy"
               />
             ) : (
               <div className="w-16 h-16 rounded-2xl bg-white/20 backdrop-blur-md border border-white/30 flex items-center justify-center text-2xl font-black shadow-inner">
@@ -255,7 +256,7 @@ export default function UserProfile({
                     {isUploading ? (
                       <Loader2 className="w-5 h-5 text-purple-600 animate-spin" />
                     ) : avatarUrl ? (
-                      <img src={avatarUrl} alt="Avatar" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                      <img src={avatarUrl} alt="Avatar" className="w-full h-full object-cover" referrerPolicy="no-referrer" loading="lazy" />
                     ) : (
                       <User className="w-5 h-5 text-purple-400" />
                     )}

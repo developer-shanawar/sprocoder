@@ -176,6 +176,7 @@ export default function YouTubeShowcase() {
                 alt={vid.title}
                 className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-102"
                 referrerPolicy="no-referrer"
+                loading="lazy"
               />
               <div className="absolute inset-0 bg-black/20 group-hover:bg-black/10 transition-all duration-300 flex items-center justify-center">
                 <div className="w-10 h-10 rounded-full bg-red-600 text-white flex items-center justify-center shadow-none transition-transform duration-200 group-hover:scale-105 active:scale-95">
