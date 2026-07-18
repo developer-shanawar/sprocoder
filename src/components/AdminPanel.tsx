@@ -177,6 +177,110 @@ export default function AdminPanel({ onClose, categories, setCategories, onLogou
   const [adsTxt, setAdsTxt] = useState("");
   const [enableAdSense, setEnableAdSense] = useState(false);
 
+  // System Wipe & Reset states
+  const [resetLoading, setResetLoading] = useState(false);
+  const [resetSuccess, setResetSuccess] = useState(false);
+
+  const handleWipeAndResetSystem = async () => {
+    const confirm1 = window.confirm("🚨 WARNING: Are you sure you want to COMPLETELY remove all articles, categories, contact messages, analytics logs, and reset all website brand/ad settings back to clean initial factory defaults? This action is absolutely irreversible!");
+    if (!confirm1) return;
+
+    const confirm2 = window.confirm("⚠️ SECONDARY VERIFICATION: Click OK to confirm the complete system removal and reset.");
+    if (!confirm2) return;
+
+    setResetLoading(true);
+    try {
+      // 1. Wipe standard content roots
+      await set(ref(db, DB_PATHS.ARTICLES), null);
+      await set(ref(db, DB_PATHS.CATEGORIES), null);
+      await set(ref(db, DB_PATHS.MESSAGES), null);
+      await set(ref(db, "analytics"), null);
+
+      // 2. Set default categories
+      const initialCategories = {
+        "cat-1": { id: "cat-1", name: "Technology", slug: "technology", count: 2 },
+        "cat-2": { id: "cat-2", name: "Artificial Intelligence", slug: "artificial-intelligence", count: 1 },
+        "cat-3": { id: "cat-3", name: "AI Tools", slug: "ai-tools", count: 1 },
+        "cat-4": { id: "cat-4", name: "Games", slug: "games", count: 1 }
+      };
+      await set(ref(db, DB_PATHS.CATEGORIES), initialCategories);
+
+      // 3. Set default articles using the verified initial system data schema
+      const initialArticles = {
+        "post-1": {
+          id: "post-1",
+          title: "Mastering Clean Architecture in React 19",
+          tagline: "Build incredibly modular, testable, and future-proof corporate applications.",
+          category: "Technology",
+          content: `## The Evolution of React State Management\n\nModern React applications often struggle under the weight of bloated component trees, chaotic prop-drilling, and unorganized side effects. Clean Architecture offers a solid blueprint to segregate business logic, user interface concerns, and third-party data layers.\n\n### Segmenting Core Layers\n\n1. **Core Domain Model Layer:** Contains the pure typescript definitions and business models representing your data contracts.\n2. **Use Case / Services Layer:** Acts as a mediator handling domain logic, fetching data, and validation schemas, completely agnostic of DOM rendering libraries.\n3. **UI Presenter Component Layer:** High-performance functional components utilizing standard hooks to bind to reactive state contexts.`,
+          readTime: "6 min read",
+          tags: ["react", "architecture", "typescript"],
+          excerpt: "Unpack the design principles required to structure enterprise-grade React applications.",
+          author: "Chroma Analyst",
+          date: new Date().toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" }),
+          likes: 0,
+          savesCount: 0,
+          isAiGenerated: false,
+          publishStatus: "direct",
+          visibility: "public",
+          thumbnailUrl: "https://images.unsplash.com/photo-1555066931-4365d14bab8c?auto=format&fit=crop&w=800&q=80"
+        },
+        "post-2": {
+          id: "post-2",
+          title: "The Emergence of Cognitive AI Agents in 2026",
+          tagline: "How autonomous orchestrators are taking over complex development pipelines.",
+          category: "Artificial Intelligence",
+          content: `## Beyond Basic Chat Interfaces\n\nThe technological paradigm of 2026 is moving rapidly beyond passive chat loops. Today's cognitive AI agents possess advanced long-term memory retrieval systems, autonomous tool utilization, and self-correcting execution protocols.\n\n### The Anatomy of an Agent\n\nAn agent is composed of three interconnected systems: planning pipelines, cognitive grounding logs, and execution sandboxes. This structure allows agents to perform highly secure, multi-step actions across various workspaces.`,
+          readTime: "8 min read",
+          tags: ["ai", "agents", "automation"],
+          excerpt: "An expert analysis on the cognitive frameworks and tools powering autonomous systems.",
+          author: "S Pro Sage",
+          date: new Date().toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" }),
+          likes: 0,
+          savesCount: 0,
+          isAiGenerated: true,
+          publishStatus: "direct",
+          visibility: "public",
+          thumbnailUrl: "https://images.unsplash.com/photo-1620712943543-bcc4688e7485?auto=format&fit=crop&w=800&q=80"
+        }
+      };
+      await set(ref(db, DB_PATHS.ARTICLES), initialArticles);
+
+      // 4. Reset brand settings
+      await set(ref(db, "settings/websiteTitle"), "S pro coder");
+      await set(ref(db, "settings/websiteDescription"), "bespoke digital platform supplying high-end tech tutorials and AI articles.");
+      await set(ref(db, "settings/showWebsiteIcon"), true);
+      await set(ref(db, "settings/customCode"), { headCode: "", bodyCode: "" });
+      await set(ref(db, "settings/adsTxt"), "");
+      await set(ref(db, "settings/enableAdSense"), false);
+      await set(ref(db, "settings/ads"), {
+        headerBanner: "",
+        belowFeatured: "",
+        aboveFooter: "",
+        rightSidebar: "",
+        articleSidebar: "",
+        enableAds: false
+      });
+
+      setWebsiteTitle("S pro coder");
+      setWebsiteDescription("bespoke digital platform supplying high-end tech tutorials and AI articles.");
+      setShowWebsiteIcon(true);
+      setCustomHeadCode("");
+      setCustomBodyCode("");
+      setAdsTxt("");
+      setEnableAdSense(false);
+      setResetSuccess(true);
+      
+      alert("🎉 Success! The system has been completely reset and default seeded tech data has been restored successfully.");
+      setTimeout(() => setResetSuccess(false), 5000);
+    } catch (err: any) {
+      console.error(err);
+      alert(`Error during system reset: ${err?.message || err}`);
+    } finally {
+      setResetLoading(false);
+    }
+  };
+
   // Article rich text area ref
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const [fetchingVideoIdx, setFetchingVideoIdx] = useState<number | null>(null);
@@ -2711,6 +2815,35 @@ export default function AdminPanel({ onClose, categories, setCategories, onLogou
                     <span>{loading ? "Updating Social Links..." : "Save Social Footer Links"}</span>
                   </button>
                 </form>
+              </div>
+
+              {/* DANGER ZONE: Advanced System Control */}
+              <div className="bg-red-50/50 p-6 rounded-3xl border border-red-200 space-y-4">
+                <div className="border-b border-red-100 pb-2">
+                  <h3 className="text-sm font-black text-red-950 uppercase tracking-wider flex items-center gap-1.5">
+                    <AlertCircle className="w-4 h-4 text-red-600 animate-bounce" />
+                    <span>Danger Zone: Advanced System Control</span>
+                  </h3>
+                  <p className="text-[10px] text-red-700">
+                    Wipe database tables and reset the administrative content engines. This allows completely removing custom code or stale data and returning to standard system parameters.
+                  </p>
+                </div>
+
+                <div className="space-y-3">
+                  <p className="text-xs text-red-900 leading-relaxed">
+                    Executing this operation will <strong>completely remove</strong> all articles, category tags, guest logs, contact submissions, and active live web analytics. It will immediately re-install standard compliant tech news articles to preserve live platform operation.
+                  </p>
+
+                  <button
+                    type="button"
+                    onClick={handleWipeAndResetSystem}
+                    disabled={resetLoading}
+                    className="w-full bg-red-600 hover:bg-red-700 disabled:bg-red-300 text-white font-bold text-xs py-3 rounded-xl cursor-pointer flex items-center justify-center gap-1.5 shadow-lg shadow-red-100 transition-all active:scale-95"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                    <span>{resetLoading ? "Removing and Resetting Website System..." : "Wipe Content & Reset System Default Seeding"}</span>
+                  </button>
+                </div>
               </div>
             </div>
           )}
