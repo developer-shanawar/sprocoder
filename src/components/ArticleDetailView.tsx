@@ -255,15 +255,20 @@ export default function ArticleDetailView({
               </div>
             </article>
             
-            {/* AI, GEO & LLM Knowledge Summary Table */}
-            <div className="my-6 p-5 sm:p-6 bg-white border-2 border-black rounded-[20px] shadow-[4px_4px_0px_0px_#000000] overflow-hidden" id="llm-knowledge-extraction-container">
-              <div className="flex items-center gap-2 mb-4">
-                <span className="text-lg">📊</span>
-                <h3 className="font-sans font-black text-purple-950 text-xs sm:text-sm uppercase tracking-widest">
-                  AI Knowledge Graph & GEO Data Index
-                </h3>
-              </div>
-              <div className="overflow-x-auto">
+            {/* AI, GEO & LLM Knowledge Summary Table wrapped in interactive details/summary tag */}
+            <details className="group border-2 border-black rounded-[20px] bg-white shadow-[4px_4px_0px_0px_#000000] overflow-hidden my-6 cursor-pointer" id="llm-knowledge-extraction-container" open>
+              <summary className="list-none flex items-center justify-between p-5 sm:p-6 select-none focus:outline-none">
+                <div className="flex items-center gap-2">
+                  <span className="text-lg animate-bounce">📊</span>
+                  <h3 className="font-sans font-black text-purple-950 text-xs sm:text-sm uppercase tracking-widest">
+                    AI Knowledge Graph & GEO Data Index (Details)
+                  </h3>
+                </div>
+                <div className="text-purple-600 transition-transform duration-200 group-open:rotate-180">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-chevron-down"><path d="m6 9 6 6 6-6"/></svg>
+                </div>
+              </summary>
+              <div className="px-5 pb-5 sm:px-6 sm:pb-6 overflow-x-auto border-t border-purple-100">
                 <table className="w-full text-left text-xs sm:text-sm border-collapse">
                   <tbody>
                     <tr className="border-b border-purple-100">
@@ -301,7 +306,7 @@ export default function ArticleDetailView({
                   </tbody>
                 </table>
               </div>
-            </div>
+            </details>
             
             {/* SEO, EEO & GEO Optimization Summary */}
             {(post.keywords || post.competitiveTrends) && (
@@ -428,49 +433,6 @@ export default function ArticleDetailView({
                   <span>Discussions ({post.comments?.length || 0})</span>
                 </h3>
               </div>
-
-              {/* Add Comment Field (At top of Board for high usability) */}
-              {currentUser ? (
-                <form onSubmit={handleCommentSubmit} className="space-y-2">
-                  <div className="flex items-start gap-2">
-                    <img
-                      src={currentUser.avatarUrl || `https://api.dicebear.com/7.x/pixel-art/svg?seed=${encodeURIComponent(currentUser.name)}`}
-                      alt={currentUser.name}
-                      className="w-7 h-7 rounded-full object-cover border border-purple-100 shrink-0 mt-1"
-                    />
-                    <div className="flex-1 space-y-1.5">
-                      <textarea
-                        rows={2}
-                        placeholder="Share your thoughts on this write-up..."
-                        value={newComment}
-                        onChange={(e) => setNewComment(e.target.value)}
-                        className="w-full px-3 py-2 rounded-xl bg-white border border-purple-100 text-xs text-purple-950 focus:outline-none focus:border-purple-500 resize-none leading-normal"
-                        id="comment-input-field"
-                      />
-                      <div className="flex justify-end">
-                        <button
-                          type="submit"
-                          disabled={!newComment.trim()}
-                          className="px-3.5 py-1.5 rounded-xl bg-purple-600 text-white hover:bg-purple-700 disabled:opacity-50 active:scale-95 transition-all cursor-pointer flex items-center gap-1 font-bold text-[10px]"
-                          id="comment-submit-btn"
-                        >
-                          <Send className="w-3 h-3" />
-                          <span>Comment</span>
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                </form>
-              ) : (
-                <div className="p-3 bg-purple-50/50 border border-purple-100/60 rounded-xl text-center">
-                  <p className="text-[10px] text-purple-950 font-bold">
-                    Join the tech conversation
-                  </p>
-                  <p className="text-[9px] text-gray-500 mt-0.5">
-                    Please log in or register on the top right to comment & reply.
-                  </p>
-                </div>
-              )}
 
               {/* Threaded Discussion List */}
               <div className="space-y-4 max-h-[420px] overflow-y-auto pr-1" id="discussion-board-list">
@@ -611,10 +573,53 @@ export default function ArticleDetailView({
                   ))
                 ) : (
                   <p className="text-[11px] text-gray-400 text-center py-6 bg-purple-50/20 border border-purple-50/20 rounded-2xl leading-normal">
-                    No active comments registered yet. Start the code discussion above!
+                    No active comments registered yet. Start the code discussion below!
                   </p>
                 )}
               </div>
+
+              {/* Add Comment Field (Adjusted properly to the bottom, below the recently posted comments) */}
+              {currentUser ? (
+                <form onSubmit={handleCommentSubmit} className="space-y-2 pt-4 border-t border-purple-100/60">
+                  <div className="flex items-start gap-2">
+                    <img
+                      src={currentUser.avatarUrl || `https://api.dicebear.com/7.x/pixel-art/svg?seed=${encodeURIComponent(currentUser.name)}`}
+                      alt={currentUser.name}
+                      className="w-7 h-7 rounded-full object-cover border border-purple-100 shrink-0 mt-1"
+                    />
+                    <div className="flex-1 space-y-1.5">
+                      <textarea
+                        rows={2}
+                        placeholder="Share your thoughts on this write-up..."
+                        value={newComment}
+                        onChange={(e) => setNewComment(e.target.value)}
+                        className="w-full px-3 py-2 rounded-xl bg-white border border-purple-100 text-xs text-purple-950 focus:outline-none focus:border-purple-500 resize-none leading-normal"
+                        id="comment-input-field"
+                      />
+                      <div className="flex justify-end">
+                        <button
+                          type="submit"
+                          disabled={!newComment.trim()}
+                          className="px-3.5 py-1.5 rounded-xl bg-purple-600 text-white hover:bg-purple-700 disabled:opacity-50 active:scale-95 transition-all cursor-pointer flex items-center gap-1 font-bold text-[10px]"
+                          id="comment-submit-btn"
+                        >
+                          <Send className="w-3.5 h-3.5" />
+                          <span>Comment</span>
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </form>
+              ) : (
+                <div className="p-3 bg-purple-50/50 border border-purple-100/60 rounded-xl text-center">
+                  <p className="text-[10px] text-purple-950 font-bold">
+                    Join the tech conversation
+                  </p>
+                  <p className="text-[9px] text-gray-500 mt-0.5">
+                    Please log in or register on the top right to comment & reply.
+                  </p>
+                </div>
+              )}
 
             </div>
 

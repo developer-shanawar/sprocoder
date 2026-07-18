@@ -291,8 +291,9 @@ export default function App() {
 
   // Sync state from browser URL path
   const syncRouteFromUrl = (postsList: BlogPost[]) => {
-    const path = window.location.pathname;
-    setCurrentPath(path);
+    const rawPath = window.location.pathname;
+    const path = rawPath.replace(/\.html$/, "");
+    setCurrentPath(rawPath);
     
     if (!path || path === "/" || path === "") {
       setCurrentTab("home");
@@ -496,48 +497,48 @@ export default function App() {
     let targetPath = "/";
     
     if (selectedPost) {
-      targetPath = `/blog/${slugify(selectedPost.title)}`;
+      targetPath = `/blog/${slugify(selectedPost.title)}.html`;
     } else {
       switch (currentTab) {
         case "home":
           if (selectedCategory === "Technology") {
-            targetPath = "/tech-news";
+            targetPath = "/tech-news.html";
           } else if (selectedCategory === "Artificial Intelligence") {
-            targetPath = "/ai-news";
+            targetPath = "/ai-news.html";
           } else if (selectedCategory === "AI Tools") {
-            targetPath = "/ai-tools";
+            targetPath = "/ai-tools.html";
           } else if (selectedCategory === "Games") {
-            targetPath = "/games";
+            targetPath = "/games.html";
           } else {
             targetPath = "/";
           }
           break;
         case "articles":
-          targetPath = "/blog";
+          targetPath = "/blog.html";
           break;
         case "about":
-          targetPath = "/about-us";
+          targetPath = "/about-us.html";
           break;
         case "privacy":
-          targetPath = "/privacy-policy";
+          targetPath = "/privacy-policy.html";
           break;
         case "terms":
-          targetPath = "/terms-and-conditions";
+          targetPath = "/terms-and-conditions.html";
           break;
         case "disclaimer":
-          targetPath = "/disclaimer";
+          targetPath = "/disclaimer.html";
           break;
         case "contact":
-          targetPath = "/contact-us";
+          targetPath = "/contact-us.html";
           break;
         case "profile":
-          targetPath = "/profile";
+          targetPath = "/profile.html";
           break;
         case "admin-auth":
-          targetPath = "/admin-auth";
+          targetPath = "/admin-auth.html";
           break;
         case "admin":
-          targetPath = "/admin";
+          targetPath = "/admin.html";
           break;
         default:
           targetPath = "/";
