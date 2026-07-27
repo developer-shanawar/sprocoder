@@ -31,6 +31,33 @@ const LoadingSpinner = () => (
   </div>
 );
 
+// Intersect-based post view tracker for counting feed previews
+interface PostViewTrackerProps {
+  post: BlogPost;
+  onView: (post: BlogPost) => void;
+}
+
+const PostViewTracker = ({ post, onView }: PostViewTrackerProps) => {
+  const elementRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!elementRef.current) return;
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) {
+          onView(post);
+          observer.disconnect();
+        }
+      },
+      { threshold: 0.1 }
+    );
+    observer.observe(elementRef.current);
+    return () => observer.disconnect();
+  }, [post, onView]);
+
+  return <div ref={elementRef} className="absolute inset-0 pointer-events-none w-full h-full" id={`tracker-${post.id}`} />;
+};
+
 const InstantLogo = ({ size = 96, className = "" }: { size?: number; className?: string }) => (
   <svg width={size} height={size} viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg" className={`filter drop-shadow-md ${className}`}>
     <defs>
@@ -250,29 +277,55 @@ export default function App() {
 
   // Keep track of which post IDs had views incremented in this session to prevent duplicate views count
   const incrementedPostIds = useRef<Set<string>>(new Set());
+  // Keep track of which post IDs had feed previews counted in this session to prevent duplicate feed views
+  const trackedFeedViews = useRef<Set<string>>(new Set());
 
-  const incrementArticleView = async (postId: string, currentViews: number) => {
+  const incrementArticleView = async (postId: string, currentViews: number, currentArticleViews: number = 0) => {
     if (!postId || incrementedPostIds.current.has(postId)) return;
     incrementedPostIds.current.add(postId);
+
+    const nextViews = currentViews + 1;
+    const nextArticleViews = (currentArticleViews || currentViews) + 1;
 
     // Immediately update local states to prevent stale values in UI
     setSelectedPost((prev) => {
       if (prev && prev.id === postId) {
-        return { ...prev, views: (prev.views || 0) + 1 };
+        return { ...prev, views: nextViews, articleViews: nextArticleViews };
       }
       return prev;
     });
 
     setAllPosts((prev) => 
-      prev.map((p) => p.id === postId ? { ...p, views: (p.views || 0) + 1 } : p)
+      prev.map((p) => p.id === postId ? { ...p, views: nextViews, articleViews: nextArticleViews } : p)
     );
 
     try {
       await update(ref(db, `${DB_PATHS.ARTICLES}/${postId}`), {
-        views: currentViews + 1
+        views: nextViews,
+        articleViews: nextArticleViews
       });
     } catch (err) {
       console.error("Failed to increment views:", err);
+    }
+  };
+
+  const handleFeedView = async (post: BlogPost) => {
+    if (!post.id || trackedFeedViews.current.has(post.id)) return;
+    trackedFeedViews.current.add(post.id);
+
+    const currentFeedViews = post.feedViews || 0;
+    const nextFeedViews = currentFeedViews + 1;
+
+    setAllPosts((prev) =>
+      prev.map((p) => p.id === post.id ? { ...p, feedViews: nextFeedViews } : p)
+    );
+
+    try {
+      await update(ref(db, `${DB_PATHS.ARTICLES}/${post.id}`), {
+        feedViews: nextFeedViews
+      });
+    } catch (err) {
+      console.error("Failed to increment feedViews:", err);
     }
   };
 
@@ -354,7 +407,7 @@ export default function App() {
         } else {
           setSelectedPost(matched);
           setCurrentTab("articles");
-          incrementArticleView(matched.id, matched.views || 0);
+          incrementArticleView(matched.id, matched.views || 0, matched.articleViews || 0);
         }
       } else {
         setCurrentTab("articles");
@@ -377,7 +430,7 @@ export default function App() {
         hasParsedInitialPostRoute.current = true;
         hasParsedInitialRoute.current = true;
         const matched = (window as any).__INITIAL_POST__;
-        incrementArticleView(matched.id, matched.views || 0);
+        incrementArticleView(matched.id, matched.views || 0, matched.articleViews || 0);
         return;
       }
 
@@ -434,7 +487,7 @@ export default function App() {
               setCurrentTab("articles");
               hasParsedInitialPostRoute.current = true;
               hasParsedInitialRoute.current = true;
-              incrementArticleView(matched.id, matched.views || 0);
+              incrementArticleView(matched.id, matched.views || 0, matched.articleViews || 0);
               return;
             }
           }
@@ -452,7 +505,7 @@ export default function App() {
               setCurrentTab("articles");
               hasParsedInitialPostRoute.current = true;
               hasParsedInitialRoute.current = true;
-              incrementArticleView(matched.id, matched.views || 0);
+              incrementArticleView(matched.id, matched.views || 0, matched.articleViews || 0);
             }
           }
         } catch (e) {
@@ -1325,19 +1378,24 @@ export default function App() {
   const handleSelectPost = async (post: BlogPost) => {
     // Increment views in the database
     const currentViews = post.views || 0;
-    const updatedPost = { ...post, views: currentViews + 1 };
+    const currentArticleViews = post.articleViews || currentViews;
+    const nextViews = currentViews + 1;
+    const nextArticleViews = currentArticleViews + 1;
+
+    const updatedPost = { ...post, views: nextViews, articleViews: nextArticleViews };
     
     // Track that we incremented this post ID to avoid double-triggers on subsequent loads in the same session
     incrementedPostIds.current.add(post.id);
 
     setSelectedPost(updatedPost);
     setAllPosts((prev) => 
-      prev.map((p) => p.id === post.id ? { ...p, views: currentViews + 1 } : p)
+      prev.map((p) => p.id === post.id ? { ...p, views: nextViews, articleViews: nextArticleViews } : p)
     );
 
     try {
       await update(ref(db, `${DB_PATHS.ARTICLES}/${post.id}`), {
-        views: currentViews + 1
+        views: nextViews,
+        articleViews: nextArticleViews
       });
     } catch (err) {
       console.error("Failed to increment views:", err);
@@ -1616,7 +1674,7 @@ export default function App() {
         {/* HEADER AD SLOT */}
         {adsConfig.enableAds && adsConfig.headerBanner && (
           <div id="header-banner-ad-slot" className="w-full max-w-[720px] mx-auto mb-8 animate-in fade-in">
-            <AdRenderer code={adsConfig.headerBanner} />
+            <AdRenderer code={adsConfig.headerBanner} placementId="headerBanner" />
           </div>
         )}
         
@@ -1663,7 +1721,7 @@ export default function App() {
             {/* BELOW FEATURED AD SLOT */}
             {adsConfig.enableAds && adsConfig.belowFeatured && (
               <div id="below-featured-ad-slot" className="w-full max-w-[720px] mx-auto my-6 animate-in fade-in">
-                <AdRenderer code={adsConfig.belowFeatured} />
+                <AdRenderer code={adsConfig.belowFeatured} placementId="belowFeatured" />
               </div>
             )}
 
@@ -1740,9 +1798,10 @@ export default function App() {
                         <div
                           key={art.id}
                           onClick={() => handleSelectPost(art)}
-                          className="group bg-white border-2 border-black rounded-[24px] overflow-hidden p-3.5 shadow-sm hover:shadow-md transition-all duration-300 cursor-pointer flex flex-col justify-between space-y-3"
+                          className="group bg-white border-2 border-black rounded-[24px] overflow-hidden p-3.5 shadow-sm hover:shadow-md transition-all duration-300 cursor-pointer flex flex-col justify-between space-y-3 relative"
                           id={`spotlight-card-${art.id}`}
                         >
+                          <PostViewTracker post={art} onView={handleFeedView} />
                           <div className="space-y-2.5">
                             {/* Thumbnail */}
                             <div className="relative aspect-video w-full rounded-xl overflow-hidden bg-purple-50 shrink-0">
@@ -1814,6 +1873,7 @@ export default function App() {
                         onClick={() => handleSelectPost(post)}
                         className="group bg-white/45 border-2 border-black rounded-[28px] p-5 shadow-sm hover:shadow-md transition-all cursor-pointer space-y-3 relative overflow-hidden"
                       >
+                        <PostViewTracker post={post} onView={handleFeedView} />
                         <div className="h-40 w-full rounded-2xl overflow-hidden relative">
                           <img 
                             src={post.thumbnailUrl} 
@@ -1929,7 +1989,7 @@ export default function App() {
                 {/* RIGHT SIDEBAR AD SLOT */}
                 {adsConfig.enableAds && adsConfig.rightSidebar && (
                   <div id="right-sidebar-ad-slot" className="w-full max-w-[320px] mx-auto animate-in fade-in">
-                    <AdRenderer code={adsConfig.rightSidebar} />
+                    <AdRenderer code={adsConfig.rightSidebar} placementId="rightSidebar" />
                   </div>
                 )}
 
@@ -1973,8 +2033,9 @@ export default function App() {
                 <div 
                   key={post.id}
                   onClick={() => handleSelectPost(post)}
-                  className="group bg-white/45 border-2 border-black rounded-[28px] overflow-hidden p-4 shadow-sm hover:shadow-md transition-all cursor-pointer flex flex-col justify-between h-96"
+                  className="group bg-white/45 border-2 border-black rounded-[28px] overflow-hidden p-4 shadow-sm hover:shadow-md transition-all cursor-pointer flex flex-col justify-between h-96 relative"
                 >
+                  <PostViewTracker post={post} onView={handleFeedView} />
                   <div className="space-y-3">
                     <div className="h-40 w-full rounded-2xl overflow-hidden relative shrink-0">
                       <img 
@@ -2183,7 +2244,7 @@ export default function App() {
       {/* ABOVE FOOTER AD SLOT */}
       {adsConfig.enableAds && adsConfig.aboveFooter && (
         <div id="above-footer-ad-slot" className="w-full max-w-[720px] mx-auto my-8 animate-in fade-in">
-          <AdRenderer code={adsConfig.aboveFooter} />
+          <AdRenderer code={adsConfig.aboveFooter} placementId="aboveFooter" />
         </div>
       )}
 

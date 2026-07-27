@@ -248,7 +248,7 @@ export default function ArticleDetailView({
                         </Markdown>
                       );
                     } else {
-                      return <AdRenderer key={`ad-chunk-${index}`} code={part} />;
+                      return <AdRenderer key={`ad-chunk-${index}`} code={part} placementId="articleBody" />;
                     }
                   });
                 })()}
@@ -420,7 +420,7 @@ export default function ArticleDetailView({
             {/* ARTICLE SIDEBAR AD SLOT */}
             {adsConfig?.enableAds && adsConfig?.articleSidebar && (
               <div id="article-sidebar-ad-slot" className="animate-in fade-in">
-                <AdRenderer code={adsConfig.articleSidebar} className="max-w-[320px] mx-auto bg-slate-100/40 border border-slate-200/50" />
+                <AdRenderer code={adsConfig.articleSidebar} className="max-w-[320px] mx-auto bg-slate-100/40 border border-slate-200/50" placementId="articleSidebar" />
               </div>
             )}
 

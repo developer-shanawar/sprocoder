@@ -4,6 +4,49 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     
+    <!-- Early Third-Party/Cross-Origin Script Error Suppressor -->
+    <script>
+      (function() {
+        var swallowError = function(msg) {
+          if (!msg) return false;
+          var str = String(msg).toLowerCase();
+          return str.indexOf('script error') !== -1 || 
+                 str.indexOf('adsbygoogle') !== -1 || 
+                 str.indexOf('googleads') !== -1 ||
+                 str.indexOf('cross-origin') !== -1;
+        };
+
+        window.addEventListener('error', function(e) {
+          if (swallowError(e.message) || swallowError(e.filename)) {
+            console.warn('[System Guard] Gracefully swallowed cross-origin/third-party script error:', e.message);
+            e.preventDefault();
+            e.stopPropagation();
+            return true;
+          }
+        }, true);
+
+        var originalOnerror = window.onerror;
+        window.onerror = function(message, source, lineno, colno, error) {
+          if (swallowError(message) || swallowError(source)) {
+            console.warn('[System Guard] Gracefully swallowed cross-origin/third-party script error via onerror:', message);
+            return true;
+          }
+          if (originalOnerror) {
+            return originalOnerror.apply(this, arguments);
+          }
+          return false;
+        };
+
+        window.addEventListener('unhandledrejection', function(e) {
+          if (e.reason && (swallowError(e.reason.message) || swallowError(e.reason))) {
+            console.warn('[System Guard] Gracefully swallowed unhandled rejection:', e.reason);
+            e.preventDefault();
+            return true;
+          }
+        });
+      })();
+    </script>
+    
     <!-- SEO Primary Meta Tags -->
     <title>S Pro Coder | Tech News, AI News, AI Tools & Games</title>
     <meta name="description" content="Stay updated with S Pro Coder! Explore the latest tech news, breakthrough AI news, professional reviews of AI tools, and gaming guides and updates." />

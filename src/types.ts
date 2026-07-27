@@ -31,6 +31,8 @@ export interface BlogPost {
   likes: number;
   savesCount: number; // Added to support saved article counts
   views?: number; // Added to support article views count
+  feedViews?: number; // Previews: counted when someone views a post card
+  articleViews?: number; // Reads: counted when someone opens the article
   fakeViews?: number; // Custom fake views for public readers
   thumbnailUrl: string; // Dynamic thumbnail URL (ImgBB support)
   isAiGenerated?: boolean;

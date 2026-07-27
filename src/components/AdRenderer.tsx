@@ -1,22 +1,32 @@
 import React, { useEffect, useRef, useState } from "react";
+import { ref, get, update } from "firebase/database";
+import { db } from "../firebase";
 
 interface AdRendererProps {
   code: string;
   className?: string;
+  placementId?: "headerBanner" | "belowFeatured" | "aboveFooter" | "rightSidebar" | "articleSidebar" | "articleBody";
 }
 
 // Global registry of loaded external script URLs to prevent duplicate network calls
 const loadedExternalScripts = new Set<string>();
 
-export default function AdRenderer({ code, className = "" }: AdRendererProps) {
+export default function AdRenderer({ code, className = "", placementId }: AdRendererProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [isVisible, setIsVisible] = useState(false);
+  const trackedImpression = useRef(false);
+  const trackedClick = useRef(false);
+
+  // Auto-collapse if no code is configured for this slot to prevent empty whitespace boxes
+  if (!code || !code.trim()) {
+    return null;
+  }
 
   useEffect(() => {
     if (!containerRef.current || !code) return;
 
-    // Set up IntersectionObserver for lazy loading
-    // Only load and render the ad slot when it comes within 200px of the viewport
+    // Set up IntersectionObserver for lazy loading with generous 450px margin
+    // This pre-fetches ad resources before they enter viewport, boosting fill rates dramatically
     const observer = new IntersectionObserver(
       ([entry]) => {
         if (entry.isIntersecting) {
@@ -24,7 +34,7 @@ export default function AdRenderer({ code, className = "" }: AdRendererProps) {
           observer.disconnect();
         }
       },
-      { rootMargin: "200px", threshold: 0.01 }
+      { rootMargin: "450px", threshold: 0.01 }
     );
 
     observer.observe(containerRef.current);
@@ -33,23 +43,81 @@ export default function AdRenderer({ code, className = "" }: AdRendererProps) {
     };
   }, [code]);
 
+  const handleAdClick = () => {
+    if (!placementId || trackedClick.current) return;
+    trackedClick.current = true;
+    
+    // Prevent double clicking in under 1.5 seconds, but allow normal clicks afterwards
+    setTimeout(() => {
+      trackedClick.current = false;
+    }, 1500);
+
+    try {
+      const statsRef = ref(db, `settings/adsStats/${placementId}`);
+      get(statsRef).then((snapshot) => {
+        const val = snapshot.exists() ? snapshot.val() : { impressions: 0, clicks: 0 };
+        const currentClicks = val.clicks || 0;
+        update(statsRef, {
+          clicks: currentClicks + 1
+        });
+      });
+    } catch (err) {
+      console.error("[AdRenderer] Failed to track click:", err);
+    }
+  };
+
+  // Modern iframe blur click-tracking mechanism to detect when user taps on native iframe ads
+  useEffect(() => {
+    if (!placementId) return;
+
+    const handleWindowBlur = () => {
+      if (document.activeElement && document.activeElement.tagName === "IFRAME") {
+        if (containerRef.current && containerRef.current.contains(document.activeElement)) {
+          handleAdClick();
+        }
+      }
+    };
+
+    window.addEventListener("blur", handleWindowBlur);
+    return () => {
+      window.removeEventListener("blur", handleWindowBlur);
+    };
+  }, [placementId]);
+
   useEffect(() => {
     if (!isVisible || !containerRef.current || !code) return;
+
+    // Increment ad impression metrics in Realtime Database
+    if (placementId && !trackedImpression.current) {
+      trackedImpression.current = true;
+      try {
+        const statsRef = ref(db, `settings/adsStats/${placementId}`);
+        get(statsRef).then((snapshot) => {
+          const val = snapshot.exists() ? snapshot.val() : { impressions: 0, clicks: 0 };
+          const currentImps = val.impressions || 0;
+          update(statsRef, {
+            impressions: currentImps + 1
+          });
+        });
+      } catch (err) {
+        console.error("[AdRenderer] Failed to track impression:", err);
+      }
+    }
 
     // Clear previous content
     containerRef.current.innerHTML = "";
 
-    // Create a wrapping container
+    // Create a beautifully styled wrapping container matching S Pro Coder aesthetics
     const wrapper = document.createElement("div");
-    wrapper.className = `w-full flex flex-col items-center justify-center my-4 py-3 px-2 bg-slate-50/50 border border-dashed border-slate-200 rounded-2xl max-w-full overflow-hidden text-center shadow-inner transition-all duration-300 ${className}`;
+    wrapper.className = `w-full flex flex-col items-center justify-center my-4 py-3 px-2 bg-purple-50/15 border border-purple-100/40 rounded-2xl max-w-full overflow-hidden text-center shadow-inner transition-all duration-300 ${className}`;
 
-    // Tiny, compliant sponsor tag
+    // Elegant, compliant tiny sponsor label
     const sponsorTag = document.createElement("span");
-    sponsorTag.className = "text-[8px] text-gray-400 uppercase tracking-widest font-sans font-bold block mb-2";
-    sponsorTag.innerText = "Advertisement";
+    sponsorTag.className = "text-[8px] text-purple-400/80 uppercase tracking-widest font-sans font-extrabold block mb-2";
+    sponsorTag.innerText = "Sponsor Advertisement";
     wrapper.appendChild(sponsorTag);
 
-    // Ad element container with minimum height to avoid layout shift (CLS optimization)
+    // Ad element container with reserved height to minimize Content Layout Shift (CLS)
     const adBox = document.createElement("div");
     adBox.className = "w-full flex items-center justify-center overflow-auto min-h-[90px] sm:min-h-[120px] transition-all duration-300";
     wrapper.appendChild(adBox);
@@ -57,32 +125,35 @@ export default function AdRenderer({ code, className = "" }: AdRendererProps) {
     containerRef.current.appendChild(wrapper);
 
     try {
-      // 1. Separate HTML content and script tags
+      // 1. Separate HTML markup and executable script tags
       const tempDiv = document.createElement("div");
       tempDiv.innerHTML = code;
 
-      // Extract all script elements
+      // Extract all script tags to trigger execution correctly
       const scripts = Array.from(tempDiv.getElementsByTagName("script"));
       
-      // Clear scripts from HTML and inject pure markup
+      // Remove scripts from pure HTML div and inject pure markup
       scripts.forEach(s => s.parentNode?.removeChild(s));
       adBox.innerHTML = tempDiv.innerHTML;
 
-      // 2. Load external scripts and run inline scripts sequentially
+      // 2. Process and inject extracted scripts sequentially
       scripts.forEach((oldScript) => {
         const src = oldScript.getAttribute("src");
         if (src) {
-          // If the script is already globally loaded, do not append it again
-          if (loadedExternalScripts.has(src)) {
-            console.debug(`[AdRenderer] Script already loaded: ${src}`);
+          // Keep AdSense and other popular CDNs loaded globally, but execute localized config blocks
+          if (loadedExternalScripts.has(src) && !src.includes("adsbygoogle")) {
+            console.debug(`[AdRenderer] External script preloaded: ${src}`);
             return;
           }
           loadedExternalScripts.add(src);
         }
 
         const newScript = document.createElement("script");
+        newScript.onerror = (e) => {
+          console.warn(`[AdRenderer] Failed to load external script: ${src || 'inline'}`, e);
+        };
         
-        // Copy attributes (src, async, crossorigin, etc.)
+        // Copy original script attributes (src, async, crossorigin, etc.)
         Array.from(oldScript.attributes).forEach((attr) => {
           newScript.setAttribute(attr.name, attr.value);
         });
@@ -92,42 +163,44 @@ export default function AdRenderer({ code, className = "" }: AdRendererProps) {
           newScript.innerHTML = oldScript.innerHTML;
         }
 
-        // Set as async for speed
         if (src) {
           newScript.async = true;
         }
 
-        // Append to execute the script in the context of the container
         adBox.appendChild(newScript);
       });
 
-      // Special helper for Google AdSense to push automatically if adsbygoogle exists
+      // Special layout-stabilizer helper for Google AdSense
+      // Wrapping push in setTimeout ensures elements are painted by the browser and fully compiled
       if (code.includes("adsbygoogle") && typeof window !== "undefined") {
-        try {
-          const pushScript = document.createElement("script");
-          pushScript.innerHTML = "(window.adsbygoogle = window.adsbygoogle || []).push({});";
-          adBox.appendChild(pushScript);
-        } catch (e) {
-          console.debug("AdSense autostart handled by client code", e);
-        }
+        setTimeout(() => {
+          try {
+            const pushScript = document.createElement("script");
+            pushScript.innerHTML = "(window.adsbygoogle = window.adsbygoogle || []).push({});";
+            adBox.appendChild(pushScript);
+          } catch (e) {
+            console.debug("[AdRenderer] AdSense automatic push handled dynamically", e);
+          }
+        }, 120);
       }
 
     } catch (err) {
-      console.error("AdRenderer script injection failed:", err);
+      console.error("[AdRenderer] Dynamic injection failed, fallback to native innerHTML:", err);
       adBox.innerHTML = code;
     }
-  }, [isVisible, code, className]);
+  }, [isVisible, code, className, placementId]);
 
   return (
     <div 
       ref={containerRef} 
+      onClick={handleAdClick}
       className="w-full mx-auto min-h-[140px] flex items-center justify-center transition-all duration-300"
-      id="optimized-ad-container-wrapper"
+      id={`ad-slot-wrapper-${placementId || "generic"}`}
     >
       {!isVisible && (
-        <div className="w-full flex flex-col items-center justify-center my-4 py-3 px-2 bg-slate-50/30 border border-dashed border-slate-100 rounded-2xl animate-pulse">
-          <span className="text-[8px] text-gray-300 uppercase tracking-widest font-sans font-bold block mb-2">Advertisement</span>
-          <div className="h-20 w-full bg-slate-100/50 rounded-xl" />
+        <div className="w-full flex flex-col items-center justify-center my-4 py-3 px-2 bg-purple-50/10 border border-dashed border-purple-100/35 rounded-2xl animate-pulse">
+          <span className="text-[8px] text-purple-300 uppercase tracking-widest font-sans font-bold block mb-2">Advertisement loading</span>
+          <div className="h-20 w-full bg-purple-50/5 rounded-xl" />
         </div>
       )}
     </div>

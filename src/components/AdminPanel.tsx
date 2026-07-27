@@ -62,6 +62,7 @@ export default function AdminPanel({ onClose, categories, setCategories, onLogou
   const [articleSidebarAd, setArticleSidebarAd] = useState("");
   const [enableAds, setEnableAds] = useState(false);
   const [adsSaveSuccess, setAdsSaveSuccess] = useState(false);
+  const [adsStats, setAdsStats] = useState<any>({});
 
   // AI Article Generator States
   const [aiOption, setAiOption] = useState<"manual" | "auto">("manual");
@@ -516,11 +517,22 @@ export default function AdminPanel({ onClose, categories, setCategories, onLogou
       }
     });
 
+    // Sync Ad statistics in real-time
+    const statsRef = ref(db, "settings/adsStats");
+    const unsubAdsStats = onValue(statsRef, (snapshot) => {
+      if (snapshot.exists()) {
+        setAdsStats(snapshot.val());
+      } else {
+        setAdsStats({});
+      }
+    });
+
     return () => {
       unsubUsers();
       unsubArticles();
       unsubMessages();
       unsubAnalytics();
+      unsubAdsStats();
     };
   }, []);
 
@@ -1184,17 +1196,20 @@ export default function AdminPanel({ onClose, categories, setCategories, onLogou
     setLoading(true);
     setAdsSaveSuccess(false);
     try {
-      await set(ref(db, "settings/ads"), {
-        headerBanner: headerBannerAd,
-        belowFeatured: belowFeaturedAd,
-        aboveFooter: aboveFooterAd,
-        rightSidebar: rightSidebarAd,
-        articleSidebar: articleSidebarAd,
-        enableAds: enableAds
-      });
+      await Promise.all([
+        set(ref(db, "settings/ads"), {
+          headerBanner: headerBannerAd,
+          belowFeatured: belowFeaturedAd,
+          aboveFooter: aboveFooterAd,
+          rightSidebar: rightSidebarAd,
+          articleSidebar: articleSidebarAd,
+          enableAds: enableAds
+        }),
+        set(ref(db, "settings/adsTxt"), adsTxt || "google.com, pub-8457467726305206, DIRECT, f08c47fec0942fa0")
+      ]);
       setAdsSaveSuccess(true);
       setTimeout(() => setAdsSaveSuccess(false), 3000);
-      alert("Ads Slots Configuration saved successfully!");
+      alert("Ads Slots & dynamic ads.txt setup saved successfully!");
     } catch (err) {
       console.error(err);
       alert("Failed to update ads slots configuration.");
@@ -1918,16 +1933,21 @@ export default function AdminPanel({ onClose, categories, setCategories, onLogou
                             {art.category}
                           </td>
                           <td className="p-3">
-                            <div className="flex items-center gap-3 text-[10px] text-gray-500">
-                              <span className="flex items-center gap-0.5">
-                                <Heart className="w-3 h-3 text-rose-500 fill-rose-500" /> {art.likes}
-                              </span>
-                              <span className="flex items-center gap-0.5">
-                                <Bookmark className="w-3 h-3 text-purple-600 fill-purple-600" /> {art.savesCount || 0}
-                              </span>
-                              <span className="flex items-center gap-0.5">
-                                <Eye className="w-3.5 h-3.5 text-purple-500" /> {art.views || 0}
-                              </span>
+                            <div className="flex flex-col gap-1 text-[10px] text-gray-500">
+                              <div className="flex items-center gap-2">
+                                <span className="flex items-center gap-0.5">
+                                  <Heart className="w-3 h-3 text-rose-500 fill-rose-500" /> {art.likes}
+                                </span>
+                                <span className="flex items-center gap-0.5">
+                                  <Bookmark className="w-3 h-3 text-purple-600 fill-purple-600" /> {art.savesCount || 0}
+                                </span>
+                              </div>
+                              <div className="flex items-center gap-1 border-t border-purple-100/50 pt-1 mt-0.5">
+                                <Eye className="w-3 h-3 text-purple-500" />
+                                <span className="text-[9px] font-mono text-gray-500">
+                                  Pre: <strong className="font-bold text-blue-600">{art.feedViews || 0}</strong> | Read: <strong className="font-bold text-purple-600">{art.articleViews || art.views || 0}</strong>
+                                </span>
+                              </div>
                             </div>
                           </td>
                           <td className="p-3 text-right space-x-1.5">
@@ -3130,7 +3150,8 @@ export default function AdminPanel({ onClose, categories, setCategories, onLogou
                     <thead>
                       <tr className="border-b border-purple-100 text-purple-900 font-bold">
                         <th className="py-2.5 text-left font-bold uppercase tracking-wider text-[10px] pb-3">Article Title & Category</th>
-                        <th className="py-2.5 text-center font-bold uppercase tracking-wider text-[10px] pb-3">Traffic (Views)</th>
+                        <th className="py-2.5 text-center font-bold uppercase tracking-wider text-[10px] pb-3">Previews (Feed)</th>
+                        <th className="py-2.5 text-center font-bold uppercase tracking-wider text-[10px] pb-3">Reads (Opens)</th>
                         <th className="py-2.5 text-center font-bold uppercase tracking-wider text-[10px] pb-3">Likes</th>
                         <th className="py-2.5 text-center font-bold uppercase tracking-wider text-[10px] pb-3">Saves</th>
                         <th className="py-2.5 text-center font-bold uppercase tracking-wider text-[10px] pb-3">Comments</th>
@@ -3139,7 +3160,7 @@ export default function AdminPanel({ onClose, categories, setCategories, onLogou
                     </thead>
                     <tbody className="divide-y divide-purple-50/50">
                       {[...articles]
-                        .sort((a, b) => (b.views || 0) - (a.views || 0))
+                        .sort((a, b) => ((b.articleViews || b.views || 0) - (a.articleViews || a.views || 0)))
                         .map((post) => {
                           const commentsArray = post.comments 
                             ? (Array.isArray(post.comments) 
@@ -3148,12 +3169,14 @@ export default function AdminPanel({ onClose, categories, setCategories, onLogou
                             : [];
                           const commsCount = commentsArray.length;
                           const views = post.views || 0;
+                          const feedViews = post.feedViews || 0;
+                          const articleViews = post.articleViews || views;
                           const likesCount = post.likes || 0;
                           const savesCount = post.savesCount || 0;
                           
-                          // Engagement rate calculation
+                          // Engagement rate calculation based on real reads/opens
                           const engagementPoints = likesCount * 2 + savesCount * 3 + commsCount * 4;
-                          const engagementRate = views > 0 ? ((engagementPoints / views) * 100).toFixed(1) : "0";
+                          const engagementRate = articleViews > 0 ? ((engagementPoints / articleViews) * 100).toFixed(1) : "0";
 
                           return (
                             <tr key={post.id} className="hover:bg-purple-50/40 transition-colors">
@@ -3164,7 +3187,10 @@ export default function AdminPanel({ onClose, categories, setCategories, onLogou
                                 </span>
                               </td>
                               <td className="py-3 text-center">
-                                <span className="font-mono font-bold text-purple-950 bg-slate-100 px-2 py-0.5 rounded-md">{views}</span>
+                                <span className="font-mono font-bold text-blue-900 bg-blue-50 border border-blue-100 px-2 py-0.5 rounded-md">{feedViews}</span>
+                              </td>
+                              <td className="py-3 text-center">
+                                <span className="font-mono font-bold text-purple-950 bg-purple-50 border border-purple-100 px-2 py-0.5 rounded-md">{articleViews}</span>
                               </td>
                               <td className="py-3 text-center text-rose-600 font-bold font-mono">{likesCount}</td>
                               <td className="py-3 text-center text-purple-600 font-bold font-mono">{savesCount}</td>
@@ -3643,6 +3669,146 @@ export default function AdminPanel({ onClose, categories, setCategories, onLogou
           {/* TAB 11: ADS SLOTS MANAGEMENT */}
           {activeTab === "ads" && (
             <div className="space-y-6 animate-in fade-in duration-200" id="tab-ads-content">
+              
+              {/* LIVE PERFORMANCE METRICS AND AD OPTIMIZER CONTROLLER */}
+              <div className="bg-purple-950 text-white p-6 rounded-3xl border border-purple-800 shadow-xl space-y-6">
+                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between border-b border-purple-800 pb-4 gap-4">
+                  <div className="space-y-1 text-left">
+                    <span className="text-[9px] bg-purple-850/80 text-purple-200 px-3 py-1 rounded-full font-mono font-bold uppercase tracking-widest">Ad Engine Panel</span>
+                    <h3 className="text-xl font-black text-white tracking-tight flex items-center gap-2">
+                      <BarChart2 className="w-5 h-5 text-purple-400" />
+                      <span>Live Response & Impression Analytics</span>
+                    </h3>
+                  </div>
+                  <button 
+                    onClick={() => {
+                      if (window.confirm("Are you sure you want to completely reset all live ad impression and response metrics? This cannot be undone.")) {
+                        set(ref(db, "settings/adsStats"), null);
+                        alert("Ad analytics statistics have been reset successfully.");
+                      }
+                    }}
+                    className="text-[10px] font-bold border border-purple-700/60 hover:bg-purple-900/60 text-purple-300 px-3 py-1.5 rounded-xl transition-all cursor-pointer flex items-center gap-1 active:scale-95"
+                  >
+                    <RefreshCw className="w-3.5 h-3.5 animate-spin-slow" />
+                    <span>Reset Analytics Logs</span>
+                  </button>
+                </div>
+
+                {/* Grid stats overview */}
+                <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+                  {(() => {
+                    const stats = adsStats || {};
+                    const slots = [
+                      { id: "headerBanner", name: "Header Banner", code: headerBannerAd },
+                      { id: "belowFeatured", name: "Below Featured", code: belowFeaturedAd },
+                      { id: "rightSidebar", name: "Right Sidebar", code: rightSidebarAd },
+                      { id: "articleSidebar", name: "Article Sidebar", code: articleSidebarAd },
+                      { id: "aboveFooter", name: "Above Footer", code: aboveFooterAd },
+                      { id: "articleBody", name: "In-Article Body", code: "Dynamic injection in MD articles" }
+                    ];
+
+                    let totalImpressions = 0;
+                    let totalClicks = 0;
+
+                    slots.forEach((s) => {
+                      const item = stats[s.id] || { impressions: 0, clicks: 0 };
+                      totalImpressions += item.impressions || 0;
+                      totalClicks += item.clicks || 0;
+                    });
+
+                    const overallCtr = totalImpressions > 0 ? ((totalClicks / totalImpressions) * 100).toFixed(2) : "0.00";
+
+                    return (
+                      <>
+                        <div className="p-4 bg-purple-900/30 border border-purple-800/50 rounded-2xl text-left">
+                          <p className="text-[8px] font-black tracking-wider text-purple-300 uppercase">Total Ad Slots</p>
+                          <p className="text-2xl font-black text-white mt-1">6 Placements</p>
+                          <span className="text-[7px] text-purple-400 font-mono">Dynamic contextual targeting</span>
+                        </div>
+                        <div className="p-4 bg-purple-900/30 border border-purple-800/50 rounded-2xl text-left">
+                          <p className="text-[8px] font-black tracking-wider text-purple-300 uppercase">Total Impressions</p>
+                          <p className="text-2xl font-black text-white mt-1">{totalImpressions.toLocaleString()}</p>
+                          <span className="text-[7px] text-emerald-400 font-mono flex items-center gap-1">
+                            <span className="h-1.5 w-1.5 bg-emerald-500 rounded-full animate-ping inline-block" />
+                            Live count viewports
+                          </span>
+                        </div>
+                        <div className="p-4 bg-purple-900/30 border border-purple-800/50 rounded-2xl text-left">
+                          <p className="text-[8px] font-black tracking-wider text-purple-300 uppercase">Total Responses (Clicks)</p>
+                          <p className="text-2xl font-black text-purple-400 mt-1">{totalClicks.toLocaleString()}</p>
+                          <span className="text-[7px] text-purple-400 font-mono">Taps, window blurs & direct clicks</span>
+                        </div>
+                        <div className="p-4 bg-purple-900/30 border border-purple-800/50 rounded-2xl text-left">
+                          <p className="text-[8px] font-black tracking-wider text-purple-300 uppercase">Average CTR (Conversion)</p>
+                          <p className="text-2xl font-black text-emerald-500 mt-1">{overallCtr}%</p>
+                          <span className="text-[7px] text-purple-400 font-mono">Impression-to-click index</span>
+                        </div>
+                      </>
+                    );
+                  })()}
+                </div>
+
+                {/* Detailed Table breakdown */}
+                <div className="overflow-x-auto border border-purple-800/60 rounded-2xl">
+                  <table className="w-full text-left text-xs border-collapse">
+                    <thead>
+                      <tr className="bg-purple-900/40 text-purple-200 border-b border-purple-800 uppercase tracking-widest text-[9px] font-bold font-mono">
+                        <th className="p-3">Ad Slot Placement</th>
+                        <th className="p-3">Impressions</th>
+                        <th className="p-3">Responses (Clicks)</th>
+                        <th className="p-3">Conversion Rate (CTR)</th>
+                        <th className="p-3">Slot Status</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-purple-900/30">
+                      {(() => {
+                        const stats = adsStats || {};
+                        const placementsList = [
+                          { id: "headerBanner", name: "Header Banner", tag: "720px Wide Banner below Menu", active: !!headerBannerAd && enableAds },
+                          { id: "belowFeatured", name: "Below Featured", tag: "720px Wide Banner on Home", active: !!belowFeaturedAd && enableAds },
+                          { id: "rightSidebar", name: "Right Sidebar", tag: "320px Sidebar Widget", active: !!rightSidebarAd && enableAds },
+                          { id: "articleSidebar", name: "Article Sidebar", tag: "320px Article Page Widget", active: !!articleSidebarAd && enableAds },
+                          { id: "aboveFooter", name: "Above Footer", tag: "720px Banner above footer", active: !!aboveFooterAd && enableAds },
+                          { id: "articleBody", name: "In-Article Body", tag: "Dynamic ad injection in MD text", active: enableAds }
+                        ];
+
+                        return placementsList.map((placement) => {
+                          const item = stats[placement.id] || { impressions: 0, clicks: 0 };
+                          const imps = item.impressions || 0;
+                          const clicks = item.clicks || 0;
+                          const ctr = imps > 0 ? ((clicks / imps) * 100).toFixed(2) : "0.00";
+
+                          return (
+                            <tr key={placement.id} className="hover:bg-purple-900/20 transition-all font-mono">
+                              <td className="p-3 text-left">
+                                <p className="font-sans font-extrabold text-white">{placement.name}</p>
+                                <p className="font-sans text-[9px] text-purple-300">{placement.tag}</p>
+                              </td>
+                              <td className="p-3 text-purple-100 font-bold">{imps.toLocaleString()}</td>
+                              <td className="p-3 text-purple-200 font-bold">{clicks.toLocaleString()}</td>
+                              <td className="p-3 text-emerald-400 font-bold">{ctr}%</td>
+                              <td className="p-3">
+                                {placement.active ? (
+                                  <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[8px] font-sans font-black bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 uppercase tracking-widest">
+                                    <span className="h-1 w-1 bg-emerald-400 rounded-full animate-pulse" />
+                                    Active & Live
+                                  </span>
+                                ) : (
+                                  <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[8px] font-sans font-black bg-purple-900/40 border border-purple-800 text-purple-400 uppercase tracking-widest">
+                                    Inactive
+                                  </span>
+                                )}
+                              </td>
+                            </tr>
+                          );
+                        });
+                      })()}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              {/* SLOTS CONFIGURATION CONTROLS */}
               <div className="p-5 rounded-2xl bg-white border border-purple-100 space-y-4 shadow-sm">
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-purple-50 pb-3 gap-3">
                   <div className="flex items-center gap-2">
@@ -3651,7 +3817,7 @@ export default function AdminPanel({ onClose, categories, setCategories, onLogou
                     </span>
                     <div>
                       <h3 className="font-sans font-black text-purple-950 text-sm uppercase tracking-wider">
-                        Dynamic Ad Placements
+                        Configure Ad Slots Code
                       </h3>
                       <p className="text-[10px] text-gray-400 font-bold">OPTIMIZED AND RESPONSIVE WIDGETS</p>
                     </div>
@@ -3674,13 +3840,13 @@ export default function AdminPanel({ onClose, categories, setCategories, onLogou
                   </div>
                 </div>
 
-                <p className="text-xs text-purple-950/80 leading-relaxed bg-purple-50/50 p-3.5 rounded-xl border border-purple-100/50">
+                <p className="text-xs text-purple-950/80 leading-relaxed bg-purple-50/50 p-3.5 rounded-xl border border-purple-100/50 text-left">
                   Configure Google AdSense script tags, custom banners, or dynamic promo codes. The website injects these slots in strategic, high-visibility sections while fully respecting responsive layouts so content never overflows on mobile.
                 </p>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                   {/* Header Banner */}
-                  <div className="space-y-1 bg-purple-50/20 p-4 rounded-2xl border border-purple-100/40">
+                  <div className="space-y-1 bg-purple-50/20 p-4 rounded-2xl border border-purple-100/40 text-left">
                     <label className="text-[10px] font-black text-purple-950 uppercase tracking-wider block">Header Banner Slot (720px, below Menu Bar)</label>
                     <textarea
                       rows={4}
@@ -3692,7 +3858,7 @@ export default function AdminPanel({ onClose, categories, setCategories, onLogou
                   </div>
 
                   {/* Below Featured */}
-                  <div className="space-y-1 bg-purple-50/20 p-4 rounded-2xl border border-purple-100/40">
+                  <div className="space-y-1 bg-purple-50/20 p-4 rounded-2xl border border-purple-100/40 text-left">
                     <label className="text-[10px] font-black text-purple-950 uppercase tracking-wider block">Below Featured Article Slot (720px, Home feed)</label>
                     <textarea
                       rows={4}
@@ -3704,7 +3870,7 @@ export default function AdminPanel({ onClose, categories, setCategories, onLogou
                   </div>
 
                   {/* Above Footer */}
-                  <div className="space-y-1 bg-purple-50/20 p-4 rounded-2xl border border-purple-100/40">
+                  <div className="space-y-1 bg-purple-50/20 p-4 rounded-2xl border border-purple-100/40 text-left">
                     <label className="text-[10px] font-black text-purple-950 uppercase tracking-wider block">Above Footer Slot (720px, Article Detail View Bottom)</label>
                     <textarea
                       rows={4}
@@ -3716,7 +3882,7 @@ export default function AdminPanel({ onClose, categories, setCategories, onLogou
                   </div>
 
                   {/* Right Sidebar */}
-                  <div className="space-y-1 bg-purple-50/20 p-4 rounded-2xl border border-purple-100/40">
+                  <div className="space-y-1 bg-purple-50/20 p-4 rounded-2xl border border-purple-100/40 text-left">
                     <label className="text-[10px] font-black text-purple-950 uppercase tracking-wider block">Right Sidebar Slot (320px, YouTube Video Size Sidebar Widget)</label>
                     <textarea
                       rows={4}
@@ -3728,7 +3894,7 @@ export default function AdminPanel({ onClose, categories, setCategories, onLogou
                   </div>
 
                   {/* Article Page Right Sidebar */}
-                  <div className="space-y-1 bg-purple-50/20 p-4 rounded-2xl border border-purple-100/40 md:col-span-2">
+                  <div className="space-y-1 bg-purple-50/20 p-4 rounded-2xl border border-purple-100/40 md:col-span-2 text-left">
                     <label className="text-[10px] font-black text-purple-950 uppercase tracking-wider block">Article Page Right Sidebar Slot (320px, next to Related Articles)</label>
                     <textarea
                       rows={4}
@@ -3739,6 +3905,48 @@ export default function AdminPanel({ onClose, categories, setCategories, onLogou
                     />
                   </div>
                 </div>
+
+                {/* DYNAMIC ADS.TXT EDITOR & PUBLISHER AUTHORIZATION */}
+                <div className="space-y-3 p-5 rounded-2xl bg-purple-950 text-white border border-purple-800 text-left">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-purple-800/80 pb-3">
+                    <div className="flex items-center gap-2">
+                      <Check className="w-4 h-4 text-emerald-400" />
+                      <label className="text-xs font-black text-purple-100 uppercase tracking-wider block">
+                        Dynamic ads.txt Publisher Authorization Code
+                      </label>
+                    </div>
+                    <a 
+                      href="/ads.txt" 
+                      target="_blank" 
+                      rel="noopener noreferrer"
+                      className="text-[10px] bg-purple-800 hover:bg-purple-700 text-purple-200 font-bold px-3 py-1 rounded-xl transition-colors flex items-center gap-1 w-fit"
+                    >
+                      <span>Open Live /ads.txt</span>
+                      <Globe className="w-3.5 h-3.5" />
+                    </a>
+                  </div>
+                  <p className="text-[11px] text-purple-200/80 leading-normal">
+                    This code is served directly at <code>/ads.txt</code> as clean, unformatted plain text for Google AdSense and crawler verification. Updating this box automatically updates the live <code>/ads.txt</code> endpoint!
+                  </p>
+                  <textarea 
+                    rows={3}
+                    value={adsTxt}
+                    onChange={(e) => setAdsTxt(e.target.value)}
+                    placeholder="google.com, pub-8457467726305206, DIRECT, f08c47fec0942fa0"
+                    className="w-full p-3 rounded-xl border border-purple-700 bg-purple-900/60 text-purple-100 text-xs font-mono focus:outline-none focus:border-purple-400 leading-relaxed"
+                  />
+                  <div className="flex items-center gap-1.5 text-[9px] text-purple-300/70 font-mono">
+                    <AlertCircle className="w-3.5 h-3.5 text-purple-400 shrink-0" />
+                    <span>Format: <code>google.com, pub-XXXXXXXXXXXXXXXX, DIRECT, f08c47fec0942fa0</code></span>
+                  </div>
+                </div>
+
+                {/* Save Feedback and button */}
+                {adsSaveSuccess && (
+                  <div className="p-3 bg-emerald-50 text-emerald-800 rounded-xl border border-emerald-100 text-xs font-semibold text-left">
+                    ✓ Ad slot configurations and status updated successfully! Live ads recompiled immediately.
+                  </div>
+                )}
 
                 <div className="pt-2 flex justify-end">
                   <button

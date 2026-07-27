@@ -945,6 +945,11 @@ async function injectCustomCode(template: string): Promise<string> {
 
 // Dynamic Google AdSense ads.txt crawler endpoint
 app.get(["/ads.txt", "/add.txt", "/s/add.txt", "/s/ads.txt"], async (req, res) => {
+  res.setHeader("Content-Type", "text/plain; charset=utf-8");
+  res.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
+  res.setHeader("Pragma", "no-cache");
+  res.setHeader("Expires", "0");
+
   try {
     const dbUrl = "https://fir-pro-coder-default-rtdb.firebaseio.com/settings/adsTxt.json";
     const response = await fetch(dbUrl);
@@ -953,18 +958,32 @@ app.get(["/ads.txt", "/add.txt", "/s/add.txt", "/s/ads.txt"], async (req, res) =
       data = await response.json() || "";
     }
     
-    res.setHeader("Content-Type", "text/plain; charset=utf-8");
     if (data && typeof data === "string" && data.trim().length > 0 && !data.includes("pub-0000000000000000")) {
-      return res.send(data);
-    } else {
-      // Default verified AdSense compliant ads.txt/add.txt structure
-      const defaultAdsTxt = `google.com, pub-8457467726305206, DIRECT, f08c47fec0942fa0`;
-      return res.send(defaultAdsTxt);
+      return res.status(200).send(data.trim() + "\n");
     }
+
+    // Secondary fallback: check if publisher ID exists in customCode or ads settings
+    try {
+      const settingsRes = await fetch("https://fir-pro-coder-default-rtdb.firebaseio.com/settings.json");
+      if (settingsRes.ok) {
+        const settings = await settingsRes.json();
+        const strSettings = JSON.stringify(settings || {});
+        const pubMatch = strSettings.match(/pub-\d{10,20}/i);
+        if (pubMatch && pubMatch[0]) {
+          const detectedPub = pubMatch[0].toLowerCase();
+          return res.status(200).send(`google.com, ${detectedPub}, DIRECT, f08c47fec0942fa0\n`);
+        }
+      }
+    } catch (fallbackErr) {
+      console.warn("Secondary ads.txt fallback scan error:", fallbackErr);
+    }
+
+    // Default verified AdSense compliant ads.txt structure
+    const defaultAdsTxt = `google.com, pub-8457467726305206, DIRECT, f08c47fec0942fa0\n`;
+    return res.status(200).send(defaultAdsTxt);
   } catch (err) {
     console.error("Error fetching ads.txt:", err);
-    res.setHeader("Content-Type", "text/plain; charset=utf-8");
-    return res.send("google.com, pub-8457467726305206, DIRECT, f08c47fec0942fa0");
+    return res.status(200).send("google.com, pub-8457467726305206, DIRECT, f08c47fec0942fa0\n");
   }
 });
 
