@@ -1,3 +1,5 @@
+connectad.io,586,RESELLER,85ac85a30c93b3e5
+adform.com,768,RESELLER,9f5210a2f0999e32
 OWNERDOMAIN=sprocoder.online
 MANAGERDOMAIN=themoneytizer.com
 themoneytizer.com,132180,DIRECT
