@@ -172,7 +172,7 @@ export default function App() {
     if (typeof window !== "undefined") {
       const path = window.location.pathname;
       const isPost = path.startsWith("/blog/") || path.startsWith("/articles/");
-      if (isPost && (window as any).__INITIAL_POST__) {
+      if ((isPost && (window as any).__INITIAL_POST__) || localStorage.getItem("spro_cached_posts")) {
         return false;
       }
     }
@@ -182,7 +182,7 @@ export default function App() {
     if (typeof window !== "undefined") {
       const path = window.location.pathname;
       const isPost = path.startsWith("/blog/") || path.startsWith("/articles/");
-      if (isPost && (window as any).__INITIAL_POST__) {
+      if ((isPost && (window as any).__INITIAL_POST__) || localStorage.getItem("spro_cached_posts")) {
         return true;
       }
     }
@@ -205,15 +205,48 @@ export default function App() {
     return "S pro coder (sprocoder.online) is a premium tech tutorials and professional development portal, supplying high-end tech guides, coding deep dives and AI insights.";
   });
 
-  // Database Synced states
-  const [allPosts, setAllPosts] = useState<BlogPost[]>([]);
-  const [categories, setCategories] = useState<string[]>([]);
+  // Database Synced states with browser local storage caching for instant loading
+  const [allPosts, setAllPosts] = useState<BlogPost[]>(() => {
+    if (typeof window !== "undefined") {
+      const cached = localStorage.getItem("spro_cached_posts");
+      if (cached) {
+        try {
+          const parsed = JSON.parse(cached);
+          if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+        } catch (e) {
+          console.error("Error reading cached posts:", e);
+        }
+      }
+    }
+    return INITIAL_POSTS;
+  });
+
+  const [categories, setCategories] = useState<string[]>(() => {
+    if (typeof window !== "undefined") {
+      const cached = localStorage.getItem("spro_cached_categories");
+      if (cached) {
+        try {
+          const parsed = JSON.parse(cached);
+          if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+        } catch (e) {}
+      }
+    }
+    return ["Technology", "Artificial Intelligence", "AI Tools", "Games", "Coding"];
+  });
   
-  // Page contents
-  const [aboutContent, setAboutContent] = useState("");
-  const [privacyPolicy, setPrivacyPolicy] = useState("");
-  const [termsAndConditions, setTermsAndConditions] = useState("");
-  const [disclaimerContent, setDisclaimerContent] = useState("");
+  // Page contents with local storage caching
+  const [aboutContent, setAboutContent] = useState(() => {
+    return (typeof window !== "undefined" && localStorage.getItem("spro_cached_about")) || "";
+  });
+  const [privacyPolicy, setPrivacyPolicy] = useState(() => {
+    return (typeof window !== "undefined" && localStorage.getItem("spro_cached_privacy")) || "";
+  });
+  const [termsAndConditions, setTermsAndConditions] = useState(() => {
+    return (typeof window !== "undefined" && localStorage.getItem("spro_cached_terms")) || "";
+  });
+  const [disclaimerContent, setDisclaimerContent] = useState(() => {
+    return (typeof window !== "undefined" && localStorage.getItem("spro_cached_disclaimer")) || "";
+  });
   const [customHeadCode, setCustomHeadCode] = useState("");
   const [customBodyCode, setCustomBodyCode] = useState("");
   const [enableAdSense, setEnableAdSense] = useState<boolean>(() => {
@@ -989,6 +1022,9 @@ export default function App() {
           return tB - tA; // Newest first
         });
         setAllPosts(sortedList);
+        try {
+          localStorage.setItem("spro_cached_posts", JSON.stringify(sortedList));
+        } catch (e) {}
       } else {
         // Bootstrap Database with INITIAL_POSTS if completely empty
         const initialMap: Record<string, BlogPost> = {};
@@ -1002,19 +1038,22 @@ export default function App() {
           return tB - tA;
         });
         setAllPosts(sortedInitial);
+        try {
+          localStorage.setItem("spro_cached_posts", JSON.stringify(sortedInitial));
+        } catch (e) {}
       }
     });
 
     // Sync Categories (Limited to 10)
     const catRef = ref(db, DB_PATHS.CATEGORIES);
     const unsubCat = onValue(catRef, (snapshot) => {
+      let catList: string[] = [];
       if (snapshot.exists()) {
         const val = snapshot.val();
         if (Array.isArray(val)) {
-          setCategories(val.filter(Boolean));
+          catList = val.filter(Boolean);
         } else if (typeof val === "object" && val !== null) {
-          // Firebase converted array to object with numeric/custom keys, e.g. { "0": "AI", "1": "Web" }
-          const arr = Object.keys(val)
+          catList = Object.keys(val)
             .sort((a, b) => {
               const numA = Number(a);
               const numB = Number(b);
@@ -1023,27 +1062,23 @@ export default function App() {
             })
             .map((k) => val[k])
             .filter(Boolean) as string[];
-          setCategories(arr);
         } else if (typeof val === "string") {
           try {
             const parsed = JSON.parse(val);
-            if (Array.isArray(parsed)) {
-              setCategories(parsed.filter(Boolean));
-            } else {
-              setCategories([val]);
-            }
+            if (Array.isArray(parsed)) catList = parsed.filter(Boolean);
+            else catList = [val];
           } catch {
-            setCategories([val]);
+            catList = [val];
           }
-        } else {
-          setCategories([]);
         }
       } else {
-        // Bootstrap categories
-        const defaultCats = ["Artificial Intelligence", "Web Development", "AI Tools", "Cybersecurity", "Cloud Computing"];
-        set(catRef, defaultCats);
-        setCategories(defaultCats);
+        catList = ["Artificial Intelligence", "Web Development", "AI Tools", "Cybersecurity", "Cloud Computing"];
+        set(catRef, catList);
       }
+      setCategories(catList);
+      try {
+        localStorage.setItem("spro_cached_categories", JSON.stringify(catList));
+      } catch (e) {}
     });
 
     // Sync static pages
@@ -1051,20 +1086,28 @@ export default function App() {
     const unsubPages = onValue(pagesRef, (snapshot) => {
       if (snapshot.exists()) {
         const data = snapshot.val();
-        setAboutContent(data.aboutContent || "");
-        setPrivacyPolicy(data.privacyPolicy || "");
-        setTermsAndConditions(data.termsAndConditions || "");
-        
-        // Auto-seed disclaimer if missing from existing remote pages node
-        if (data.disclaimerContent === undefined || data.disclaimerContent === "") {
-          const defaultDisclaimer = "The information provided on S pro coder (AspCoder.online) is for general educational and informational purposes only. All tutorials, code walkthroughs, and guides are provided in good faith and as-is without warranties of any kind. Any action you take upon the information found on this website is strictly at your own risk.";
-          setDisclaimerContent(defaultDisclaimer);
-          update(pagesRef, { disclaimerContent: defaultDisclaimer }).catch(err => console.error("Error auto-syncing disclaimer:", err));
-        } else {
-          setDisclaimerContent(data.disclaimerContent);
+        const about = data.aboutContent || "";
+        const privacy = data.privacyPolicy || "";
+        const terms = data.termsAndConditions || "";
+        let disclaimer = data.disclaimerContent;
+
+        if (disclaimer === undefined || disclaimer === "") {
+          disclaimer = "The information provided on S pro coder (AspCoder.online) is for general educational and informational purposes only. All tutorials, code walkthroughs, and guides are provided in good faith and as-is without warranties of any kind. Any action you take upon the information found on this website is strictly at your own risk.";
+          update(pagesRef, { disclaimerContent: disclaimer }).catch(err => console.error("Error auto-syncing disclaimer:", err));
         }
+
+        setAboutContent(about);
+        setPrivacyPolicy(privacy);
+        setTermsAndConditions(terms);
+        setDisclaimerContent(disclaimer);
+
+        try {
+          localStorage.setItem("spro_cached_about", about);
+          localStorage.setItem("spro_cached_privacy", privacy);
+          localStorage.setItem("spro_cached_terms", terms);
+          localStorage.setItem("spro_cached_disclaimer", disclaimer);
+        } catch (e) {}
       } else {
-        // Bootstrap static pages
         const defaultPages = {
           aboutContent: "S pro coder is a premium developer sanctuary focused on deep technological insights, interactive code examples, and artificial intelligence tutorials. We analyze next-generation libraries and models, supplying engineers with immediate implementation instructions.",
           privacyPolicy: "Your credentials and navigation tracking profiles are held securely inside real-time Firebase Authentication protocols. S pro coder does not sell, distribute, or expose user records to third-party scrapers.",
@@ -1076,6 +1119,13 @@ export default function App() {
         setPrivacyPolicy(defaultPages.privacyPolicy);
         setTermsAndConditions(defaultPages.termsAndConditions);
         setDisclaimerContent(defaultPages.disclaimerContent);
+
+        try {
+          localStorage.setItem("spro_cached_about", defaultPages.aboutContent);
+          localStorage.setItem("spro_cached_privacy", defaultPages.privacyPolicy);
+          localStorage.setItem("spro_cached_terms", defaultPages.termsAndConditions);
+          localStorage.setItem("spro_cached_disclaimer", defaultPages.disclaimerContent);
+        } catch (e) {}
       }
     });
 
@@ -1795,52 +1845,61 @@ export default function App() {
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-1 gap-4">
                     {leftSidebarArticles.length > 0 ? (
-                      leftSidebarArticles.map((art) => (
-                        <div
-                          key={art.id}
-                          onClick={() => handleSelectPost(art)}
-                          className="group bg-white border-2 border-black rounded-[24px] overflow-hidden p-3.5 shadow-sm hover:shadow-md transition-all duration-300 cursor-pointer flex flex-col justify-between space-y-3 relative"
-                          id={`spotlight-card-${art.id}`}
-                        >
-                          <PostViewTracker post={art} onView={handleFeedView} />
-                          <div className="space-y-2.5">
-                            {/* Thumbnail */}
-                            <div className="relative aspect-video w-full rounded-xl overflow-hidden bg-purple-50 shrink-0">
-                              <img
-                                src={art.thumbnailUrl}
-                                alt={art.title}
-                                className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
-                                referrerPolicy="no-referrer"
-                                loading="lazy"
-                              />
-                              <span className="absolute bottom-1.5 right-1.5 bg-black/80 px-1.5 py-0.5 rounded font-mono text-[8px] text-white font-extrabold uppercase tracking-wider">
-                                {art.readTime || "Read"}
-                              </span>
+                      leftSidebarArticles.map((art) => {
+                        const artUrl = `/blog/${slugify(art.title)}`;
+                        return (
+                          <a
+                            key={art.id}
+                            href={artUrl}
+                            onClick={(e) => {
+                              if (!e.ctrlKey && !e.metaKey && !e.shiftKey && e.button === 0) {
+                                e.preventDefault();
+                                handleSelectPost(art);
+                              }
+                            }}
+                            className="group bg-white border-2 border-black rounded-[24px] overflow-hidden p-3.5 shadow-sm hover:shadow-md transition-all duration-300 cursor-pointer flex flex-col justify-between space-y-3 relative no-underline block"
+                            id={`spotlight-card-${art.id}`}
+                          >
+                            <PostViewTracker post={art} onView={handleFeedView} />
+                            <div className="space-y-2.5">
+                              {/* Thumbnail */}
+                              <div className="relative aspect-video w-full rounded-xl overflow-hidden bg-purple-50 shrink-0">
+                                <img
+                                  src={art.thumbnailUrl}
+                                  alt={art.title}
+                                  className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+                                  referrerPolicy="no-referrer"
+                                  loading="lazy"
+                                />
+                                <span className="absolute bottom-1.5 right-1.5 bg-black/80 px-1.5 py-0.5 rounded font-mono text-[8px] text-white font-extrabold uppercase tracking-wider">
+                                  {art.readTime || "Read"}
+                                </span>
+                              </div>
+
+                              {/* Meta & Title */}
+                              <div>
+                                <span className="text-[9px] text-purple-600 font-mono font-black uppercase tracking-wider">
+                                  {art.category}
+                                </span>
+                                <h4 className="text-xs font-extrabold text-purple-950 leading-tight mt-1 group-hover:text-purple-700 transition-colors line-clamp-2">
+                                  {art.title}
+                                </h4>
+                              </div>
                             </div>
 
-                            {/* Meta & Title */}
-                            <div>
-                              <span className="text-[9px] text-purple-600 font-mono font-black uppercase tracking-wider">
-                                {art.category}
+                            {/* Footer Info */}
+                            <div className="flex items-center justify-between border-t border-purple-50/50 pt-2 text-[10px] text-gray-500 font-mono">
+                              <span className="flex items-center gap-1">
+                                <Eye className="w-3.5 h-3.5 text-purple-600" />
+                                <span className="font-bold">{art.views || 0} views</span>
                               </span>
-                              <h4 className="text-xs font-extrabold text-purple-950 leading-tight mt-1 group-hover:text-purple-700 transition-colors line-clamp-2">
-                                {art.title}
-                              </h4>
+                              <span className="text-[9px] bg-purple-50 text-purple-700 font-bold px-1.5 py-0.5 rounded uppercase tracking-wider scale-90">
+                                Top Content
+                              </span>
                             </div>
-                          </div>
-
-                          {/* Footer Info */}
-                          <div className="flex items-center justify-between border-t border-purple-50/50 pt-2 text-[10px] text-gray-500 font-mono">
-                            <span className="flex items-center gap-1">
-                              <Eye className="w-3.5 h-3.5 text-purple-600" />
-                              <span className="font-bold">{art.views || 0} views</span>
-                            </span>
-                            <span className="text-[9px] bg-purple-50 text-purple-700 font-bold px-1.5 py-0.5 rounded uppercase tracking-wider scale-90">
-                              Top Content
-                            </span>
-                          </div>
-                        </div>
-                      ))
+                          </a>
+                        );
+                      })
                     ) : (
                       <p className="text-[10px] text-gray-400 text-center py-4 font-medium col-span-full">
                         No articles live.
@@ -1867,12 +1926,19 @@ export default function App() {
                   {paginatedHomeFeedPosts.map((post) => {
                     const isLiked = false;
                     const isBookmarked = currentUser?.savedArticles?.includes(post.id) || false;
+                    const postUrl = `/blog/${slugify(post.title)}`;
 
                     return (
-                      <div 
+                      <a 
                         key={post.id}
-                        onClick={() => handleSelectPost(post)}
-                        className="group bg-white/45 border-2 border-black rounded-[28px] p-5 shadow-sm hover:shadow-md transition-all cursor-pointer space-y-3 relative overflow-hidden"
+                        href={postUrl}
+                        onClick={(e) => {
+                          if (!e.ctrlKey && !e.metaKey && !e.shiftKey && e.button === 0) {
+                            e.preventDefault();
+                            handleSelectPost(post);
+                          }
+                        }}
+                        className="group bg-white/45 border-2 border-black rounded-[28px] p-5 shadow-sm hover:shadow-md transition-all cursor-pointer space-y-3 relative overflow-hidden no-underline block"
                       >
                         <PostViewTracker post={post} onView={handleFeedView} />
                         <div className="h-40 w-full rounded-2xl overflow-hidden relative">
@@ -1915,7 +1981,7 @@ export default function App() {
                             </span>
                           </div>
                         </div>
-                      </div>
+                      </a>
                     );
                   })}
 
@@ -2030,54 +2096,63 @@ export default function App() {
 
             {/* Core 4-column Grid layout */}
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-              {filteredPosts.map((post) => (
-                <div 
-                  key={post.id}
-                  onClick={() => handleSelectPost(post)}
-                  className="group bg-white/45 border-2 border-black rounded-[28px] overflow-hidden p-4 shadow-sm hover:shadow-md transition-all cursor-pointer flex flex-col justify-between h-96 relative"
-                >
-                  <PostViewTracker post={post} onView={handleFeedView} />
-                  <div className="space-y-3">
-                    <div className="h-40 w-full rounded-2xl overflow-hidden relative shrink-0">
-                      <img 
-                        src={post.thumbnailUrl} 
-                        alt={post.title} 
-                        className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
-                        loading="lazy"
-                      />
-                      <span className="absolute top-2.5 left-2.5 text-[8px] bg-purple-950 text-white px-2 py-0.5 rounded-full font-bold uppercase tracking-widest">
-                        {post.category}
-                      </span>
+              {filteredPosts.map((post) => {
+                const gridPostUrl = `/blog/${slugify(post.title)}`;
+                return (
+                  <a 
+                    key={post.id}
+                    href={gridPostUrl}
+                    onClick={(e) => {
+                      if (!e.ctrlKey && !e.metaKey && !e.shiftKey && e.button === 0) {
+                        e.preventDefault();
+                        handleSelectPost(post);
+                      }
+                    }}
+                    className="group bg-white/45 border-2 border-black rounded-[28px] overflow-hidden p-4 shadow-sm hover:shadow-md transition-all cursor-pointer flex flex-col justify-between h-96 relative no-underline block"
+                  >
+                    <PostViewTracker post={post} onView={handleFeedView} />
+                    <div className="space-y-3">
+                      <div className="h-40 w-full rounded-2xl overflow-hidden relative shrink-0">
+                        <img 
+                          src={post.thumbnailUrl} 
+                          alt={post.title} 
+                          className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+                          loading="lazy"
+                        />
+                        <span className="absolute top-2.5 left-2.5 text-[8px] bg-purple-950 text-white px-2 py-0.5 rounded-full font-bold uppercase tracking-widest">
+                          {post.category}
+                        </span>
+                      </div>
+
+                      <div className="text-left">
+                        <p className="text-[8px] font-mono font-bold text-purple-500 uppercase">
+                          {post.date}
+                        </p>
+                        <h4 className="font-sans font-extrabold text-sm text-purple-950 leading-tight mt-1 line-clamp-2 group-hover:text-purple-700 transition-colors">
+                          {post.title}
+                        </h4>
+                        <p className="text-[11px] text-gray-600 line-clamp-2 mt-1 leading-normal">
+                          {post.excerpt}
+                        </p>
+                      </div>
                     </div>
 
-                    <div className="text-left">
-                      <p className="text-[8px] font-mono font-bold text-purple-500 uppercase">
-                        {post.date}
-                      </p>
-                      <h4 className="font-sans font-extrabold text-sm text-purple-950 leading-tight mt-1 line-clamp-2 group-hover:text-purple-700 transition-colors">
-                        {post.title}
-                      </h4>
-                      <p className="text-[11px] text-gray-600 line-clamp-2 mt-1 leading-normal">
-                        {post.excerpt}
-                      </p>
+                    <div className="border-t border-purple-50 pt-2.5 flex items-center justify-between text-[10px] text-gray-500">
+                      <span className="truncate max-w-[80px]">By {post.author}</span>
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        <span className="flex items-center gap-0.5">
+                          <Heart className="w-3.5 h-3.5 text-rose-500 fill-rose-500/10" />
+                          <span>{post.likes}</span>
+                        </span>
+                        <span className="flex items-center gap-0.5">
+                          <Bookmark className="w-3.5 h-3.5 text-purple-600 fill-purple-600/10" />
+                          <span>{post.savesCount || 0}</span>
+                        </span>
+                      </div>
                     </div>
-                  </div>
-
-                  <div className="border-t border-purple-50 pt-2.5 flex items-center justify-between text-[10px] text-gray-500">
-                    <span className="truncate max-w-[80px]">By {post.author}</span>
-                    <div className="flex items-center gap-1.5 shrink-0">
-                      <span className="flex items-center gap-0.5">
-                        <Heart className="w-3.5 h-3.5 text-rose-500 fill-rose-500/10" />
-                        <span>{post.likes}</span>
-                      </span>
-                      <span className="flex items-center gap-0.5">
-                        <Bookmark className="w-3.5 h-3.5 text-purple-600 fill-purple-600/10" />
-                        <span>{post.savesCount || 0}</span>
-                      </span>
-                    </div>
-                  </div>
-                </div>
-              ))}
+                  </a>
+                );
+              })}
               {filteredPosts.length === 0 && (
                 <div className="col-span-full p-12 text-center text-gray-400 bg-white/20 border border-white/50 rounded-3xl text-sm">
                   No articles found in this grid search criteria.

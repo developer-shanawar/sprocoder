@@ -1,6 +1,7 @@
 import React from "react";
 import { Heart, Bookmark, ArrowRight, Sparkles, Star, Eye } from "lucide-react";
 import { BlogPost } from "../types";
+import { slugify } from "../utils/slugify";
 
 interface HeroSectionProps {
   post: BlogPost;
@@ -19,6 +20,16 @@ export default function HeroSection({
   isBookmarked,
   onBookmark
 }: HeroSectionProps) {
+  const articleUrl = `/blog/${slugify(post.title)}`;
+
+  const handleLinkClick = (e: React.MouseEvent) => {
+    // If user clicked with modified key (Ctrl, Cmd, Shift, Middle Click), allow native browser new tab behavior
+    if (!e.ctrlKey && !e.metaKey && !e.shiftKey && e.button === 0) {
+      e.preventDefault();
+      onSelect();
+    }
+  };
+
   return (
     <div 
       className="relative rounded-[36px] overflow-hidden border-2 border-black bg-white/35 backdrop-blur-xl shadow-xl flex flex-col md:flex-row transition-all duration-500 group"
@@ -34,16 +45,21 @@ export default function HeroSection({
       </span>
 
       {/* Left side: Thumbnail cover */}
-      <div className="w-full md:w-[48%] h-64 md:h-auto min-h-[280px] relative overflow-hidden shrink-0">
+      <a 
+        href={articleUrl} 
+        onClick={handleLinkClick}
+        className="w-full md:w-[48%] h-64 md:h-auto min-h-[280px] relative overflow-hidden shrink-0 block"
+      >
         <img
           src={post.thumbnailUrl}
           alt={post.title}
           className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
           referrerPolicy="no-referrer"
-          loading="lazy"
+          loading="eager"
+          decoding="async"
         />
         <div className="absolute inset-0 bg-gradient-to-t md:bg-gradient-to-r from-purple-950/50 via-transparent to-transparent" />
-      </div>
+      </a>
 
       {/* Right side: Meta and summary information */}
       <div className="p-6 md:p-10 flex-1 flex flex-col justify-between space-y-6 relative z-10">
@@ -57,9 +73,11 @@ export default function HeroSection({
             </span>
           </div>
 
-          <h2 className="text-xl md:text-3xl font-black text-purple-950 tracking-tight leading-tight group-hover:text-purple-800 transition-colors">
-            {post.title}
-          </h2>
+          <a href={articleUrl} onClick={handleLinkClick} className="block group">
+            <h2 className="text-xl md:text-3xl font-black text-purple-950 tracking-tight leading-tight group-hover:text-purple-800 transition-colors">
+              {post.title}
+            </h2>
+          </a>
 
           <p className="text-xs text-gray-600 leading-relaxed max-w-xl">
             {post.excerpt}
@@ -71,6 +89,7 @@ export default function HeroSection({
           <div className="flex items-center gap-2">
             <button
               onClick={(e) => {
+                e.preventDefault();
                 e.stopPropagation();
                 onLike();
               }}
@@ -88,6 +107,7 @@ export default function HeroSection({
 
             <button
               onClick={(e) => {
+                e.preventDefault();
                 e.stopPropagation();
                 onBookmark();
               }}
@@ -109,14 +129,15 @@ export default function HeroSection({
             </span>
           </div>
 
-          <button
-            onClick={onSelect}
-            className="px-5 py-2.5 rounded-xl bg-purple-950 hover:bg-purple-800 text-white text-xs font-bold flex items-center justify-center gap-1.5 cursor-pointer transition-colors"
+          <a
+            href={articleUrl}
+            onClick={handleLinkClick}
+            className="px-5 py-2.5 rounded-xl bg-purple-950 hover:bg-purple-800 text-white text-xs font-bold flex items-center justify-center gap-1.5 cursor-pointer transition-colors no-underline"
             id="hero-read-btn"
           >
             <span>Read Complete Article</span>
             <ArrowRight className="w-4 h-4" />
-          </button>
+          </a>
         </div>
       </div>
     </div>

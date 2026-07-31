@@ -944,6 +944,145 @@ async function injectCustomCode(template: string): Promise<string> {
   return template;
 }
 
+function escapeHtml(str: string): string {
+  return String(str || "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
+}
+
+// Helper to inject bespoke SEO meta tags & structured data per article
+async function injectArticleSeo(template: string, urlPath: string): Promise<string> {
+  const isPostRoute = urlPath.startsWith("/blog/") || urlPath.startsWith("/articles/");
+  if (!isPostRoute) return template;
+
+  const rawSlug = urlPath.split("/").pop() || "";
+  const slug = rawSlug.replace(/\.html$/, "");
+  if (!slug) return template;
+
+  try {
+    const res = await fetch("https://fir-pro-coder-default-rtdb.firebaseio.com/articles.json");
+    if (!res.ok) return template;
+    const articlesData = await res.json();
+    if (!articlesData) return template;
+
+    const articlesList: any[] = Object.values(articlesData);
+    const slugify = (t: string) =>
+      String(t || "")
+        .toLowerCase()
+        .trim()
+        .replace(/\s+/g, "-")
+        .replace(/[^\w\-]+/g, "")
+        .replace(/\-\-+/g, "-")
+        .replace(/^-+/, "")
+        .replace(/-+$/, "");
+
+    const matched = articlesList.find(
+      (p) => slugify(p.title) === slug || p.id === slug
+    );
+
+    if (!matched) return template;
+
+    let modified = template;
+
+    const articleTitle = `${matched.title} | S pro coder`;
+    const articleDesc = matched.metaDescription || matched.excerpt || matched.tagline || matched.title;
+    const articleImage = matched.thumbnailUrl || "https://images.unsplash.com/photo-1620712943543-bcc4688e7485?auto=format&fit=crop&w=1200&q=80";
+    const canonicalUrl = `https://www.sprocoder.online/blog/${slugify(matched.title)}`;
+
+    // Replace Title
+    modified = modified.replace(/<title>.*?<\/title>/gi, `<title>${escapeHtml(articleTitle)}</title>`);
+
+    // Replace Meta Description
+    modified = modified.replace(
+      /<meta\s+name="description"\s+content=".*?"\s*\/?>/gi,
+      `<meta name="description" content="${escapeHtml(articleDesc)}" />`
+    );
+
+    // Replace Open Graph Tags
+    modified = modified.replace(
+      /<meta\s+property="og:title"\s+content=".*?"\s*\/?>/gi,
+      `<meta property="og:title" content="${escapeHtml(articleTitle)}" />`
+    );
+    modified = modified.replace(
+      /<meta\s+property="og:description"\s+content=".*?"\s*\/?>/gi,
+      `<meta property="og:description" content="${escapeHtml(articleDesc)}" />`
+    );
+    modified = modified.replace(
+      /<meta\s+property="og:image"\s+content=".*?"\s*\/?>/gi,
+      `<meta property="og:image" content="${escapeHtml(articleImage)}" />`
+    );
+    modified = modified.replace(
+      /<meta\s+property="og:url"\s+content=".*?"\s*\/?>/gi,
+      `<meta property="og:url" content="${canonicalUrl}" />`
+    );
+    modified = modified.replace(
+      /<meta\s+property="og:type"\s+content=".*?"\s*\/?>/gi,
+      `<meta property="og:type" content="article" />`
+    );
+
+    // Replace Twitter Tags
+    modified = modified.replace(
+      /<meta\s+name="twitter:title"\s+content=".*?"\s*\/?>/gi,
+      `<meta name="twitter:title" content="${escapeHtml(articleTitle)}" />`
+    );
+    modified = modified.replace(
+      /<meta\s+name="twitter:description"\s+content=".*?"\s*\/?>/gi,
+      `<meta name="twitter:description" content="${escapeHtml(articleDesc)}" />`
+    );
+    modified = modified.replace(
+      /<meta\s+name="twitter:image"\s+content=".*?"\s*\/?>/gi,
+      `<meta name="twitter:image" content="${escapeHtml(articleImage)}" />`
+    );
+
+    // Replace Canonical Link
+    modified = modified.replace(
+      /<link\s+rel="canonical"\s+href=".*?"\s*\/?>/gi,
+      `<link rel="canonical" href="${canonicalUrl}" />`
+    );
+
+    // Inject Article JSON-LD Schema & Initial Post Window Variable
+    const jsonLdArticle = {
+      "@context": "https://schema.org",
+      "@type": "BlogPosting",
+      "headline": matched.title,
+      "description": articleDesc,
+      "image": [articleImage],
+      "url": canonicalUrl,
+      "datePublished": matched.date || new Date().toISOString(),
+      "articleSection": matched.category || "Technology",
+      "keywords": (matched.tags || []).join(", "),
+      "author": {
+        "@type": "Person",
+        "name": matched.author || "Shanawar Ali"
+      },
+      "publisher": {
+        "@type": "Organization",
+        "name": "S pro coder",
+        "url": "https://www.sprocoder.online"
+      }
+    };
+
+    const injection = `
+      <script type="application/ld+json">${JSON.stringify(jsonLdArticle)}</script>
+      <script>window.__INITIAL_POST__ = ${JSON.stringify(matched)};</script>
+    `;
+
+    if (modified.includes("</head>")) {
+      modified = modified.replace("</head>", `${injection}\n</head>`);
+    } else {
+      modified = `${injection}\n${modified}`;
+    }
+
+    return modified;
+  } catch (err) {
+    console.error("Error in injectArticleSeo:", err);
+  }
+  return template;
+}
+
 // Dynamic Google AdSense ads.txt crawler endpoint
 app.get(["/ads.txt", "/add.txt", "/s/add.txt", "/s/ads.txt"], async (req, res) => {
   res.setHeader("Content-Type", "text/plain; charset=utf-8");
@@ -1013,6 +1152,7 @@ async function setupViteOrStatic() {
         if (fs.existsSync(templatePath)) {
           let template = fs.readFileSync(templatePath, "utf-8");
           template = await vite.transformIndexHtml(url, template);
+          template = await injectArticleSeo(template, url);
           template = await injectCustomCode(template);
           res.status(200).set({ "Content-Type": "text/html" }).end(template);
         } else {
@@ -1042,6 +1182,7 @@ async function setupViteOrStatic() {
         const templatePath = path.join(distPath, "index.html");
         if (fs.existsSync(templatePath)) {
           let template = fs.readFileSync(templatePath, "utf-8");
+          template = await injectArticleSeo(template, url);
           template = await injectCustomCode(template);
           return res.status(200).set({ "Content-Type": "text/html" }).send(template);
         } else {

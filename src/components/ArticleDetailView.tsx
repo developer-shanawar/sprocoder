@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { 
   Heart, 
   Bookmark, 
@@ -18,6 +18,8 @@ import { motion, AnimatePresence } from "motion/react";
 import Markdown from "react-markdown";
 import rehypeRaw from "rehype-raw";
 import AdRenderer from "./AdRenderer";
+import { slugify } from "../utils/slugify";
+import { updateDocumentSeo } from "../utils/seo";
 
 interface ArticleDetailViewProps {
   post: BlogPost;
@@ -52,6 +54,23 @@ export default function ArticleDetailView({
   const [activeReplyCommentId, setActiveReplyCommentId] = useState<string | null>(null);
   const [replyText, setReplyText] = useState("");
   const [lightboxImg, setLightboxImg] = useState<string | null>(null);
+
+  // Dynamic SEO Update on Article Mount / Change
+  useEffect(() => {
+    if (post) {
+      updateDocumentSeo({
+        title: post.title,
+        description: post.metaDescription || post.excerpt || post.tagline,
+        image: post.thumbnailUrl,
+        url: `https://www.sprocoder.online/blog/${slugify(post.title)}`,
+        category: post.category,
+        date: post.date,
+        author: post.author,
+        tags: post.tags,
+        type: "article"
+      });
+    }
+  }, [post]);
 
   // Related articles calculation (max 5) based on shared categories and tags
   const relatedArticles = React.useMemo(() => {
@@ -393,26 +412,36 @@ export default function ArticleDetailView({
                   <span className="text-gray-400 font-mono text-[9px] lowercase font-normal">matched on keywords</span>
                 </h4>
                 <div className="space-y-3">
-                  {relatedArticles.map((relPost) => (
-                    <div
-                      key={relPost.id}
-                      onClick={() => onSelectPost(relPost)}
-                      className="flex gap-3 items-start group cursor-pointer border-b border-purple-100/30 last:border-none pb-2.5 last:pb-0"
-                    >
-                      <img
-                        src={relPost.thumbnailUrl}
-                        alt={relPost.title}
-                        className="w-12 h-12 rounded-xl object-cover border border-purple-100/50 group-hover:scale-105 transition-transform shrink-0"
-                        referrerPolicy="no-referrer"
-                      />
-                      <div className="min-w-0 flex-1">
-                        <h5 className="text-[11px] font-extrabold text-purple-950 leading-tight line-clamp-2 group-hover:text-purple-700 transition-colors">
-                          {relPost.title}
-                        </h5>
-                        <p className="text-[9px] text-gray-500 font-mono mt-0.5">{relPost.category}</p>
-                      </div>
-                    </div>
-                  ))}
+                  {relatedArticles.map((relPost) => {
+                    const relUrl = `/blog/${slugify(relPost.title)}`;
+                    return (
+                      <a
+                        key={relPost.id}
+                        href={relUrl}
+                        onClick={(e) => {
+                          if (!e.ctrlKey && !e.metaKey && !e.shiftKey && e.button === 0) {
+                            e.preventDefault();
+                            onSelectPost(relPost);
+                          }
+                        }}
+                        className="flex gap-3 items-start group cursor-pointer border-b border-purple-100/30 last:border-none pb-2.5 last:pb-0 no-underline"
+                      >
+                        <img
+                          src={relPost.thumbnailUrl}
+                          alt={relPost.title}
+                          className="w-12 h-12 rounded-xl object-cover border border-purple-100/50 group-hover:scale-105 transition-transform shrink-0"
+                          referrerPolicy="no-referrer"
+                          loading="lazy"
+                        />
+                        <div className="min-w-0 flex-1">
+                          <h5 className="text-[11px] font-extrabold text-purple-950 leading-tight line-clamp-2 group-hover:text-purple-700 transition-colors">
+                            {relPost.title}
+                          </h5>
+                          <p className="text-[9px] text-gray-500 font-mono mt-0.5">{relPost.category}</p>
+                        </div>
+                      </a>
+                    );
+                  })}
                 </div>
               </div>
             )}
