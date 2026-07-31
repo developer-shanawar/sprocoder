@@ -107,22 +107,11 @@ export default function AdRenderer({ code, className = "", placementId }: AdRend
     // Clear previous content
     containerRef.current.innerHTML = "";
 
-    // Create a beautifully styled wrapping container matching S Pro Coder aesthetics
-    const wrapper = document.createElement("div");
-    wrapper.className = `w-full flex flex-col items-center justify-center my-4 py-3 px-2 bg-purple-50/15 border border-purple-100/40 rounded-2xl max-w-full overflow-hidden text-center shadow-inner transition-all duration-300 ${className}`;
-
-    // Elegant, compliant tiny sponsor label
-    const sponsorTag = document.createElement("span");
-    sponsorTag.className = "text-[8px] text-purple-400/80 uppercase tracking-widest font-sans font-extrabold block mb-2";
-    sponsorTag.innerText = "Sponsor Advertisement";
-    wrapper.appendChild(sponsorTag);
-
-    // Ad element container with reserved height to minimize Content Layout Shift (CLS)
+    // Ad element container without forced background borders or min-height
     const adBox = document.createElement("div");
-    adBox.className = "w-full flex items-center justify-center overflow-auto min-h-[90px] sm:min-h-[120px] transition-all duration-300";
-    wrapper.appendChild(adBox);
+    adBox.className = `w-full flex items-center justify-center overflow-auto transition-all duration-300 ${className}`;
 
-    containerRef.current.appendChild(wrapper);
+    containerRef.current.appendChild(adBox);
 
     try {
       // 1. Separate HTML markup and executable script tags
@@ -194,15 +183,8 @@ export default function AdRenderer({ code, className = "", placementId }: AdRend
     <div 
       ref={containerRef} 
       onClick={handleAdClick}
-      className="w-full mx-auto min-h-[140px] flex items-center justify-center transition-all duration-300"
+      className="w-full mx-auto flex items-center justify-center transition-all duration-300"
       id={`ad-slot-wrapper-${placementId || "generic"}`}
-    >
-      {!isVisible && (
-        <div className="w-full flex flex-col items-center justify-center my-4 py-3 px-2 bg-purple-50/10 border border-dashed border-purple-100/35 rounded-2xl animate-pulse">
-          <span className="text-[8px] text-purple-300 uppercase tracking-widest font-sans font-bold block mb-2">Advertisement loading</span>
-          <div className="h-20 w-full bg-purple-50/5 rounded-xl" />
-        </div>
-      )}
-    </div>
+    />
   );
 }
