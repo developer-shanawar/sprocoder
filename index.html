@@ -7,18 +7,20 @@
     <!-- Early Third-Party/Cross-Origin Script Error Suppressor -->
     <script>
       (function() {
-        var swallowError = function(msg) {
-          if (!msg) return false;
-          var str = String(msg).toLowerCase();
-          return str.indexOf('script error') !== -1 || 
+        var swallowError = function(msg, source, errorObj) {
+          var str = String(msg || source || errorObj || '').toLowerCase();
+          return !msg ||
+                 str === 'script error.' ||
+                 str.indexOf('script error') !== -1 || 
                  str.indexOf('adsbygoogle') !== -1 || 
                  str.indexOf('googleads') !== -1 ||
-                 str.indexOf('cross-origin') !== -1;
+                 str.indexOf('cross-origin') !== -1 ||
+                 str.indexOf('load failed') !== -1;
         };
 
         window.addEventListener('error', function(e) {
-          if (swallowError(e.message) || swallowError(e.filename)) {
-            console.warn('[System Guard] Gracefully swallowed cross-origin/third-party script error:', e.message);
+          if ((e.target && e.target.tagName === 'SCRIPT') || swallowError(e.message, e.filename, e.error)) {
+            console.warn('[System Guard] Gracefully swallowed cross-origin error:', e.message || 'Script error');
             e.preventDefault();
             e.stopPropagation();
             return true;
@@ -27,8 +29,8 @@
 
         var originalOnerror = window.onerror;
         window.onerror = function(message, source, lineno, colno, error) {
-          if (swallowError(message) || swallowError(source)) {
-            console.warn('[System Guard] Gracefully swallowed cross-origin/third-party script error via onerror:', message);
+          if (swallowError(message, source, error)) {
+            console.warn('[System Guard] Gracefully swallowed onerror:', message);
             return true;
           }
           if (originalOnerror) {
@@ -38,8 +40,9 @@
         };
 
         window.addEventListener('unhandledrejection', function(e) {
-          if (e.reason && (swallowError(e.reason.message) || swallowError(e.reason))) {
-            console.warn('[System Guard] Gracefully swallowed unhandled rejection:', e.reason);
+          var reasonStr = e.reason ? String(e.reason.message || e.reason) : '';
+          if (swallowError(reasonStr, '', e.reason)) {
+            console.warn('[System Guard] Gracefully swallowed unhandled rejection:', reasonStr);
             e.preventDefault();
             return true;
           }

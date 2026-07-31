@@ -176,7 +176,7 @@ export default function AdRenderer({ code, className = "", placementId }: AdRend
         setTimeout(() => {
           try {
             const pushScript = document.createElement("script");
-            pushScript.innerHTML = "(window.adsbygoogle = window.adsbygoogle || []).push({});";
+            pushScript.innerHTML = "try { (window.adsbygoogle = window.adsbygoogle || []).push({}); } catch (e) { console.debug('[AdSense] Push safely handled:', e); }";
             adBox.appendChild(pushScript);
           } catch (e) {
             console.debug("[AdRenderer] AdSense automatic push handled dynamically", e);
