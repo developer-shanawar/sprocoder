@@ -1,6 +1,7 @@
 import {StrictMode} from 'react';
 import {createRoot} from 'react-dom/client';
 import App from './App.tsx';
+import ErrorBoundary from './components/ErrorBoundary.tsx';
 import './index.css';
 
 // Client-side guard for dynamic third-party and cross-origin scripts (e.g. AdSense)
@@ -9,11 +10,13 @@ if (typeof window !== 'undefined') {
     if (!msg) return true;
     const lower = String(msg).toLowerCase();
     return lower === 'script error.' ||
+           lower === 'script error' ||
            lower.includes('script error') || 
            lower.includes('adsbygoogle') || 
            lower.includes('googleads') ||
            lower.includes('cross-origin') ||
-           lower.includes('load failed');
+           lower.includes('load failed') ||
+           lower.includes('failed to fetch');
   };
 
   window.addEventListener('error', (e) => {
@@ -35,10 +38,22 @@ if (typeof window !== 'undefined') {
     }
     return false;
   };
+
+  window.addEventListener('unhandledrejection', (e) => {
+    const reasonStr = e.reason ? String(e.reason.message || e.reason) : '';
+    if (isIgnoredError(reasonStr)) {
+      console.warn('[System Guard Client] Suppressed unhandled promise rejection:', reasonStr);
+      e.preventDefault();
+      e.stopPropagation();
+    }
+  });
 }
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
-    <App />
+    <ErrorBoundary>
+      <App />
+    </ErrorBoundary>
   </StrictMode>,
 );
+

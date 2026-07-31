@@ -1,5 +1,6 @@
 import express from "express";
 import path from "path";
+import crypto from "crypto";
 import { createServer as createViteServer } from "vite";
 import { GoogleGenAI, Type } from "@google/genai";
 import dotenv from "dotenv";
@@ -13,9 +14,9 @@ const PORT = 3000;
 app.use(express.json());
 
 // Helper to slugify titles on the server side
-const slugify = (text: string): string => {
-  return text
-    .toString()
+const slugify = (text: any): string => {
+  if (!text) return "";
+  return String(text)
     .toLowerCase()
     .trim()
     .replace(/\s+/g, "-")

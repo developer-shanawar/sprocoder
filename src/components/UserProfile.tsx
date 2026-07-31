@@ -86,7 +86,7 @@ export default function UserProfile({
     setIsSaving(true);
     setMessage(null);
 
-    let cleanUsername = username.trim().toLowerCase();
+    let cleanUsername = (username || "").trim().toLowerCase();
     if (cleanUsername) {
       if (!cleanUsername.startsWith("@")) {
         cleanUsername = "@" + cleanUsername;
@@ -104,7 +104,7 @@ export default function UserProfile({
         const snapshot = await get(ref(db, "users"));
         if (snapshot.exists()) {
           const allUsers = snapshot.val();
-          const isTaken = Object.values(allUsers).some((u: any) => u.id !== currentUser.id && u.username?.toLowerCase() === cleanUsername);
+          const isTaken = Object.values(allUsers).some((u: any) => u && u.id !== currentUser.id && u.username?.toLowerCase() === cleanUsername);
           if (isTaken) {
             setMessage({ type: "error", text: `The username ${cleanUsername} is already claimed by another coder.` });
             setIsSaving(false);
@@ -128,7 +128,7 @@ export default function UserProfile({
       await update(ref(db, `users/${currentUser.id}`), updates);
 
       // 2. Optional: Try Firebase Auth update for email
-      if (auth.currentUser && email.trim().toLowerCase() !== auth.currentUser.email?.toLowerCase()) {
+      if (auth.currentUser && (email || "").trim().toLowerCase() !== auth.currentUser.email?.toLowerCase()) {
         try {
           await updateEmail(auth.currentUser, email.trim());
         } catch (authErr: any) {

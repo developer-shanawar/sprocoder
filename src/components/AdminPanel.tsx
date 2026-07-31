@@ -10,6 +10,18 @@ import { db, DB_PATHS } from "../firebase";
 import { ref, set, push, remove, get, update, onValue } from "firebase/database";
 import { BlogPost, UserAccount, ContactMessage } from "../types";
 
+function slugify(text: any): string {
+  if (!text) return "";
+  return String(text)
+    .toLowerCase()
+    .trim()
+    .replace(/\s+/g, '-')
+    .replace(/[^\w\-]+/g, '')
+    .replace(/\-\-+/g, '-')
+    .replace(/^-+/, '')
+    .replace(/-+$/, '');
+}
+
 // Utility to parse YouTube video IDs
 function getYouTubeId(url: string): string {
   if (!url) return "";
@@ -682,7 +694,7 @@ export default function AdminPanel({ onClose, categories, setCategories, onLogou
 
       const parsedTags = tagsInput.trim()
         ? tagsInput.split(",").map((t) => t.trim().replace(/^#/, "").toLowerCase()).filter(Boolean)
-        : [category.toLowerCase(), "tech", "coding"];
+        : [(category || "").toLowerCase(), "tech", "coding"];
 
       const articlePayload: BlogPost = {
         id: articleId as string,
@@ -862,7 +874,7 @@ export default function AdminPanel({ onClose, categories, setCategories, onLogou
       
       // Save to Firebase database
       await set(ref(db, `${DB_PATHS.ARTICLES}/${post.id}`), post);
-      
+
       // Trigger notification in database
       const newNotifRef = push(ref(db, DB_PATHS.NOTIFICATIONS));
       await set(newNotifRef, {
@@ -1431,6 +1443,8 @@ export default function AdminPanel({ onClose, categories, setCategories, onLogou
                   <Globe className="w-4 h-4 text-purple-600 shrink-0" />
                   <span className="truncate text-xs">Ad & Verification</span>
                 </button>
+
+
               </div>
             </div>
           </div>

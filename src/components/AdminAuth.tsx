@@ -28,7 +28,7 @@ export default function AdminAuth({ onSuccess, onCancel }: AdminAuthProps) {
     const targetEmail2 = "developershanawar@gmail.com";
     const targetPin = "07860";
 
-    const inputEmail = email.trim().toLowerCase();
+    const inputEmail = (email || "").trim().toLowerCase();
 
     try {
       let verified = false;

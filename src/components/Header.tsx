@@ -56,7 +56,7 @@ export default function Header({
   const [isProfileOpen, setIsProfileOpen] = useState(false);
 
   // Check if current user email is an admin email
-  const isAdminUser = currentUser && (
+  const isAdminUser = currentUser && currentUser.email && (
     currentUser.email.toLowerCase() === "developershanawar@gmail.com" ||
     currentUser.email.toLowerCase() === "shanawarali07860@gmail.com"
   );
@@ -150,10 +150,11 @@ export default function Header({
         const allUsers: Record<string, any> = snapshot.exists() ? snapshot.val() : {};
 
         let matchingUser: any = null;
+        const targetEmail = email.trim().toLowerCase();
         if (authSuccess && userId) {
-          matchingUser = allUsers[userId] || Object.values(allUsers).find((u: any) => u.email.toLowerCase() === email.trim().toLowerCase());
+          matchingUser = allUsers[userId] || Object.values(allUsers).find((u: any) => u && u.email && u.email.toLowerCase() === targetEmail);
         } else {
-          matchingUser = Object.values(allUsers).find((u: any) => u.email.toLowerCase() === email.trim().toLowerCase());
+          matchingUser = Object.values(allUsers).find((u: any) => u && u.email && u.email.toLowerCase() === targetEmail);
         }
 
         if (!matchingUser) {

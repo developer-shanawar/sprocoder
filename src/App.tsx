@@ -330,9 +330,9 @@ export default function App() {
   };
 
   // Helper to slugify titles for SEO-friendly URLs
-  const slugify = (text: string): string => {
-    return text
-      .toString()
+  const slugify = (text: any): string => {
+    if (!text) return "";
+    return String(text)
       .toLowerCase()
       .trim()
       .replace(/\s+/g, "-")
@@ -922,7 +922,7 @@ export default function App() {
 
   // 1.1.5. Sync Admin Authentication with User Session Email (developershanawar@gmail.com)
   useEffect(() => {
-    if (currentUser && currentUser.email.toLowerCase() === "developershanawar@gmail.com") {
+    if (currentUser && currentUser.email?.toLowerCase() === "developershanawar@gmail.com") {
       setIsAdminAuthenticated(true);
       localStorage.setItem("spro_admin_auth", "true");
     } else {
@@ -1325,11 +1325,12 @@ export default function App() {
   // Filter posts based on query, selected category, and active view
   const filteredPosts = React.useMemo(() => {
     return visiblePosts.filter((post) => {
+      const q = (searchQuery || "").toLowerCase();
       const matchesSearch = 
-        post.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        post.tagline.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        post.content.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        post.excerpt.toLowerCase().includes(searchQuery.toLowerCase());
+        (post.title || "").toLowerCase().includes(q) ||
+        (post.tagline || "").toLowerCase().includes(q) ||
+        (post.content || "").toLowerCase().includes(q) ||
+        (post.excerpt || "").toLowerCase().includes(q);
       
       const matchesCategory = selectedCategory ? post.category === selectedCategory : true;
       return matchesSearch && matchesCategory;
@@ -1585,7 +1586,7 @@ export default function App() {
 
   // Floating toggle switch between User Website and Admin Panel - displayed only after logging in with developershanawar@gmail.com
   const renderToggleSwitch = () => {
-    const isLoggedAdmin = currentUser && currentUser.email.toLowerCase() === "developershanawar@gmail.com";
+    const isLoggedAdmin = currentUser && currentUser.email?.toLowerCase() === "developershanawar@gmail.com";
     if (!isAdminAuthenticated || !isLoggedAdmin) return null;
     return (
       <div className="fixed bottom-6 right-6 z-[10000] flex items-center gap-3 bg-[#0d121f]/95 text-white py-2.5 px-4 rounded-2xl shadow-2xl border border-purple-500/30 backdrop-blur-md">
@@ -1613,7 +1614,7 @@ export default function App() {
   };
 
   // Full-page Admin Panel Mode - displayed and accessible only after logging in with developershanawar@gmail.com
-  const isLoggedAdminUser = currentUser && currentUser.email.toLowerCase() === "developershanawar@gmail.com";
+  const isLoggedAdminUser = currentUser && currentUser.email?.toLowerCase() === "developershanawar@gmail.com";
   if (isAdminAuthenticated && isLoggedAdminUser && currentTab === "admin") {
     return (
       <div className="min-h-screen bg-[#f3effe] text-purple-950 font-sans flex flex-col relative overflow-x-hidden p-4 sm:p-6 lg:p-8">

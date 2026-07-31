@@ -119,7 +119,7 @@ export default function RightSidebar({
                   ? "bg-white/10 text-white"
                   : "text-white/60 hover:text-white/90 hover:bg-white/5"
               }`}
-              id={`cat-filter-${cat.toLowerCase()}`}
+              id={`cat-filter-${(cat || "").toString().toLowerCase()}`}
             >
               <span>{cat}</span>
               <span className="opacity-50 text-[10px] font-mono">#</span>
