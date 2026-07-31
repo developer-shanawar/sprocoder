@@ -65,7 +65,7 @@ function renderStaticLLMMetadataTable(article: any): string {
     { label: "Publication Date", value: article.date || "July 2026" },
     { label: "Estimated Reading Time", value: article.readTime || "5 minutes" },
     { label: "Key Focus Keywords", value: article.tags ? article.tags.join(", ") : "technology, artificial intelligence" },
-    { label: "Indexed URL", value: `https://www.sprocoder.online/blog/${slugify(article.title)}.html` }
+    { label: "Indexed URL", value: `https://www.sprocoder.online/blog/${slugify(article.title)}` }
   ];
 
   let rows = specs.map(spec => `
@@ -310,7 +310,7 @@ app.get([
           matched.title,
           matched.excerpt || matched.tagline || "",
           matched.thumbnailUrl || "https://images.unsplash.com/photo-1620712943543-bcc4688e7485?auto=format&fit=crop&w=1200&q=80",
-          `https://www.sprocoder.online/blog/${slugify(matched.title)}.html`,
+          `https://www.sprocoder.online/blog/${slugify(matched.title)}`,
           articleJsonLd
         );
 
@@ -333,10 +333,10 @@ app.get([
       </a>
       <nav style="display: flex; gap: 1rem;">
         <a href="/" style="color: #1e1b4b; font-size: 0.825rem; font-weight: 800; text-decoration: none; border-bottom: 1.5px solid transparent; padding-bottom: 2px;">Home</a>
-        <a href="/tech-news.html" style="color: #1e1b4b; font-size: 0.825rem; font-weight: 800; text-decoration: none; border-bottom: 1.5px solid transparent; padding-bottom: 2px;">Tech News</a>
-        <a href="/ai-news.html" style="color: #1e1b4b; font-size: 0.825rem; font-weight: 800; text-decoration: none; border-bottom: 1.5px solid transparent; padding-bottom: 2px;">AI News</a>
-        <a href="/ai-tools.html" style="color: #1e1b4b; font-size: 0.825rem; font-weight: 800; text-decoration: none; border-bottom: 1.5px solid transparent; padding-bottom: 2px;">AI Tools</a>
-        <a href="/games.html" style="color: #1e1b4b; font-size: 0.825rem; font-weight: 800; text-decoration: none; border-bottom: 1.5px solid transparent; padding-bottom: 2px;">Games</a>
+        <a href="/tech-news" style="color: #1e1b4b; font-size: 0.825rem; font-weight: 800; text-decoration: none; border-bottom: 1.5px solid transparent; padding-bottom: 2px;">Tech News</a>
+        <a href="/ai-news" style="color: #1e1b4b; font-size: 0.825rem; font-weight: 800; text-decoration: none; border-bottom: 1.5px solid transparent; padding-bottom: 2px;">AI News</a>
+        <a href="/ai-tools" style="color: #1e1b4b; font-size: 0.825rem; font-weight: 800; text-decoration: none; border-bottom: 1.5px solid transparent; padding-bottom: 2px;">AI Tools</a>
+        <a href="/games" style="color: #1e1b4b; font-size: 0.825rem; font-weight: 800; text-decoration: none; border-bottom: 1.5px solid transparent; padding-bottom: 2px;">Games</a>
       </nav>
     </header>
 
@@ -544,13 +544,13 @@ app.get([
                 <span style="color: #64748b; font-size: 0.75rem; font-weight: 700;">${art.readTime || "5 min read"}</span>
               </div>
               <h2 style="font-size: 1.5rem; font-weight: 900; color: #0f172a; margin-top: 0; margin-bottom: 0.75rem; line-height: 1.35; letter-spacing: -0.02em;">
-                <a href="/blog/${slug}.html" style="color: #0f172a; text-decoration: none; border-bottom: 2px solid transparent; transition: border-bottom 0.2s;">${art.title}</a>
+                <a href="/blog/${slug}" style="color: #0f172a; text-decoration: none; border-bottom: 2px solid transparent; transition: border-bottom 0.2s;">${art.title}</a>
               </h2>
               <p style="color: #475569; font-size: 1rem; line-height: 1.6; margin-bottom: 1.5rem; font-style: italic;">${art.tagline || ""}</p>
               <p style="color: #334155; font-size: 0.95rem; line-height: 1.6; margin-bottom: 1.5rem;">${excerpt}</p>
               <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem;">
                 <span style="font-size: 0.875rem; color: #0f172a; font-weight: 800;">By ${art.author || "S Pro Coder"}</span>
-                <a href="/blog/${slug}.html" style="display: inline-flex; align-items: center; font-size: 0.875rem; font-weight: 800; color: #7c3aed; text-decoration: none; border-bottom: 1.5px solid #7c3aed;">Read Full Article →</a>
+                <a href="/blog/${slug}" style="display: inline-flex; align-items: center; font-size: 0.875rem; font-weight: 800; color: #7c3aed; text-decoration: none; border-bottom: 1.5px solid #7c3aed;">Read Full Article →</a>
               </div>
             </div>
             <div style="width: 140px; height: 100px; overflow: hidden; border-radius: 12px; border: 1.5px solid #000000;">
@@ -580,10 +580,10 @@ app.get([
       </div>
       <nav style="display: flex; gap: 1.5rem; flex-wrap: wrap;">
         <a href="/" style="color: #1e1b4b; font-size: 0.875rem; font-weight: 800; text-decoration: none;">Home</a>
-        <a href="/tech-news.html" style="color: #1e1b4b; font-size: 0.875rem; font-weight: 800; text-decoration: none;">Tech News</a>
-        <a href="/ai-news.html" style="color: #1e1b4b; font-size: 0.875rem; font-weight: 800; text-decoration: none;">AI News</a>
-        <a href="/ai-tools.html" style="color: #1e1b4b; font-size: 0.875rem; font-weight: 800; text-decoration: none;">AI Tools</a>
-        <a href="/games.html" style="color: #1e1b4b; font-size: 0.875rem; font-weight: 800; text-decoration: none;">Games</a>
+        <a href="/tech-news" style="color: #1e1b4b; font-size: 0.875rem; font-weight: 800; text-decoration: none;">Tech News</a>
+        <a href="/ai-news" style="color: #1e1b4b; font-size: 0.875rem; font-weight: 800; text-decoration: none;">AI News</a>
+        <a href="/ai-tools" style="color: #1e1b4b; font-size: 0.875rem; font-weight: 800; text-decoration: none;">AI Tools</a>
+        <a href="/games" style="color: #1e1b4b; font-size: 0.875rem; font-weight: 800; text-decoration: none;">Games</a>
       </nav>
     </header>
 

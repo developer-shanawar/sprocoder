@@ -550,48 +550,48 @@ export default function App() {
     let targetPath = "/";
     
     if (selectedPost) {
-      targetPath = `/blog/${slugify(selectedPost.title)}.html`;
+      targetPath = `/blog/${slugify(selectedPost.title)}`;
     } else {
       switch (currentTab) {
         case "home":
           if (selectedCategory === "Technology") {
-            targetPath = "/tech-news.html";
+            targetPath = "/tech-news";
           } else if (selectedCategory === "Artificial Intelligence") {
-            targetPath = "/ai-news.html";
+            targetPath = "/ai-news";
           } else if (selectedCategory === "AI Tools") {
-            targetPath = "/ai-tools.html";
+            targetPath = "/ai-tools";
           } else if (selectedCategory === "Games") {
-            targetPath = "/games.html";
+            targetPath = "/games";
           } else {
             targetPath = "/";
           }
           break;
         case "articles":
-          targetPath = "/blog.html";
+          targetPath = "/blog";
           break;
         case "about":
-          targetPath = "/about-us.html";
+          targetPath = "/about-us";
           break;
         case "privacy":
-          targetPath = "/privacy-policy.html";
+          targetPath = "/privacy-policy";
           break;
         case "terms":
-          targetPath = "/terms-and-conditions.html";
+          targetPath = "/terms-and-conditions";
           break;
         case "disclaimer":
-          targetPath = "/disclaimer.html";
+          targetPath = "/disclaimer";
           break;
         case "contact":
-          targetPath = "/contact-us.html";
+          targetPath = "/contact-us";
           break;
         case "profile":
-          targetPath = "/profile.html";
+          targetPath = "/profile";
           break;
         case "admin-auth":
-          targetPath = "/admin-auth.html";
+          targetPath = "/admin-auth";
           break;
         case "admin":
-          targetPath = "/admin.html";
+          targetPath = "/admin";
           break;
         default:
           targetPath = "/";
