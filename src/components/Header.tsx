@@ -79,7 +79,7 @@ export default function Header({
         const data = snapshot.val();
         const list: NotificationItem[] = Object.values(data);
         // Sort newest first
-        list.sort((a, b) => b.id.localeCompare(a.id));
+        list.sort((a, b) => String(b?.id || "").localeCompare(String(a?.id || "")));
         setNotifications(list);
       } else {
         setNotifications([]);

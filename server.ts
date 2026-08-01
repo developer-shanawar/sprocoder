@@ -102,23 +102,26 @@ function injectDynamicSEOTags(template: string, title: string, desc: string, ima
     .replace(/<link\s+rel="canonical"\s+href=".*?"\s*\/?>/gi, "")
     .replace(/<script\s+type="application\/ld\+json">[\s\S]*?<\/script>/gi, "");
 
+  const safeDesc = escapeHtml(desc);
+  const safeTitle = escapeHtml(title);
+
   const seoMetaHtml = `
-  <title>${title} | S pro coder</title>
-  <meta name="description" content="${desc.replace(/"/g, '&quot;')}" />
+  <title>${safeTitle} | S pro coder</title>
+  <meta name="description" content="${safeDesc}" />
   <link rel="canonical" href="${canonicalUrl}" />
   
   <!-- Open Graph -->
   <meta property="og:type" content="${articleSchema ? 'article' : 'website'}" />
   <meta property="og:url" content="${canonicalUrl}" />
-  <meta property="og:title" content="${title} | S pro coder" />
-  <meta property="og:description" content="${desc.replace(/"/g, '&quot;')}" />
+  <meta property="og:title" content="${safeTitle} | S pro coder" />
+  <meta property="og:description" content="${safeDesc}" />
   <meta property="og:image" content="${image}" />
 
   <!-- Twitter Card -->
   <meta name="twitter:card" content="summary_large_image" />
   <meta name="twitter:url" content="${canonicalUrl}" />
-  <meta name="twitter:title" content="${title} | S pro coder" />
-  <meta name="twitter:description" content="${desc.replace(/"/g, '&quot;')}" />
+  <meta name="twitter:title" content="${safeTitle} | S pro coder" />
+  <meta name="twitter:description" content="${safeDesc}" />
   <meta name="twitter:image" content="${image}" />
   `;
 
@@ -359,7 +362,7 @@ app.get([
 
         ${matched.thumbnailUrl ? `
         <div style="width: 100%; border-radius: 16px; overflow: hidden; margin-bottom: 2rem; border: 2px solid #000000;">
-          <img src="${matched.thumbnailUrl}" alt="${matched.title.replace(/"/g, '&quot;')}" style="width: 100%; height: auto; display: block; object-fit: cover;" loading="lazy" referrerPolicy="no-referrer" />
+          <img src="${matched.thumbnailUrl}" alt="${escapeHtml(matched.title || '')}" style="width: 100%; height: auto; display: block; object-fit: cover;" loading="lazy" referrerPolicy="no-referrer" />
         </div>
         ` : ""}
 
@@ -555,7 +558,7 @@ app.get([
               </div>
             </div>
             <div style="width: 140px; height: 100px; overflow: hidden; border-radius: 12px; border: 1.5px solid #000000;">
-              <img src="${thumbnail}" alt="${art.title.replace(/"/g, '&quot;')}" loading="lazy" style="width: 100%; height: 100%; object-fit: cover;" />
+              <img src="${thumbnail}" alt="${escapeHtml(art.title || '')}" loading="lazy" style="width: 100%; height: 100%; object-fit: cover;" />
             </div>
           </div>
         </article>

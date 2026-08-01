@@ -146,7 +146,12 @@ export default function App() {
     }
     return true;
   });
-  const [featuredArticleId, setFeaturedArticleId] = useState<string>("");
+  const [featuredArticleId, setFeaturedArticleId] = useState<string>(() => {
+    if (typeof window !== "undefined") {
+      return localStorage.getItem("spro_featured_id") || "";
+    }
+    return "";
+  });
 
   // Splash Screen States - show only on home screen refresh
   const [isSplashActive, setIsSplashActive] = useState<boolean>(() => {
@@ -158,36 +163,9 @@ export default function App() {
     }
     return path === "/" || path === "" || path === "/home";
   });
-  const [isMinTimeElapsed, setIsMinTimeElapsed] = useState<boolean>(() => {
-    if (typeof window !== "undefined") {
-      const path = window.location.pathname;
-      const isPost = path.startsWith("/blog/") || path.startsWith("/articles/");
-      if (isPost && (window as any).__INITIAL_POST__) {
-        return true;
-      }
-    }
-    return false;
-  });
-  const [isInitialLoading, setIsInitialLoading] = useState<boolean>(() => {
-    if (typeof window !== "undefined") {
-      const path = window.location.pathname;
-      const isPost = path.startsWith("/blog/") || path.startsWith("/articles/");
-      if ((isPost && (window as any).__INITIAL_POST__) || localStorage.getItem("spro_cached_posts")) {
-        return false;
-      }
-    }
-    return true;
-  });
-  const [isDataLoaded, setIsDataLoaded] = useState<boolean>(() => {
-    if (typeof window !== "undefined") {
-      const path = window.location.pathname;
-      const isPost = path.startsWith("/blog/") || path.startsWith("/articles/");
-      if ((isPost && (window as any).__INITIAL_POST__) || localStorage.getItem("spro_cached_posts")) {
-        return true;
-      }
-    }
-    return false;
-  });
+  const [isMinTimeElapsed, setIsMinTimeElapsed] = useState<boolean>(true);
+  const [isInitialLoading, setIsInitialLoading] = useState<boolean>(false);
+  const [isDataLoaded, setIsDataLoaded] = useState<boolean>(true);
 
   // Website SEO metadata
   const [websiteTitle, setWebsiteTitle] = useState<string>(() => {
@@ -1015,13 +993,19 @@ export default function App() {
     const unsubPosts = onValue(postsRef, (snapshot) => {
       if (snapshot.exists()) {
         const data = snapshot.val();
-        const list: BlogPost[] = Object.values(data);
+        const rawList: BlogPost[] = Object.values(data);
+        const list = rawList.filter(
+          (p) => p && typeof p === "object" && p.id && p.title && typeof p.title === "string" && p.title.trim()
+        );
         const sortedList = [...list].sort((a, b) => {
           const tA = a.date ? new Date(a.date).getTime() : 0;
           const tB = b.date ? new Date(b.date).getTime() : 0;
           return tB - tA; // Newest first
         });
         setAllPosts(sortedList);
+        setIsDataLoaded(true);
+        setIsInitialLoading(false);
+        setIsSplashActive(false);
         try {
           localStorage.setItem("spro_cached_posts", JSON.stringify(sortedList));
         } catch (e) {}
@@ -1038,6 +1022,9 @@ export default function App() {
           return tB - tA;
         });
         setAllPosts(sortedInitial);
+        setIsDataLoaded(true);
+        setIsInitialLoading(false);
+        setIsSplashActive(false);
         try {
           localStorage.setItem("spro_cached_posts", JSON.stringify(sortedInitial));
         } catch (e) {}
@@ -1057,7 +1044,7 @@ export default function App() {
             .sort((a, b) => {
               const numA = Number(a);
               const numB = Number(b);
-              if (isNaN(numA) || isNaN(numB)) return a.localeCompare(b);
+              if (isNaN(numA) || isNaN(numB)) return String(a || "").localeCompare(String(b || ""));
               return numA - numB;
             })
             .map((k) => val[k])
@@ -1359,8 +1346,13 @@ export default function App() {
   }, [allPosts, selectedPost?.id, isAdminAuthenticated]);
 
   // Filter out posts that are scheduled to be published in the future or marked private
+  // Filter out posts that are scheduled to be published in the future, marked private, or missing title/id (blank articles)
   const visiblePosts = React.useMemo(() => {
     return allPosts.filter((post) => {
+      if (!post || typeof post !== "object") return false;
+      if (!post.id || !post.title || typeof post.title !== "string" || !post.title.trim()) {
+        return false;
+      }
       if (post.visibility === "private") {
         return false;
       }
@@ -1387,9 +1379,16 @@ export default function App() {
     });
   }, [visiblePosts, searchQuery, selectedCategory]);
 
-  // Find the featured post
+  // Find the featured post consistently
   const featuredPost = React.useMemo(() => {
-    return visiblePosts.find((p) => p.id === featuredArticleId) || visiblePosts[0];
+    if (visiblePosts.length === 0) return null;
+    if (featuredArticleId) {
+      const found = visiblePosts.find((p) => p.id === featuredArticleId);
+      if (found) return found;
+    }
+    const explicit = visiblePosts.find((p) => (p as any).isFeatured);
+    if (explicit) return explicit;
+    return visiblePosts[0] || null;
   }, [visiblePosts, featuredArticleId]);
 
   // Filter out featured post from regular feed on homepage to avoid duplicate rendering,
@@ -1420,7 +1419,7 @@ export default function App() {
     } else {
       // Sort oldest uploaded articles first (lexicographical push IDs are chronological)
       return list
-        .sort((a, b) => a.id.localeCompare(b.id))
+        .sort((a, b) => String(a?.id || "").localeCompare(String(b?.id || "")))
         .slice(0, 5);
     }
   }, [visiblePosts, leftSidebarFilter]);
