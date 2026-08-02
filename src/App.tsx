@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from "react";
 import { 
   Heart, Bookmark, MessageSquare, Sparkles, Calendar, Clock, 
   User, ChevronRight, Plus, Check, BookOpen, Send, X, Zap, 
-  Flame, Globe, Star, RefreshCw, Search, ShieldCheck, Eye
+  Flame, Globe, Star, RefreshCw, Search, ShieldCheck, Eye, Ban
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { db, DB_PATHS, auth } from "./firebase";
@@ -59,19 +59,12 @@ const PostViewTracker = ({ post, onView }: PostViewTrackerProps) => {
 };
 
 const InstantLogo = ({ size = 96, className = "" }: { size?: number; className?: string }) => (
-  <svg width={size} height={size} viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg" className={`filter drop-shadow-md ${className}`}>
-    <defs>
-      <linearGradient id="shieldGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-        <stop offset="0%" stopColor="#a855f7" />
-        <stop offset="50%" stopColor="#6366f1" />
-        <stop offset="100%" stopColor="#3b82f6" />
-      </linearGradient>
-    </defs>
-    <rect x="6" y="6" width="88" height="88" rx="24" fill="#0b0f19" stroke="url(#shieldGrad)" strokeWidth="4.5" />
-    <path d="M34 36 L22 50 L34 64" stroke="#a855f7" strokeWidth="6" strokeLinecap="round" strokeLinejoin="round" />
-    <path d="M66 36 L78 50 L66 64" stroke="#3b82f6" strokeWidth="6" strokeLinecap="round" strokeLinejoin="round" />
-    <path d="M56 30 L44 70" stroke="#f43f5e" strokeWidth="5.5" strokeLinecap="round" />
-  </svg>
+  <img 
+    src="/logo.svg" 
+    alt="S Pro Coder Logo" 
+    style={{ width: size, height: size }}
+    className={`rounded-full object-cover filter drop-shadow-md shrink-0 ${className}`}
+  />
 );
 
 const SplashScreen = () => {
@@ -79,16 +72,18 @@ const SplashScreen = () => {
     <motion.div 
       initial={{ opacity: 1 }}
       exit={{ opacity: 0 }}
-      transition={{ duration: 0.5, ease: "easeInOut" }}
-      className="fixed inset-0 w-screen h-[100dvh] bg-slate-50 z-[999999] flex flex-col justify-center items-center px-6 select-none overflow-hidden"
+      transition={{ duration: 0.4, ease: "easeInOut" }}
+      className="fixed inset-0 w-screen h-[100dvh] bg-slate-900 z-[999999] flex flex-col justify-center items-center px-6 select-none overflow-hidden"
       style={{ height: "100dvh", width: "100vw", top: 0, left: 0 }}
     >
-      <div className="flex flex-col items-center justify-center">
+      <div className="flex flex-col items-center justify-center space-y-6">
+        <InstantLogo size={88} className="animate-pulse" />
+        <h2 className="text-white font-black tracking-widest text-lg uppercase">S PRO CODER</h2>
         {/* Center 3 Bouncing Dots Loading Screen */}
         <div className="flex items-center gap-2">
-          <span className="w-3.5 h-3.5 bg-purple-600 rounded-full animate-bounce [animation-delay:-0.3s]"></span>
-          <span className="w-3.5 h-3.5 bg-purple-500 rounded-full animate-bounce [animation-delay:-0.15s]"></span>
-          <span className="w-3.5 h-3.5 bg-indigo-600 rounded-full animate-bounce"></span>
+          <span className="w-3.5 h-3.5 bg-orange-500 rounded-full animate-bounce [animation-delay:-0.3s]"></span>
+          <span className="w-3.5 h-3.5 bg-orange-400 rounded-full animate-bounce [animation-delay:-0.15s]"></span>
+          <span className="w-3.5 h-3.5 bg-amber-500 rounded-full animate-bounce"></span>
         </div>
       </div>
     </motion.div>
@@ -137,7 +132,7 @@ export default function App() {
       const cached = localStorage.getItem("spro_website_icon");
       if (cached) return cached;
     }
-    return "https://storage.googleapis.com/antigravity-artifacts/a808a860-d4d9-4845-b2e8-5a76d694764d/input_file_0.png";
+    return "/logo.svg";
   });
   const [showWebsiteIcon, setShowWebsiteIcon] = useState<boolean>(() => {
     if (typeof window !== "undefined") {
@@ -2376,6 +2371,35 @@ export default function App() {
                 Reject
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* ACCOUNT SUSPENDED OVERLAY */}
+      {currentUser?.isBanned && (
+        <div className="fixed inset-0 z-[999999] bg-black/80 backdrop-blur-md flex items-center justify-center p-6">
+          <div className="bg-white rounded-3xl p-8 max-w-md w-full border-2 border-red-500 shadow-2xl text-center space-y-4 animate-in zoom-in-95">
+            <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto text-red-600">
+              <Ban className="w-8 h-8" />
+            </div>
+            <h3 className="text-xl font-black text-purple-950 uppercase tracking-tight">Account Suspended</h3>
+            <p className="text-xs text-gray-600 leading-relaxed">
+              Your account <strong className="text-purple-950">{currentUser.email}</strong> has been suspended by the administrator.
+            </p>
+            {currentUser.banReason && (
+              <div className="p-3 bg-red-50 rounded-xl text-xs text-red-800 italic border border-red-100">
+                "{currentUser.banReason}"
+              </div>
+            )}
+            <button 
+              onClick={() => {
+                setCurrentUser(null);
+                localStorage.removeItem("spro_user");
+              }}
+              className="w-full py-3 bg-red-600 text-white font-bold text-xs rounded-xl hover:bg-red-700 transition-colors shadow-lg cursor-pointer"
+            >
+              Sign Out
+            </button>
           </div>
         </div>
       )}

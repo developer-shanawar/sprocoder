@@ -23,19 +23,12 @@ interface HeaderProps {
 }
 
 const InstantLogoMini = ({ size = 36 }: { size?: number }) => (
-  <svg width={size} height={size} viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg" className="filter drop-shadow-sm group-hover:scale-105 transition-transform duration-300 shrink-0">
-    <defs>
-      <linearGradient id="navShieldGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-        <stop offset="0%" stopColor="#a855f7" />
-        <stop offset="50%" stopColor="#6366f1" />
-        <stop offset="100%" stopColor="#3b82f6" />
-      </linearGradient>
-    </defs>
-    <rect x="6" y="6" width="88" height="88" rx="24" fill="#0b0f19" stroke="url(#navShieldGrad)" strokeWidth="6" />
-    <path d="M34 36 L22 50 L34 64" stroke="#a855f7" strokeWidth="7" strokeLinecap="round" strokeLinejoin="round" />
-    <path d="M66 36 L78 50 L66 64" stroke="#3b82f6" strokeWidth="7" strokeLinecap="round" strokeLinejoin="round" />
-    <path d="M56 30 L44 70" stroke="#f43f5e" strokeWidth="6.5" strokeLinecap="round" />
-  </svg>
+  <img 
+    src="/logo.svg" 
+    alt="S Pro Coder logo" 
+    style={{ width: size, height: size }}
+    className="rounded-full object-cover shadow-sm group-hover:scale-105 transition-transform duration-300 shrink-0"
+  />
 );
 
 export default function Header({
@@ -285,8 +278,11 @@ export default function Header({
             <img 
               src={websiteIconUrl} 
               alt="S pro coder logo" 
-              className="w-9 h-9 rounded-2xl object-cover shadow-md shadow-purple-100 group-hover:scale-105 transition-transform duration-300"
+              className="w-9 h-9 rounded-full object-cover shadow-md shadow-purple-100 group-hover:scale-105 transition-transform duration-300"
               referrerPolicy="no-referrer"
+              onError={(e) => {
+                (e.target as HTMLImageElement).src = "/logo.svg";
+              }}
             />
           ) : (
             <InstantLogoMini size={36} />

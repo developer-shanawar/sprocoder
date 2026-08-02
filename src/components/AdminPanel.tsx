@@ -3,7 +3,8 @@ import {
   Users, BookOpen, Layers, MessageSquare, Settings, 
   Plus, Edit, Trash2, Heart, Bookmark, Eye, FileText, Upload, Save, Check, RefreshCw, Lock,
   Youtube, Star, Bold, Italic, Underline, Link, Heading1, Heading2, List, Quote, Globe,
-  TrendingUp, BarChart2, Send, Instagram, Facebook, Mail, Sparkles, MessageCircle, AlertCircle
+  TrendingUp, BarChart2, Send, Instagram, Facebook, Mail, Sparkles, MessageCircle, AlertCircle,
+  ShieldAlert, ShieldCheck, UserCheck, UserX, Search, Filter, Clock, Calendar, User, Ban, X, CheckCircle2
 } from "lucide-react";
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, PieChart, Pie, Cell, Legend } from "recharts";
 import { db, DB_PATHS } from "../firebase";
@@ -105,6 +106,64 @@ export default function AdminPanel({ onClose, categories, setCategories, onLogou
 
   // Users State
   const [users, setUsers] = useState<UserAccount[]>([]);
+  const [selectedUserControl, setSelectedUserControl] = useState<UserAccount | null>(null);
+  const [userSearchQuery, setUserSearchQuery] = useState("");
+  const [userFilterRole, setUserFilterRole] = useState<"all" | "reader" | "author" | "admin" | "banned">("all");
+  const [banReasonInput, setBanReasonInput] = useState("");
+  const [userActionSuccess, setUserActionSuccess] = useState<string | null>(null);
+
+  const handleBanUserToggle = async (targetUser: UserAccount, ban: boolean) => {
+    try {
+      if (ban) {
+        const reason = banReasonInput.trim() || "Violation of platform community standards";
+        await update(ref(db, `users/${targetUser.id}`), {
+          isBanned: true,
+          banReason: reason,
+          bannedAt: new Date().toISOString()
+        });
+        setUserActionSuccess(`User ${targetUser.name} has been suspended/banned.`);
+        setSelectedUserControl((prev) => prev ? { ...prev, isBanned: true, banReason: reason, bannedAt: new Date().toISOString() } : null);
+      } else {
+        await update(ref(db, `users/${targetUser.id}`), {
+          isBanned: false,
+          banReason: null,
+          bannedAt: null
+        });
+        setUserActionSuccess(`User ${targetUser.name} has been reactivated/unbanned.`);
+        setSelectedUserControl((prev) => prev ? { ...prev, isBanned: false, banReason: undefined, bannedAt: undefined } : null);
+      }
+      setTimeout(() => setUserActionSuccess(null), 3000);
+    } catch (err) {
+      alert("Failed to update user ban status: " + (err as Error).message);
+    }
+  };
+
+  const handleChangeUserRole = async (targetUser: UserAccount, newRole: "reader" | "author" | "admin") => {
+    try {
+      await update(ref(db, `users/${targetUser.id}`), {
+        role: newRole
+      });
+      setUserActionSuccess(`Role for ${targetUser.name} updated to ${newRole.toUpperCase()}.`);
+      setSelectedUserControl((prev) => prev ? { ...prev, role: newRole } : null);
+      setTimeout(() => setUserActionSuccess(null), 3000);
+    } catch (err) {
+      alert("Failed to update role: " + (err as Error).message);
+    }
+  };
+
+  const handleDeleteUserAccount = async (targetUser: UserAccount) => {
+    if (!window.confirm(`Are you sure you want to PERMANENTLY delete account "${targetUser.name}" (${targetUser.email})? This action cannot be undone!`)) {
+      return;
+    }
+    try {
+      await set(ref(db, `users/${targetUser.id}`), null);
+      setSelectedUserControl(null);
+      setUserActionSuccess(`User account "${targetUser.name}" deleted successfully.`);
+      setTimeout(() => setUserActionSuccess(null), 3000);
+    } catch (err) {
+      alert("Failed to delete user account: " + (err as Error).message);
+    }
+  };
 
   // Articles State
   const [articles, setArticles] = useState<BlogPost[]>([]);
@@ -1996,60 +2055,461 @@ export default function AdminPanel({ onClose, categories, setCategories, onLogou
             </div>
           )}
 
-          {/* TAB 2: REGISTERED USERS */}
+          {/* TAB 2: REGISTERED USERS CONTROL CENTER */}
           {activeTab === "users" && (
-            <div className="space-y-4 animate-in fade-in duration-200" id="tab-users-content">
-              <h3 className="text-xs font-black text-purple-950 uppercase tracking-wider">
-                User Database Overview
-              </h3>
-              <p className="text-[11px] text-gray-500">
-                View all registered users, their total registration timestamps, login logs, history entries, and total bookmarks.
-              </p>
+            <div className="space-y-6 animate-in fade-in duration-200" id="tab-users-content">
+              {/* Header & Stats Banner */}
+              <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-purple-100 pb-4">
+                <div>
+                  <h3 className="text-sm font-black text-purple-950 uppercase tracking-wider flex items-center gap-2">
+                    <ShieldCheck className="w-5 h-5 text-purple-600" />
+                    <span>Registered User Management Control</span>
+                  </h3>
+                  <p className="text-xs text-gray-500 mt-1">
+                    Complete administrative control over all registered user accounts. View registration timestamps, email details, published articles, activity logs, and manage ban/suspension status.
+                  </p>
+                </div>
 
-              <div className="overflow-x-auto rounded-xl border border-purple-100 bg-white">
+                <div className="flex items-center gap-2">
+                  <div className="bg-purple-50 border border-purple-100 px-3 py-1.5 rounded-xl text-center">
+                    <span className="text-[10px] text-purple-500 font-bold block uppercase">Total Users</span>
+                    <span className="text-sm font-black text-purple-950">{users.length}</span>
+                  </div>
+                  <div className="bg-red-50 border border-red-100 px-3 py-1.5 rounded-xl text-center">
+                    <span className="text-[10px] text-red-500 font-bold block uppercase">Banned</span>
+                    <span className="text-sm font-black text-red-700">{users.filter(u => u.isBanned).length}</span>
+                  </div>
+                  <div className="bg-emerald-50 border border-emerald-100 px-3 py-1.5 rounded-xl text-center">
+                    <span className="text-[10px] text-emerald-600 font-bold block uppercase">Active</span>
+                    <span className="text-sm font-black text-emerald-800">{users.filter(u => !u.isBanned).length}</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Action Notification Message */}
+              {userActionSuccess && (
+                <div className="p-3 bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-bold rounded-xl flex items-center justify-between animate-in fade-in">
+                  <span className="flex items-center gap-2">
+                    <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                    {userActionSuccess}
+                  </span>
+                  <button onClick={() => setUserActionSuccess(null)} className="text-emerald-500 hover:text-emerald-800">
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+              )}
+
+              {/* Search & Filter Bar */}
+              <div className="flex flex-col sm:flex-row items-center gap-3 bg-purple-50/50 p-3 rounded-2xl border border-purple-100">
+                <div className="relative flex-1 w-full">
+                  <Search className="w-4 h-4 text-purple-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                  <input 
+                    type="text"
+                    value={userSearchQuery}
+                    onChange={(e) => setUserSearchQuery(e.target.value)}
+                    placeholder="Search user by name, email, or @username..."
+                    className="w-full pl-9 pr-3 py-2 rounded-xl bg-white border border-purple-200 text-xs focus:outline-none focus:border-purple-600 text-purple-950"
+                  />
+                  {userSearchQuery && (
+                    <button onClick={() => setUserSearchQuery("")} className="absolute right-3 top-1/2 -translate-y-1/2 text-purple-400 hover:text-purple-700">
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  )}
+                </div>
+
+                <div className="flex items-center gap-1.5 w-full sm:w-auto overflow-x-auto pb-1 sm:pb-0">
+                  <span className="text-[10px] font-bold text-purple-600 uppercase flex items-center gap-1 mr-1">
+                    <Filter className="w-3 h-3" /> Filter:
+                  </span>
+                  {(["all", "reader", "author", "admin", "banned"] as const).map((filterOpt) => (
+                    <button
+                      key={filterOpt}
+                      onClick={() => setUserFilterRole(filterOpt)}
+                      className={`px-3 py-1.5 rounded-xl text-[11px] font-bold capitalize transition-all whitespace-nowrap cursor-pointer ${
+                        userFilterRole === filterOpt
+                          ? "bg-purple-900 text-white shadow-sm"
+                          : "bg-white text-purple-900 hover:bg-purple-100 border border-purple-100"
+                      }`}
+                    >
+                      {filterOpt}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Users Table */}
+              <div className="overflow-x-auto rounded-2xl border border-purple-100 bg-white shadow-sm">
                 <table className="w-full text-left text-xs border-collapse">
                   <thead>
-                    <tr className="bg-purple-50 text-purple-950 font-bold border-b border-purple-100">
-                      <th className="p-3">User details</th>
-                      <th className="p-3">Registered At</th>
-                      <th className="p-3">Last Active</th>
-                      <th className="p-3">Saves</th>
-                      <th className="p-3">Read History Count</th>
+                    <tr className="bg-purple-50/80 text-purple-950 font-black border-b border-purple-100 uppercase text-[10px] tracking-wider">
+                      <th className="p-3.5">User & Account Details</th>
+                      <th className="p-3.5">Registration Timestamp</th>
+                      <th className="p-3.5">Last Activity</th>
+                      <th className="p-3.5 text-center">Published Articles</th>
+                      <th className="p-3.5 text-center">Status</th>
+                      <th className="p-3.5 text-right">User Control</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-purple-50">
-                    {users.map((user) => (
-                      <tr key={user.id} className="hover:bg-purple-50/50">
-                        <td className="p-3">
-                          <p className="font-bold text-purple-950">{user.name}</p>
-                          <p className="text-[10px] text-purple-700">{user.email}</p>
-                        </td>
-                        <td className="p-3 text-gray-500 font-mono text-[10px]">
-                          {user.registeredAt || "N/A"}
-                        </td>
-                        <td className="p-3 text-purple-900 font-semibold font-mono text-[10px]">
-                          {user.lastLogin || "N/A"}
-                        </td>
-                        <td className="p-3">
-                          <span className="bg-purple-100 text-purple-800 text-[10px] font-bold px-2 py-0.5 rounded-full">
-                            {user.savedArticles ? user.savedArticles.length : 0} articles
-                          </span>
-                        </td>
-                        <td className="p-3 font-mono font-bold text-purple-800">
-                          {user.history ? user.history.length : 0} visits
-                        </td>
-                      </tr>
-                    ))}
+                    {users
+                      .filter((u) => {
+                        const q = userSearchQuery.toLowerCase().trim();
+                        const matchesSearch = !q || 
+                          u.name?.toLowerCase().includes(q) || 
+                          u.email?.toLowerCase().includes(q) || 
+                          u.username?.toLowerCase().includes(q);
+                        
+                        if (!matchesSearch) return false;
+                        if (userFilterRole === "banned") return !!u.isBanned;
+                        if (userFilterRole === "admin") return u.role === "admin";
+                        if (userFilterRole === "author") return u.role === "author";
+                        if (userFilterRole === "reader") return u.role === "reader" || !u.role;
+                        return true;
+                      })
+                      .map((user) => {
+                        const userPublishedCount = articles.filter(
+                          (art) => art.author === user.name || art.author === user.username || (art as any).userEmail === user.email
+                        ).length;
+
+                        return (
+                          <tr 
+                            key={user.id} 
+                            onClick={() => {
+                              setSelectedUserControl(user);
+                              setBanReasonInput(user.banReason || "");
+                            }}
+                            className="hover:bg-purple-50/60 transition-colors cursor-pointer group"
+                          >
+                            <td className="p-3.5">
+                              <div className="flex items-center gap-3">
+                                {user.avatarUrl ? (
+                                  <img src={user.avatarUrl} alt={user.name} className="w-9 h-9 rounded-full object-cover border border-purple-200 shrink-0" />
+                                ) : (
+                                  <div className="w-9 h-9 rounded-full bg-gradient-to-tr from-purple-600 to-indigo-600 text-white font-black text-xs flex items-center justify-center shrink-0 shadow-sm">
+                                    {user.name ? user.name.charAt(0).toUpperCase() : "U"}
+                                  </div>
+                                )}
+                                <div>
+                                  <div className="flex items-center gap-1.5">
+                                    <p className="font-extrabold text-purple-950 group-hover:text-purple-700 transition-colors">{user.name}</p>
+                                    <span className={`text-[9px] font-black uppercase px-2 py-0.2 rounded-full border ${
+                                      user.role === "admin" ? "bg-purple-100 text-purple-800 border-purple-300" :
+                                      user.role === "author" ? "bg-amber-100 text-amber-900 border-amber-300" :
+                                      "bg-slate-100 text-slate-700 border-slate-200"
+                                    }`}>
+                                      {user.role || "reader"}
+                                    </span>
+                                  </div>
+                                  <p className="text-[11px] text-purple-600 font-medium">{user.email}</p>
+                                  {user.username && <p className="text-[10px] text-gray-400 font-mono">@{user.username}</p>}
+                                </div>
+                              </div>
+                            </td>
+
+                            <td className="p-3.5 text-gray-600 font-mono text-[11px]">
+                              <div className="flex items-center gap-1">
+                                <Calendar className="w-3.5 h-3.5 text-purple-400" />
+                                <span>{user.registeredAt || "N/A"}</span>
+                              </div>
+                            </td>
+
+                            <td className="p-3.5 text-purple-900 font-mono text-[11px]">
+                              <div className="flex items-center gap-1">
+                                <Clock className="w-3.5 h-3.5 text-indigo-400" />
+                                <span>{user.lastLogin || "N/A"}</span>
+                              </div>
+                              <span className="text-[9px] text-gray-400 block font-sans">
+                                {user.history ? user.history.length : 0} total page visits
+                              </span>
+                            </td>
+
+                            <td className="p-3.5 text-center">
+                              <span className="inline-flex items-center gap-1 bg-purple-100 text-purple-900 text-xs font-black px-2.5 py-1 rounded-full border border-purple-200">
+                                <BookOpen className="w-3.5 h-3.5 text-purple-600" />
+                                {userPublishedCount} articles
+                              </span>
+                            </td>
+
+                            <td className="p-3.5 text-center">
+                              {user.isBanned ? (
+                                <span className="inline-flex items-center gap-1 bg-red-100 text-red-800 text-[10px] font-black px-2.5 py-1 rounded-full border border-red-200 animate-pulse">
+                                  <Ban className="w-3 h-3" /> Suspended
+                                </span>
+                              ) : (
+                                <span className="inline-flex items-center gap-1 bg-emerald-100 text-emerald-800 text-[10px] font-black px-2.5 py-1 rounded-full border border-emerald-200">
+                                  <CheckCircle2 className="w-3 h-3" /> Active
+                                </span>
+                              )}
+                            </td>
+
+                            <td className="p-3.5 text-right">
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setSelectedUserControl(user);
+                                  setBanReasonInput(user.banReason || "");
+                                }}
+                                className="px-3 py-1.5 bg-purple-700 hover:bg-purple-800 text-white font-bold text-xs rounded-xl transition-all shadow-sm flex items-center gap-1.5 ml-auto cursor-pointer"
+                              >
+                                <Eye className="w-3.5 h-3.5" />
+                                <span>Control & Details</span>
+                              </button>
+                            </td>
+                          </tr>
+                        );
+                      })}
+
                     {users.length === 0 && (
                       <tr>
-                        <td colSpan={5} className="p-8 text-center text-gray-400">
-                          No users registered yet.
+                        <td colSpan={6} className="p-12 text-center text-gray-400">
+                          <Users className="w-8 h-8 mx-auto mb-2 text-purple-300" />
+                          <p className="font-bold">No registered users in database yet.</p>
                         </td>
                       </tr>
                     )}
                   </tbody>
                 </table>
               </div>
+
+              {/* DETAILED USER CONTROL & PROFILE MODAL */}
+              {selectedUserControl && (
+                <div className="fixed inset-0 z-[99999] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto">
+                  <div className="bg-white rounded-3xl max-w-3xl w-full border border-purple-100 shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200 my-8">
+                    
+                    {/* Modal Header */}
+                    <div className="bg-gradient-to-r from-purple-950 via-purple-900 to-indigo-950 p-6 text-white relative">
+                      <button 
+                        onClick={() => setSelectedUserControl(null)}
+                        className="absolute top-4 right-4 text-purple-200 hover:text-white bg-white/10 p-2 rounded-full transition-colors cursor-pointer"
+                        title="Close Modal"
+                      >
+                        <X className="w-5 h-5" />
+                      </button>
+
+                      <div className="flex flex-col sm:flex-row items-center gap-4">
+                        {selectedUserControl.avatarUrl ? (
+                          <img 
+                            src={selectedUserControl.avatarUrl} 
+                            alt={selectedUserControl.name} 
+                            className="w-16 h-16 rounded-full object-cover border-2 border-purple-300 shadow-md shrink-0" 
+                          />
+                        ) : (
+                          <div className="w-16 h-16 rounded-full bg-purple-600 text-white font-black text-xl flex items-center justify-center border-2 border-purple-300 shrink-0 shadow-md">
+                            {selectedUserControl.name ? selectedUserControl.name.charAt(0).toUpperCase() : "U"}
+                          </div>
+                        )}
+
+                        <div className="text-center sm:text-left">
+                          <div className="flex flex-wrap items-center justify-center sm:justify-start gap-2">
+                            <h2 className="text-xl font-black">{selectedUserControl.name}</h2>
+                            <span className={`text-[10px] font-black uppercase px-2.5 py-0.5 rounded-full border ${
+                              selectedUserControl.role === "admin" ? "bg-purple-800 text-purple-100 border-purple-500" :
+                              selectedUserControl.role === "author" ? "bg-amber-700 text-amber-100 border-amber-500" :
+                              "bg-slate-800 text-slate-200 border-slate-600"
+                            }`}>
+                              {selectedUserControl.role || "reader"}
+                            </span>
+                            {selectedUserControl.isBanned ? (
+                              <span className="bg-red-600 text-white text-[10px] font-black px-2.5 py-0.5 rounded-full uppercase flex items-center gap-1">
+                                <Ban className="w-3 h-3" /> Suspended
+                              </span>
+                            ) : (
+                              <span className="bg-emerald-600 text-white text-[10px] font-black px-2.5 py-0.5 rounded-full uppercase flex items-center gap-1">
+                                <CheckCircle2 className="w-3 h-3" /> Active Account
+                              </span>
+                            )}
+                          </div>
+                          <p className="text-xs text-purple-200 mt-1 font-mono">{selectedUserControl.email}</p>
+                          {selectedUserControl.username && (
+                            <p className="text-[11px] text-purple-300 font-mono mt-0.5">@{selectedUserControl.username}</p>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Modal Body */}
+                    <div className="p-6 space-y-6 max-h-[75vh] overflow-y-auto">
+                      
+                      {/* Account Metrics Grid */}
+                      <div>
+                        <h4 className="text-xs font-black text-purple-950 uppercase tracking-wider mb-3 flex items-center gap-1.5">
+                          <User className="w-4 h-4 text-purple-600" />
+                          Account Details & Timestamps
+                        </h4>
+                        
+                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                          <div className="p-3 bg-purple-50/70 border border-purple-100 rounded-2xl text-center">
+                            <span className="text-[10px] text-purple-500 font-bold block uppercase">Registered Date</span>
+                            <span className="text-xs font-black text-purple-950 block mt-1 font-mono">{selectedUserControl.registeredAt || "N/A"}</span>
+                          </div>
+
+                          <div className="p-3 bg-purple-50/70 border border-purple-100 rounded-2xl text-center">
+                            <span className="text-[10px] text-purple-500 font-bold block uppercase">Last Activity</span>
+                            <span className="text-xs font-black text-purple-950 block mt-1 font-mono">{selectedUserControl.lastLogin || "N/A"}</span>
+                          </div>
+
+                          <div className="p-3 bg-purple-50/70 border border-purple-100 rounded-2xl text-center">
+                            <span className="text-[10px] text-purple-500 font-bold block uppercase">Published Articles</span>
+                            <span className="text-sm font-black text-purple-950 block mt-0.5">
+                              {articles.filter((art) => art.author === selectedUserControl.name || art.author === selectedUserControl.username || (art as any).userEmail === selectedUserControl.email).length}
+                            </span>
+                          </div>
+
+                          <div className="p-3 bg-purple-50/70 border border-purple-100 rounded-2xl text-center">
+                            <span className="text-[10px] text-purple-500 font-bold block uppercase">Total Page Visits</span>
+                            <span className="text-sm font-black text-purple-950 block mt-0.5">
+                              {selectedUserControl.history ? selectedUserControl.history.length : 0}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Role & Role Control */}
+                      <div className="p-4 bg-purple-50/50 border border-purple-100 rounded-2xl space-y-3">
+                        <h4 className="text-xs font-black text-purple-950 uppercase tracking-wider flex items-center gap-1.5">
+                          <ShieldAlert className="w-4 h-4 text-purple-600" />
+                          User Role Settings
+                        </h4>
+                        <div className="flex items-center gap-3">
+                          <span className="text-xs text-purple-900 font-bold">Assign Account Role:</span>
+                          <select 
+                            value={selectedUserControl.role || "reader"}
+                            onChange={(e) => handleChangeUserRole(selectedUserControl, e.target.value as "reader" | "author" | "admin")}
+                            className="px-3 py-1.5 rounded-xl bg-white border border-purple-200 text-xs font-bold text-purple-950 focus:outline-none focus:border-purple-600 cursor-pointer"
+                          >
+                            <option value="reader">Reader (Standard User)</option>
+                            <option value="author">Author (Can Publish Articles)</option>
+                            <option value="admin">Administrator (Full Access)</option>
+                          </select>
+                        </div>
+                      </div>
+
+                      {/* BAN / SUSPEND CONTROL BOX */}
+                      <div className={`p-5 rounded-2xl border space-y-4 ${
+                        selectedUserControl.isBanned 
+                          ? "bg-red-50/60 border-red-200" 
+                          : "bg-amber-50/50 border-amber-200"
+                      }`}>
+                        <div className="flex items-center justify-between">
+                          <h4 className="text-xs font-black uppercase tracking-wider flex items-center gap-1.5 text-purple-950">
+                            <Ban className="w-4 h-4 text-red-600" />
+                            Account Status & Ban Control
+                          </h4>
+
+                          {selectedUserControl.isBanned ? (
+                            <span className="text-[10px] font-black bg-red-600 text-white px-3 py-1 rounded-full uppercase">
+                              Currently Suspended
+                            </span>
+                          ) : (
+                            <span className="text-[10px] font-black bg-emerald-600 text-white px-3 py-1 rounded-full uppercase">
+                              Active & Clear
+                            </span>
+                          )}
+                        </div>
+
+                        {selectedUserControl.isBanned && (
+                          <div className="p-3 bg-white rounded-xl border border-red-100 text-xs text-red-900 space-y-1">
+                            <p className="font-bold">Ban Reason:</p>
+                            <p className="italic text-gray-700">"{selectedUserControl.banReason || "No specific reason listed."}"</p>
+                            {selectedUserControl.bannedAt && (
+                              <p className="text-[10px] text-gray-400 font-mono">Banned on: {new Date(selectedUserControl.bannedAt).toLocaleString()}</p>
+                            )}
+                          </div>
+                        )}
+
+                        <div className="space-y-2">
+                          <label className="text-xs font-bold text-gray-700 block">
+                            Ban / Suspension Reason Note:
+                          </label>
+                          <input 
+                            type="text"
+                            value={banReasonInput}
+                            onChange={(e) => setBanReasonInput(e.target.value)}
+                            placeholder="e.g. Violation of community guidelines / Spam content"
+                            className="w-full px-3 py-2 bg-white rounded-xl border border-gray-200 text-xs focus:outline-none focus:border-red-500 text-gray-900"
+                          />
+                        </div>
+
+                        <div className="flex flex-wrap items-center justify-between gap-3 pt-2">
+                          {selectedUserControl.isBanned ? (
+                            <button
+                              onClick={() => handleBanUserToggle(selectedUserControl, false)}
+                              className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-black text-xs rounded-xl shadow cursor-pointer flex items-center gap-1.5"
+                            >
+                              <UserCheck className="w-4 h-4" />
+                              <span>Reactivate / Unban Account</span>
+                            </button>
+                          ) : (
+                            <button
+                              onClick={() => handleBanUserToggle(selectedUserControl, true)}
+                              className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white font-black text-xs rounded-xl shadow cursor-pointer flex items-center gap-1.5"
+                            >
+                              <UserX className="w-4 h-4" />
+                              <span>Suspend & Ban Account</span>
+                            </button>
+                          )}
+
+                          <button
+                            onClick={() => handleDeleteUserAccount(selectedUserControl)}
+                            className="px-4 py-2 bg-red-100 hover:bg-red-200 text-red-700 font-bold text-xs rounded-xl cursor-pointer flex items-center gap-1.5 ml-auto border border-red-200"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                            <span>Permanently Delete Account</span>
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* ARTICLES PUBLISHED BY THIS USER */}
+                      <div>
+                        <h4 className="text-xs font-black text-purple-950 uppercase tracking-wider mb-3 flex items-center gap-1.5">
+                          <BookOpen className="w-4 h-4 text-purple-600" />
+                          Published Articles by {selectedUserControl.name}
+                        </h4>
+
+                        {(() => {
+                          const userArts = articles.filter(
+                            (art) => art.author === selectedUserControl.name || art.author === selectedUserControl.username || (art as any).userEmail === selectedUserControl.email
+                          );
+                          if (userArts.length === 0) {
+                            return (
+                              <div className="p-4 bg-gray-50 rounded-xl text-center text-xs text-gray-400">
+                                This user has not published any articles yet.
+                              </div>
+                            );
+                          }
+                          return (
+                            <div className="space-y-2 max-h-48 overflow-y-auto">
+                              {userArts.map((art) => (
+                                <div key={art.id} className="p-3 bg-purple-50/40 border border-purple-100 rounded-xl flex items-center justify-between">
+                                  <div>
+                                    <p className="text-xs font-bold text-purple-950">{art.title}</p>
+                                    <p className="text-[10px] text-gray-500">{art.date} • {art.category}</p>
+                                  </div>
+                                  <span className="text-[10px] font-mono text-purple-700 font-bold bg-purple-100 px-2 py-0.5 rounded-full">
+                                    {art.likes || 0} likes
+                                  </span>
+                                </div>
+                              ))}
+                            </div>
+                          );
+                        })()}
+                      </div>
+
+                    </div>
+
+                    {/* Modal Footer */}
+                    <div className="bg-purple-50/80 p-4 border-t border-purple-100 flex justify-end">
+                      <button 
+                        onClick={() => setSelectedUserControl(null)}
+                        className="px-5 py-2 bg-purple-900 text-white font-bold text-xs rounded-xl hover:bg-purple-950 cursor-pointer"
+                      >
+                        Close Control Panel
+                      </button>
+                    </div>
+
+                  </div>
+                </div>
+              )}
             </div>
           )}
 
