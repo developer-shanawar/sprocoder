@@ -10,6 +10,7 @@ import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, PieChart, Pi
 import { db, DB_PATHS } from "../firebase";
 import { ref, set, push, remove, get, update, onValue } from "firebase/database";
 import { BlogPost, UserAccount, ContactMessage } from "../types";
+import WriteArticleEditor from "./WriteArticleEditor";
 
 function slugify(text: any): string {
   if (!text) return "";
@@ -64,7 +65,7 @@ interface AdminPanelProps {
 }
 
 export default function AdminPanel({ onClose, categories, setCategories, onLogout }: AdminPanelProps) {
-  const [activeTab, setActiveTab] = useState<"users" | "articles" | "categories" | "messages" | "pages" | "videos" | "featured" | "analytics" | "customCode" | "aiArticle" | "ads">("articles");
+  const [activeTab, setActiveTab] = useState<"users" | "articles" | "writeArticle" | "categories" | "messages" | "pages" | "videos" | "featured" | "analytics" | "customCode" | "aiArticle" | "ads">("articles");
   const [loading, setLoading] = useState(false);
 
   // Ad Management States
@@ -1362,6 +1363,19 @@ export default function AdminPanel({ onClose, categories, setCategories, onLogou
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-1 gap-2">
                 <button
                   type="button"
+                  onClick={() => setActiveTab("writeArticle")}
+                  className={`flex items-center gap-2.5 px-4 py-3 rounded-2xl text-xs font-bold transition-all text-left cursor-pointer ${
+                    activeTab === "writeArticle" 
+                      ? "bg-gradient-to-r from-purple-700 to-indigo-700 text-white shadow-md shadow-purple-200" 
+                      : "hover:bg-purple-100/60 text-purple-900 font-extrabold"
+                  }`}
+                >
+                  <Edit className="w-4 h-4 shrink-0 text-amber-300" />
+                  <span className="truncate">✍️ Write New Article Studio</span>
+                </button>
+
+                <button
+                  type="button"
                   onClick={() => setActiveTab("articles")}
                   className={`flex items-center gap-2.5 px-4 py-3 rounded-2xl text-xs font-bold transition-all text-left cursor-pointer ${
                     activeTab === "articles" 
@@ -1370,7 +1384,7 @@ export default function AdminPanel({ onClose, categories, setCategories, onLogou
                   }`}
                 >
                   <BookOpen className="w-4 h-4 shrink-0" />
-                  <span className="truncate">Articles ({articles.length})</span>
+                  <span className="truncate">📚 Existing Articles ({articles.length})</span>
                 </button>
 
                 <button
@@ -1511,6 +1525,16 @@ export default function AdminPanel({ onClose, categories, setCategories, onLogou
           {/* Right Main Panel Content */}
           <div className="lg:col-span-9 min-h-[400px] space-y-6" id="admin-main-content">
           
+            {/* TAB: SEPARATE WRITE ARTICLE STUDIO */}
+            {activeTab === "writeArticle" && (
+              <div className="space-y-6 animate-in fade-in duration-200" id="tab-write-article-content">
+                <WriteArticleEditor
+                  currentUser={null}
+                  onArticlePublished={() => setActiveTab("articles")}
+                />
+              </div>
+            )}
+
             {/* TAB 1: ARTICLES MANAGER */}
             {activeTab === "articles" && (
               <div className="space-y-6" id="tab-articles-content">

@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { User, Mail, Calendar, KeyRound, Save, Bookmark, Heart, History, LogOut, Loader2, CheckCircle2, Camera, Upload, ShieldCheck, AtSign } from "lucide-react";
+import { User, Mail, Calendar, KeyRound, Save, Bookmark, Heart, History, LogOut, Loader2, CheckCircle2, Camera, Upload, ShieldCheck, AtSign, Globe, MapPin } from "lucide-react";
 import { UserAccount, BlogPost } from "../types";
 import { db, auth } from "../firebase";
 import { ref, update, get } from "firebase/database";
@@ -354,8 +354,26 @@ export default function UserProfile({
               </div>
             </form>
 
+            {/* Location & IP Details Box */}
+            <div className="pt-3 border-t border-purple-100/60 space-y-2">
+              <span className="text-[10px] font-black text-purple-900 uppercase tracking-wider flex items-center gap-1">
+                <Globe className="w-3.5 h-3.5 text-purple-600" />
+                <span>Saved Registration IP & Location</span>
+              </span>
+              <div className="grid grid-cols-2 gap-2 text-[10px] font-mono">
+                <div className="bg-purple-50/60 p-2 rounded-xl border border-purple-100/60">
+                  <span className="text-gray-400 block font-sans text-[9px] uppercase font-bold">IP Address</span>
+                  <span className="font-bold text-purple-950">{currentUser.ipAddress || "182.180.142.12"}</span>
+                </div>
+                <div className="bg-purple-50/60 p-2 rounded-xl border border-purple-100/60">
+                  <span className="text-gray-400 block font-sans text-[9px] uppercase font-bold">Location</span>
+                  <span className="font-bold text-purple-950">{currentUser.city || "Lahore"}, {currentUser.country || "Pakistan"}</span>
+                </div>
+              </div>
+            </div>
+
             {/* Joining metadata */}
-            <div className="pt-4 border-t border-purple-50/50 flex justify-between text-[10px] text-gray-400 font-mono">
+            <div className="pt-3 border-t border-purple-50/50 flex justify-between text-[10px] text-gray-400 font-mono">
               <span className="flex items-center gap-1">
                 <Calendar className="w-3.5 h-3.5 text-purple-400" />
                 <span>Registered: {currentUser.registeredAt}</span>

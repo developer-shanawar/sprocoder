@@ -43,6 +43,9 @@ export interface BlogPost {
   publishStatus?: "direct" | "scheduled";
   scheduledDate?: string;
   visibility?: "public" | "private";
+  seoFormatted?: boolean;
+  schemaMarkup?: string;
+  canonicalUrl?: string;
 }
 
 export interface HistoryEntry {
@@ -56,10 +59,15 @@ export interface UserAccount {
   id: string;
   name: string;
   email: string;
+  password?: string;
   registeredAt: string;
   lastLogin: string;
   username?: string; // e.g. @shanawar
   avatarUrl?: string; // profile picture URL
+  ipAddress?: string; // User IP Address
+  country?: string; // User Country
+  city?: string; // User City
+  region?: string; // User State / Region
   savedArticles?: string[]; // list of post ids
   likedArticles?: string[]; // list of liked post ids
   history?: HistoryEntry[]; // list of reading logs

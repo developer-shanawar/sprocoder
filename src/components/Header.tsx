@@ -7,6 +7,7 @@ import { db, DB_PATHS, auth } from "../firebase";
 import { ref, set, get, update, push, onValue } from "firebase/database";
 import { signInWithEmailAndPassword, createUserWithEmailAndPassword, signInWithPopup, GoogleAuthProvider } from "firebase/auth";
 import { BlogPost, UserAccount, NotificationItem } from "../types";
+import RegistrationWizardModal from "./RegistrationWizardModal";
 import { motion, AnimatePresence } from "motion/react";
 
 interface HeaderProps {
@@ -45,8 +46,22 @@ export default function Header({
 }: HeaderProps) {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
+  const [isRegisterWizardOpen, setIsRegisterWizardOpen] = useState(false);
+  const [existingUsers, setExistingUsers] = useState<UserAccount[]>([]);
   const [authMode, setAuthMode] = useState<"login" | "register">("login");
   const [isProfileOpen, setIsProfileOpen] = useState(false);
+
+  // Sync users for username uniqueness check
+  useEffect(() => {
+    const usersRef = ref(db, DB_PATHS.USERS);
+    const unsub = onValue(usersRef, (snapshot) => {
+      if (snapshot.exists()) {
+        const data = snapshot.val();
+        setExistingUsers(Object.values(data));
+      }
+    });
+    return () => unsub();
+  }, []);
 
   // Check if current user email is an admin email
   const isAdminUser = currentUser && currentUser.email && (
@@ -552,17 +567,27 @@ export default function Header({
               </AnimatePresence>
             </div>
           ) : (
-            <button
-              onClick={() => {
-                setAuthMode("login");
-                setIsAuthModalOpen(true);
-              }}
-              className="px-4 py-1.5 rounded-full bg-purple-600 hover:bg-purple-700 text-white text-xs font-bold flex items-center gap-1 cursor-pointer transition-all active:scale-95 hover:shadow-md"
-              id="auth-trigger-btn"
-            >
-              <LogIn className="w-3.5 h-3.5" />
-              <span>Sign In</span>
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => {
+                  setAuthMode("login");
+                  setIsAuthModalOpen(true);
+                }}
+                className="px-3.5 py-1.5 rounded-full bg-purple-100 hover:bg-purple-200 text-purple-950 text-xs font-bold flex items-center gap-1 cursor-pointer transition-all active:scale-95"
+                id="auth-login-trigger-btn"
+              >
+                <LogIn className="w-3.5 h-3.5 text-purple-700" />
+                <span>Sign In</span>
+              </button>
+              <button
+                onClick={() => setIsRegisterWizardOpen(true)}
+                className="px-4 py-1.5 rounded-full bg-purple-600 hover:bg-purple-700 text-white text-xs font-bold flex items-center gap-1 cursor-pointer transition-all active:scale-95 shadow-sm"
+                id="auth-register-wizard-btn"
+              >
+                <Sparkles className="w-3.5 h-3.5 text-purple-300" />
+                <span>Register</span>
+              </button>
+            </div>
           )}
 
           {/* Mobile Hamburguer Menu Button */}
@@ -755,12 +780,15 @@ export default function Header({
 
               <div className="border-t border-purple-100 pt-3 flex flex-col gap-2">
                 <p className="text-[10px] text-center text-gray-500">
-                  {authMode === "login" ? "New user?" : "Already registered?"}{" "}
+                  New user?{" "}
                   <button
-                    onClick={() => setAuthMode(authMode === "login" ? "register" : "login")}
-                    className="text-purple-600 font-bold hover:underline"
+                    onClick={() => {
+                      setIsAuthModalOpen(false);
+                      setIsRegisterWizardOpen(true);
+                    }}
+                    className="text-purple-600 font-bold hover:underline cursor-pointer"
                   >
-                    {authMode === "login" ? "Register now" : "Sign in instead"}
+                    Launch Step-by-Step Registration Wizard
                   </button>
                 </p>
               </div>
@@ -776,6 +804,17 @@ export default function Header({
           </div>
         )}
       </AnimatePresence>
+
+      {/* 4-Step User Registration Wizard */}
+      <RegistrationWizardModal
+        isOpen={isRegisterWizardOpen}
+        onClose={() => setIsRegisterWizardOpen(false)}
+        onSuccessLogin={(registeredUser) => {
+          setCurrentUser(registeredUser);
+          setIsRegisterWizardOpen(false);
+        }}
+        existingUsers={existingUsers}
+      />
     </>
   );
 }
