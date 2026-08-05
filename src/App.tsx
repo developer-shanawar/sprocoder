@@ -1483,8 +1483,81 @@ export default function App() {
     }, 100);
   };
 
+  const trackCategoryInterest = (category: string) => {
+    if (!category || typeof window === "undefined") return;
+    try {
+      const raw = localStorage.getItem("sprocoder_category_interest");
+      const counts: Record<string, number> = raw ? JSON.parse(raw) : {};
+      counts[category] = (counts[category] || 0) + 1;
+      localStorage.setItem("sprocoder_category_interest", JSON.stringify(counts));
+    } catch (e) {
+      console.error("Failed to track category interest:", e);
+    }
+  };
+
+  // Top-performing articles based on engagement algorithm (likes, saves, views)
+  const topPerformingArticles = React.useMemo(() => {
+    if (!allPosts || allPosts.length === 0) return [];
+    return [...allPosts]
+      .filter((p) => p.visibility === "public")
+      .sort((a, b) => {
+        const scoreA = (a.likes || 0) * 4 + (a.savesCount || 0) * 5 + (a.views || 0) * 2;
+        const scoreB = (b.likes || 0) * 4 + (b.savesCount || 0) * 5 + (b.views || 0) * 2;
+        return scoreB - scoreA;
+      })
+      .slice(0, 3);
+  }, [allPosts]);
+
+  // User preferred categories extracted from reading memory
+  const userPreferredCategoryList = React.useMemo(() => {
+    if (typeof window === "undefined") return [];
+    try {
+      const raw = localStorage.getItem("sprocoder_category_interest");
+      if (!raw) return [];
+      const counts: Record<string, number> = JSON.parse(raw);
+      return Object.entries(counts)
+        .sort((a, b) => b[1] - a[1])
+        .map(([cat]) => cat);
+    } catch (e) {
+      return [];
+    }
+  }, [allPosts, selectedPost]);
+
+  // Personalized "Recommended For You" articles matching user interest categories
+  const userRecommendedArticles = React.useMemo(() => {
+    if (!allPosts || allPosts.length === 0) return [];
+    const topCats = userPreferredCategoryList;
+
+    if (topCats.length > 0) {
+      const matched = allPosts.filter((p) => p.visibility === "public" && topCats.includes(p.category));
+      if (matched.length > 0) {
+        return matched
+          .sort((a, b) => {
+            const scoreA = (a.likes || 0) * 3 + (a.savesCount || 0) * 4 + (a.views || 0);
+            const scoreB = (b.likes || 0) * 3 + (b.savesCount || 0) * 4 + (b.views || 0);
+            return scoreB - scoreA;
+          })
+          .slice(0, 3);
+      }
+    }
+
+    // Fallback: top 3 engagement articles
+    return [...allPosts]
+      .filter((p) => p.visibility === "public")
+      .sort((a, b) => {
+        const scoreA = (a.likes || 0) * 3 + (a.savesCount || 0) * 4 + (a.views || 0);
+        const scoreB = (b.likes || 0) * 3 + (b.savesCount || 0) * 4 + (b.views || 0);
+        return scoreB - scoreA;
+      })
+      .slice(0, 3);
+  }, [allPosts, userPreferredCategoryList]);
+
   // Selected article reading and history log push
   const handleSelectPost = async (post: BlogPost) => {
+    if (post.category) {
+      trackCategoryInterest(post.category);
+    }
+
     // Increment views in the database
     const currentViews = post.views || 0;
     const currentArticleViews = post.articleViews || currentViews;
@@ -1834,6 +1907,132 @@ export default function App() {
                 <AdRenderer code={adsConfig.belowFeatured} placementId="belowFeatured" />
               </div>
             )}
+
+            {/* PERSONALIZED RECOMMENDATION & TOP PERFORMING ARTICLES CAROUSEL/GRID */}
+            <div className="space-y-6" id="home-personalized-recommendations">
+              {/* 1. RECOMMENDED FOR YOU (PERSONALIZED BY READING HISTORY) */}
+              <div className="bg-white/60 border-2 border-black rounded-[28px] p-5 shadow-sm space-y-4 backdrop-blur-sm">
+                <div className="flex items-center justify-between border-b border-purple-100 pb-3">
+                  <div className="flex items-center gap-2">
+                    <Sparkles className="w-4 h-4 text-amber-500 fill-amber-500" />
+                    <h3 className="font-sans font-black text-purple-950 text-xs sm:text-sm uppercase tracking-wider">
+                      Recommended For You
+                    </h3>
+                  </div>
+                  {userPreferredCategoryList.length > 0 ? (
+                    <span className="text-[10px] bg-purple-100 text-purple-800 font-extrabold px-2.5 py-1 rounded-full uppercase tracking-wider">
+                      Based on: {userPreferredCategoryList[0]}
+                    </span>
+                  ) : (
+                    <span className="text-[10px] bg-emerald-100 text-emerald-800 font-extrabold px-2.5 py-1 rounded-full uppercase tracking-wider">
+                      Curated Content
+                    </span>
+                  )}
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  {userRecommendedArticles.map((rec) => {
+                    const recUrl = `/blog/${slugify(rec.title)}`;
+                    return (
+                      <a
+                        key={`rec-${rec.id}`}
+                        href={recUrl}
+                        onClick={(e) => {
+                          if (!e.ctrlKey && !e.metaKey && !e.shiftKey && e.button === 0) {
+                            e.preventDefault();
+                            handleSelectPost(rec);
+                          }
+                        }}
+                        className="group bg-white border border-purple-100 rounded-2xl p-3 hover:border-purple-300 hover:shadow-md transition-all flex flex-col justify-between space-y-2 no-underline"
+                      >
+                        <div className="space-y-2">
+                          <div className="relative aspect-video w-full rounded-xl overflow-hidden bg-slate-900 shrink-0">
+                            <img
+                              src={rec.thumbnailUrl}
+                              alt={rec.title}
+                              className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+                              loading="lazy"
+                            />
+                            <span className="absolute top-2 left-2 text-[8px] bg-purple-950/90 text-white px-2 py-0.5 rounded font-mono font-bold uppercase tracking-wider">
+                              {rec.category}
+                            </span>
+                          </div>
+                          <h4 className="text-xs font-bold text-purple-950 group-hover:text-purple-700 transition-colors line-clamp-2 leading-snug">
+                            {rec.title}
+                          </h4>
+                        </div>
+                        <div className="flex items-center justify-between text-[10px] text-gray-500 font-mono border-t border-purple-50 pt-2">
+                          <span>{rec.readTime || "5 min read"}</span>
+                          <span className="flex items-center gap-1 text-purple-600 font-bold">
+                            <Eye className="w-3 h-3" />
+                            {rec.views || 0}
+                          </span>
+                        </div>
+                      </a>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* 2. TOP PERFORMING ARTICLES (HIGH ENGAGEMENT) */}
+              <div className="bg-gradient-to-r from-purple-900 via-indigo-900 to-slate-900 text-white border-2 border-black rounded-[28px] p-5 shadow-md space-y-4">
+                <div className="flex items-center justify-between border-b border-purple-700/60 pb-3">
+                  <div className="flex items-center gap-2">
+                    <Flame className="w-5 h-5 text-amber-400 fill-amber-400" />
+                    <h3 className="font-sans font-black text-xs sm:text-sm uppercase tracking-wider text-amber-300">
+                      Top Performing Articles
+                    </h3>
+                  </div>
+                  <span className="text-[10px] bg-amber-400/20 text-amber-300 font-mono font-bold px-2.5 py-0.5 rounded-full border border-amber-400/30">
+                    Highest Engagement
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  {topPerformingArticles.map((topArt, index) => {
+                    const topUrl = `/blog/${slugify(topArt.title)}`;
+                    const rankBadges = ["#1 TOP READ", "#2 TRENDING", "#3 POPULAR"];
+                    return (
+                      <a
+                        key={`top-${topArt.id}`}
+                        href={topUrl}
+                        onClick={(e) => {
+                          if (!e.ctrlKey && !e.metaKey && !e.shiftKey && e.button === 0) {
+                            e.preventDefault();
+                            handleSelectPost(topArt);
+                          }
+                        }}
+                        className="group bg-white/10 hover:bg-white/15 border border-white/10 rounded-2xl p-3.5 transition-all flex flex-col justify-between space-y-2 no-underline"
+                      >
+                        <div className="space-y-2">
+                          <div className="flex items-center justify-between">
+                            <span className="text-[9px] bg-amber-400 text-slate-950 font-black px-2 py-0.5 rounded tracking-wider">
+                              {rankBadges[index] || `#${index + 1}`}
+                            </span>
+                            <span className="text-[9px] text-purple-200 font-mono">
+                              {topArt.category}
+                            </span>
+                          </div>
+                          <h4 className="text-xs font-bold text-white group-hover:text-amber-300 transition-colors line-clamp-2 leading-snug">
+                            {topArt.title}
+                          </h4>
+                        </div>
+                        <div className="flex items-center justify-between text-[10px] text-purple-200 font-mono border-t border-white/10 pt-2">
+                          <span className="flex items-center gap-1">
+                            <Heart className="w-3 h-3 text-rose-400 fill-rose-400" />
+                            {topArt.likes || 0}
+                          </span>
+                          <span className="flex items-center gap-1 text-amber-300 font-bold">
+                            <Eye className="w-3 h-3" />
+                            {topArt.views || 0} views
+                          </span>
+                        </div>
+                      </a>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
 
             {/* Three Column Grid: Left Category Filters (up to 10) | Middle Feed | Right search & social widgets */}
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">

@@ -622,27 +622,52 @@ export default function AdminPanel({ onClose, categories, setCategories, onLogou
     };
   }, []);
 
-  // AI Article Engine Automated Scheduler Effect
+  // AI Article Engine Automated Scheduler & 24-Hour Fallback Safeguard Effect
   useEffect(() => {
-    if (!aiScheduleEnabled || !aiScheduleTime) return;
+    const checkInterval = setInterval(async () => {
+      if (!aiScheduleEnabled) return;
 
-    const interval = setInterval(() => {
       const now = new Date();
       const currentHours = String(now.getHours()).padStart(2, "0");
       const currentMinutes = String(now.getMinutes()).padStart(2, "0");
       const currentTimeStr = `${currentHours}:${currentMinutes}`;
 
-      if (currentTimeStr === aiScheduleTime) {
+      // 1. Time-based schedule trigger
+      if (aiScheduleTime && currentTimeStr === aiScheduleTime) {
         const timeSinceLast = Date.now() - aiLastExecutionTime;
         if (timeSinceLast >= 120000) {
-          console.log(`[AI Engine Scheduler] Triggering automated execution at ${currentTimeStr}...`);
+          console.log(`[AI Engine Scheduler] Triggering scheduled execution at ${currentTimeStr}...`);
+          handleRunAiArticleGen(true);
+        }
+      }
+
+      // 2. 24-Hour Auto System Detection Safeguard
+      // Check if any article was published in the past 24 hours (86,400,000 ms)
+      if (articles && articles.length > 0) {
+        const lastPost = articles[0];
+        let lastPostTime = 0;
+        if (lastPost.date) {
+          const parsed = new Date(lastPost.date).getTime();
+          if (!isNaN(parsed)) lastPostTime = parsed;
+        }
+
+        const nowMs = Date.now();
+        const timeSinceLastPost = lastPostTime > 0 ? (nowMs - lastPostTime) : (nowMs - aiLastExecutionTime);
+
+        // If no post published in past 24 hours AND 10 min buffer since last execution
+        if (timeSinceLastPost > 86400000 && (nowMs - aiLastExecutionTime > 600000)) {
+          console.log("[24-Hour Safeguard] System detected NO article published in 24 hours! Triggering auto-publish...");
+          setAiLogs((prev) => [
+            `[${new Date().toLocaleTimeString()}] ⚡ 24-Hour Safeguard Alert: No article published in past 24 hours. Auto-generating fresh content now...`,
+            ...prev.slice(0, 49)
+          ]);
           handleRunAiArticleGen(true);
         }
       }
     }, 30000);
 
-    return () => clearInterval(interval);
-  }, [aiScheduleEnabled, aiScheduleTime, aiSelectedCategory, aiLastExecutionTime, geminiApiKey]);
+    return () => clearInterval(checkInterval);
+  }, [aiScheduleEnabled, aiScheduleTime, aiSelectedCategory, aiLastExecutionTime, articles]);
 
   // Handle ImgBB upload
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -871,6 +896,47 @@ export default function AdminPanel({ onClose, categories, setCategories, onLogou
     }
   };
 
+  const syncLegalPagesWithContent = async (latestTitle?: string, latestCategory?: string) => {
+    try {
+      const today = new Date().toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" });
+      const pagesRef = ref(db, DB_PATHS.PAGES);
+      const snapshot = await get(pagesRef);
+      const pagesData = snapshot.exists() ? snapshot.val() : {};
+
+      const currentPrivacy = pagesData.privacyPolicy || "";
+      const currentDisclaimer = pagesData.disclaimerContent || "";
+
+      let updatedPrivacy = currentPrivacy;
+      let updatedDisclaimer = currentDisclaimer;
+      let privacyUpdated = false;
+      let disclaimerUpdated = false;
+
+      if (!currentPrivacy.includes("AI Content Generation & Privacy Disclosure")) {
+        updatedPrivacy += `\n\n### AI Content Generation & Privacy Disclosure\nLast Updated: ${today}\n` +
+          `Articles published on S Pro Coder (including content in ${latestCategory || "technology"}) may be generated or enhanced using artificial intelligence models (such as Google Gemini 3.5 Flash) under human editorial oversight. No personal data is stored during automated content processing.`;
+        privacyUpdated = true;
+      }
+
+      if (!currentDisclaimer.includes("Automated Content & Technical Disclaimer")) {
+        updatedDisclaimer += `\n\n### Automated Content & Technical Disclaimer\nLast Updated: ${today}\n` +
+          `Technical tutorials, source code snippets, and automated analysis on S Pro Coder are provided for educational and research purposes. Readers should test code configurations in sandbox environments before deploying to production systems.`;
+        disclaimerUpdated = true;
+      }
+
+      if (privacyUpdated || disclaimerUpdated) {
+        await update(pagesRef, {
+          privacyPolicy: updatedPrivacy,
+          disclaimerContent: updatedDisclaimer
+        });
+        return true;
+      }
+      return false;
+    } catch (err) {
+      console.error("Legal Pages Auto-Sync Error:", err);
+      return false;
+    }
+  };
+
   const handleRunAiArticleGen = async (isAutomatedTrigger = false) => {
     const targetCat = aiSelectedCategory || (categories && categories.length > 0 ? categories[0] : "Artificial Intelligence");
 
@@ -938,19 +1004,25 @@ export default function AdminPanel({ onClose, categories, setCategories, onLogou
 
       await set(ref(db, `${DB_PATHS.ARTICLES}/${generatedId}`), fullArticlePayload);
 
+      // Auto-sync Privacy Policy & Disclaimer pages
+      const legalUpdated = await syncLegalPagesWithContent(newPost.title, targetCat);
+      if (legalUpdated) {
+        addLog("✓ Legal Compliance: Privacy Policy & Disclaimer automatically synchronized for new AI content release.");
+      }
+
       // Add notification
       const newNotifRef = push(ref(db, DB_PATHS.NOTIFICATIONS));
       await set(newNotifRef, {
         id: newNotifRef.key,
         title: "AI Engine Article Published!",
-        body: `"${newPost.title}" in ${targetCat} has been automatically generated and published live!`,
+        body: `"${newPost.title}" in ${targetCat} has been automatically generated and published live! Legal disclosures updated.`,
         date: new Date().toLocaleDateString("en-US", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" }),
         isRead: false
       });
 
       setAiLastExecutionTime(now);
       setAiGeneratedArticle(fullArticlePayload);
-      setAiSuccessMessage(`Article "${newPost.title}" generated and published live!`);
+      setAiSuccessMessage(`Article "${newPost.title}" generated and published live! Legal pages synchronized.`);
       addLog(`✓ SUCCESS: Article published live under category "${targetCat}"!`);
     } catch (err: any) {
       console.error("AI Article Generation Error:", err);

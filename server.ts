@@ -763,7 +763,7 @@ function escapeXml(unsafe: string): string {
     .replace(/'/g, "&apos;");
 }
 
-function wrapTextLines(text: string, maxCharsPerLine: number = 30): string[] {
+function wrapTextLines(text: string, maxCharsPerLine: number = 28): string[] {
   const words = text.split(" ");
   const lines: string[] = [];
   let currentLine = "";
@@ -780,19 +780,112 @@ function wrapTextLines(text: string, maxCharsPerLine: number = 30): string[] {
   return lines.slice(0, 3); // Max 3 lines
 }
 
-// Dynamic 16:9 SVG Thumbnail Generator
+// Dynamic 16:9 SVG Thumbnail Generator with Multiple Color & Shape Variants
 export function generateArticleThumbnailSvg({
   category,
   title,
-  websiteName = "sprocoder.online"
+  websiteName = "sprocoder.online",
+  variantIndex
 }: {
   category: string;
   title: string;
   websiteName?: string;
+  variantIndex?: number;
 }): string {
   const safeCat = escapeXml((category || "TECH").toUpperCase());
   const safeWeb = escapeXml(websiteName || "sprocoder.online");
-  const lines = wrapTextLines(title || "Best 10 AI Tools", 28);
+  const lines = wrapTextLines(title || "Best 10 AI Tools", 26);
+
+  // Determine color and shape variant
+  const titleHash = String(title || "article").split("").reduce((acc, char) => acc + char.charCodeAt(0), 0);
+  const v = (variantIndex !== undefined && !isNaN(variantIndex)) 
+    ? Math.abs(variantIndex) % 6 
+    : Math.abs(titleHash) % 6;
+
+  // Variant Color Palettes & Shapes
+  const VARIANTS = [
+    // 0: Emerald Cyberspace
+    {
+      bgGrad: `<stop offset="0%" stop-color="#051016"/><stop offset="50%" stop-color="#022c22"/><stop offset="100%" stop-color="#064e3b"/>`,
+      accentGrad: `<stop offset="0%" stop-color="#10b981"/><stop offset="100%" stop-color="#06b6d4"/>`,
+      orb1: "#10b981", orb2: "#06b6d4",
+      stroke: "#34d399",
+      webColor: "#10b981", webSub: "#6ee7b7",
+      badgeText: "#ffffff",
+      shapes: `<circle cx="160" cy="140" r="280" fill="#10b981" opacity="0.18" filter="blur(70px)"/>
+               <circle cx="1120" cy="580" r="280" fill="#06b6d4" opacity="0.18" filter="blur(70px)"/>
+               <path d="M 0 120 L 1280 120 M 0 240 L 1280 240 M 0 360 L 1280 360 M 0 480 L 1280 480 M 0 600 L 1280 600" stroke="#ffffff" stroke-opacity="0.04" stroke-width="1"/>
+               <path d="M 213 0 L 213 720 M 426 0 L 426 720 M 640 0 L 640 720 M 853 0 L 853 720 M 1066 0 L 1066 720" stroke="#ffffff" stroke-opacity="0.04" stroke-width="1"/>`
+    },
+    // 1: Cyber Violet & Electric Neon
+    {
+      bgGrad: `<stop offset="0%" stop-color="#0d0722"/><stop offset="50%" stop-color="#2e1065"/><stop offset="100%" stop-color="#4c1d95"/>`,
+      accentGrad: `<stop offset="0%" stop-color="#a855f7"/><stop offset="100%" stop-color="#ec4899"/>`,
+      orb1: "#a855f7", orb2: "#ec4899",
+      stroke: "#c084fc",
+      webColor: "#a855f7", webSub: "#e9d5ff",
+      badgeText: "#ffffff",
+      shapes: `<circle cx="200" cy="520" r="300" fill="#a855f7" opacity="0.22" filter="blur(80px)"/>
+               <circle cx="1080" cy="160" r="260" fill="#ec4899" opacity="0.2" filter="blur(80px)"/>
+               <rect x="100" y="480" width="120" height="120" rx="20" fill="none" stroke="#a855f7" stroke-opacity="0.15" stroke-width="2" transform="rotate(25 100 480)"/>
+               <rect x="1000" y="100" width="160" height="160" rx="30" fill="none" stroke="#ec4899" stroke-opacity="0.15" stroke-width="2" transform="rotate(-15 1000 100)"/>`
+    },
+    // 2: Sunset Crimson & Amber Gold
+    {
+      bgGrad: `<stop offset="0%" stop-color="#180309"/><stop offset="50%" stop-color="#450a0a"/><stop offset="100%" stop-color="#7f1d1d"/>`,
+      accentGrad: `<stop offset="0%" stop-color="#f43f5e"/><stop offset="100%" stop-color="#f59e0b"/>`,
+      orb1: "#f43f5e", orb2: "#f59e0b",
+      stroke: "#fb7185",
+      webColor: "#f43f5e", webSub: "#fecdd3",
+      badgeText: "#ffffff",
+      shapes: `<circle cx="150" cy="150" r="280" fill="#f43f5e" opacity="0.2" filter="blur(75px)"/>
+               <circle cx="1100" cy="550" r="300" fill="#f59e0b" opacity="0.18" filter="blur(75px)"/>
+               <line x1="-100" y1="200" x2="1380" y2="500" stroke="#f59e0b" stroke-opacity="0.08" stroke-width="3"/>
+               <line x1="-100" y1="240" x2="1380" y2="540" stroke="#f43f5e" stroke-opacity="0.08" stroke-width="2"/>`
+    },
+    // 3: Oceanic Azure & Sapphire
+    {
+      bgGrad: `<stop offset="0%" stop-color="#030712"/><stop offset="50%" stop-color="#0f172a"/><stop offset="100%" stop-color="#1e3a8a"/>`,
+      accentGrad: `<stop offset="0%" stop-color="#0284c7"/><stop offset="100%" stop-color="#38bdf8"/>`,
+      orb1: "#0284c7", orb2: "#38bdf8",
+      stroke: "#38bdf8",
+      webColor: "#38bdf8", webSub: "#bae6fd",
+      badgeText: "#ffffff",
+      shapes: `<circle cx="1100" cy="180" r="320" fill="#0284c7" opacity="0.22" filter="blur(80px)"/>
+               <circle cx="180" cy="580" r="260" fill="#38bdf8" opacity="0.18" filter="blur(80px)"/>
+               <polygon points="1100,50 1200,200 1000,180" fill="#0284c7" opacity="0.06"/>
+               <polygon points="100,500 250,650 50,600" fill="#38bdf8" opacity="0.06"/>`
+    },
+    // 4: Obsidian Gold & Emerald Luxe
+    {
+      bgGrad: `<stop offset="0%" stop-color="#080b10"/><stop offset="50%" stop-color="#111827"/><stop offset="100%" stop-color="#1f2937"/>`,
+      accentGrad: `<stop offset="0%" stop-color="#eab308"/><stop offset="100%" stop-color="#10b981"/>`,
+      orb1: "#eab308", orb2: "#10b981",
+      stroke: "#fde047",
+      webColor: "#eab308", webSub: "#fef08a",
+      badgeText: "#000000",
+      shapes: `<circle cx="200" cy="160" r="280" fill="#eab308" opacity="0.16" filter="blur(75px)"/>
+               <circle cx="1080" cy="560" r="280" fill="#10b981" opacity="0.18" filter="blur(75px)"/>
+               <rect x="80" y="80" width="1120" height="560" rx="20" fill="none" stroke="#eab308" stroke-opacity="0.1" stroke-width="1.5"/>`
+    },
+    // 5: Matrix Cyan & Neon Mint
+    {
+      bgGrad: `<stop offset="0%" stop-color="#021013"/><stop offset="50%" stop-color="#042f2e"/><stop offset="100%" stop-color="#115e59"/>`,
+      accentGrad: `<stop offset="0%" stop-color="#14b8a6"/><stop offset="100%" stop-color="#0ea5e9"/>`,
+      orb1: "#14b8a6", orb2: "#0ea5e9",
+      stroke: "#2dd4bf",
+      webColor: "#2dd4bf", webSub: "#99f6e4",
+      badgeText: "#ffffff",
+      shapes: `<circle cx="160" cy="540" r="300" fill="#14b8a6" opacity="0.2" filter="blur(80px)"/>
+               <circle cx="1100" cy="140" r="280" fill="#0ea5e9" opacity="0.2" filter="blur(80px)"/>
+               <pattern id="dotPattern" x="0" y="0" width="30" height="30" patternUnits="userSpaceOnUse">
+                 <circle cx="15" cy="15" r="1.5" fill="#ffffff" opacity="0.08"/>
+               </pattern>
+               <rect width="1280" height="720" fill="url(#dotPattern)"/>`
+    }
+  ];
+
+  const theme = VARIANTS[v];
 
   const tspanLines = lines
     .map(
@@ -803,62 +896,60 @@ export function generateArticleThumbnailSvg({
 
   const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="720" viewBox="0 0 1280 720">
     <defs>
-      <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-        <stop offset="0%" stop-color="#090417"/>
-        <stop offset="50%" stop-color="#160829"/>
-        <stop offset="100%" stop-color="#240c42"/>
+      <linearGradient id="bgGrad_${v}" x1="0%" y1="0%" x2="100%" y2="100%">
+        ${theme.bgGrad}
       </linearGradient>
-      <linearGradient id="accentGrad" x1="0%" y1="0%" x2="100%" y2="0%">
-        <stop offset="0%" stop-color="#10b981"/>
-        <stop offset="100%" stop-color="#06b6d4"/>
+      <linearGradient id="accentGrad_${v}" x1="0%" y1="0%" x2="100%" y2="0%">
+        ${theme.accentGrad}
       </linearGradient>
-      <linearGradient id="cardGrad" x1="0%" y1="0%" x2="0%" y2="100%">
-        <stop offset="0%" stop-color="#ffffff" stop-opacity="0.08"/>
+      <linearGradient id="cardGrad_${v}" x1="0%" y1="0%" x2="0%" y2="100%">
+        <stop offset="0%" stop-color="#ffffff" stop-opacity="0.09"/>
         <stop offset="100%" stop-color="#ffffff" stop-opacity="0.02"/>
       </linearGradient>
     </defs>
 
     <!-- 16:9 Aspect Ratio Canvas Background -->
-    <rect width="1280" height="720" fill="url(#bgGrad)"/>
+    <rect width="1280" height="720" fill="url(#bgGrad_${v})"/>
 
-    <!-- Ambient Glowing Orbs -->
-    <circle cx="160" cy="140" r="300" fill="#8b5cf6" opacity="0.16" filter="blur(70px)"/>
-    <circle cx="1120" cy="580" r="280" fill="#10b981" opacity="0.18" filter="blur(70px)"/>
+    <!-- Dynamic Theme Ambient Shapes -->
+    ${theme.shapes}
 
-    <!-- Subtle Tech Pattern Grid -->
-    <path d="M 0 120 L 1280 120 M 0 240 L 1280 240 M 0 360 L 1280 360 M 0 480 L 1280 480 M 0 600 L 1280 600" stroke="#ffffff" stroke-opacity="0.03" stroke-width="1"/>
-    <path d="M 213 0 L 213 720 M 426 0 L 426 720 M 640 0 L 640 720 M 853 0 L 853 720 M 1066 0 L 1066 720" stroke="#ffffff" stroke-opacity="0.03" stroke-width="1"/>
+    <!-- Modern Framed Glass Card -->
+    <rect x="60" y="60" width="1160" height="600" rx="28" fill="url(#cardGrad_${v})" stroke="${theme.stroke}" stroke-opacity="0.2" stroke-width="2"/>
 
-    <!-- Card Frame -->
-    <rect x="60" y="60" width="1160" height="600" rx="28" fill="url(#cardGrad)" stroke="#ffffff" stroke-opacity="0.14" stroke-width="2"/>
+    <!-- Corner Decorative Mounting Brackets -->
+    <path d="M 60 100 L 60 60 L 100 60" stroke="${theme.stroke}" stroke-width="4" fill="none" stroke-linecap="round"/>
+    <path d="M 1220 100 L 1220 60 L 1180 60" stroke="${theme.stroke}" stroke-width="4" fill="none" stroke-linecap="round"/>
+    <path d="M 60 620 L 60 660 L 100 660" stroke="${theme.stroke}" stroke-width="4" fill="none" stroke-linecap="round"/>
+    <path d="M 1220 620 L 1220 660 L 1180 660" stroke="${theme.stroke}" stroke-width="4" fill="none" stroke-linecap="round"/>
 
     <!-- Category Tag Badge (Top Left) -->
     <g transform="translate(100, 110)">
-      <rect width="240" height="52" rx="26" fill="url(#accentGrad)"/>
-      <text x="120" y="33" fill="#ffffff" font-family="system-ui, -apple-system, Roboto, sans-serif" font-weight="900" font-size="20" text-anchor="middle" letter-spacing="1.5">
+      <rect width="250" height="52" rx="26" fill="url(#accentGrad_${v})"/>
+      <text x="125" y="33" fill="${theme.badgeText}" font-family="system-ui, -apple-system, Roboto, sans-serif" font-weight="900" font-size="20" text-anchor="middle" letter-spacing="1.5">
         ${safeCat}
       </text>
     </g>
 
-    <!-- Website Name Branding (Right Side) -->
+    <!-- Website Branding (Right Side) -->
     <g transform="translate(1180, 130)">
-      <text x="0" y="0" fill="#10b981" font-family="system-ui, -apple-system, Roboto, sans-serif" font-weight="900" font-size="24" text-anchor="end" letter-spacing="1">
+      <text x="0" y="0" fill="${theme.webColor}" font-family="system-ui, -apple-system, Roboto, sans-serif" font-weight="900" font-size="24" text-anchor="end" letter-spacing="1">
         ${safeWeb}
       </text>
-      <text x="0" y="28" fill="#6ee7b7" font-family="system-ui, -apple-system, Roboto, sans-serif" font-weight="700" font-size="14" text-anchor="end" opacity="0.85">
+      <text x="0" y="28" fill="${theme.webSub}" font-family="system-ui, -apple-system, Roboto, sans-serif" font-weight="700" font-size="14" text-anchor="end" opacity="0.85">
         S PRO CODER OFFICIAL
       </text>
     </g>
 
-    <!-- Main Title / Key Phrase (Center) -->
+    <!-- Article Main Title (Center) -->
     <g transform="translate(100, 310)">
       <text fill="#ffffff" font-family="system-ui, -apple-system, Roboto, sans-serif" font-weight="900" font-size="46" letter-spacing="-0.5">
         ${tspanLines}
       </text>
     </g>
 
-    <!-- Bottom Green Accent Line -->
-    <rect x="100" y="580" width="980" height="6" rx="3" fill="url(#accentGrad)"/>
+    <!-- Bottom Accent Line -->
+    <rect x="100" y="580" width="980" height="6" rx="3" fill="url(#accentGrad_${v})"/>
   </svg>`;
 
   return "data:image/svg+xml;utf8," + encodeURIComponent(svg);
