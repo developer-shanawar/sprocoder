@@ -753,30 +753,139 @@ app.post("/api/blog/generate", async (req, res) => {
   }
 });
 
-// New AI schema for Q&A article formatting with EEO, SEO, GEO optimization
+// Helper function to escape XML strings for SVG generation
+function escapeXml(unsafe: string): string {
+  return String(unsafe || "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&apos;");
+}
+
+function wrapTextLines(text: string, maxCharsPerLine: number = 30): string[] {
+  const words = text.split(" ");
+  const lines: string[] = [];
+  let currentLine = "";
+
+  for (const word of words) {
+    if ((currentLine + " " + word).trim().length <= maxCharsPerLine) {
+      currentLine = (currentLine + " " + word).trim();
+    } else {
+      if (currentLine) lines.push(currentLine);
+      currentLine = word;
+    }
+  }
+  if (currentLine) lines.push(currentLine);
+  return lines.slice(0, 3); // Max 3 lines
+}
+
+// Dynamic 16:9 SVG Thumbnail Generator
+export function generateArticleThumbnailSvg({
+  category,
+  title,
+  websiteName = "sprocoder.online"
+}: {
+  category: string;
+  title: string;
+  websiteName?: string;
+}): string {
+  const safeCat = escapeXml((category || "TECH").toUpperCase());
+  const safeWeb = escapeXml(websiteName || "sprocoder.online");
+  const lines = wrapTextLines(title || "Best 10 AI Tools", 28);
+
+  const tspanLines = lines
+    .map(
+      (line, idx) =>
+        `<tspan x="100" dy="${idx === 0 ? "0" : "58"}">${escapeXml(line)}</tspan>`
+    )
+    .join("");
+
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="720" viewBox="0 0 1280 720">
+    <defs>
+      <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+        <stop offset="0%" stop-color="#090417"/>
+        <stop offset="50%" stop-color="#160829"/>
+        <stop offset="100%" stop-color="#240c42"/>
+      </linearGradient>
+      <linearGradient id="accentGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+        <stop offset="0%" stop-color="#10b981"/>
+        <stop offset="100%" stop-color="#06b6d4"/>
+      </linearGradient>
+      <linearGradient id="cardGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+        <stop offset="0%" stop-color="#ffffff" stop-opacity="0.08"/>
+        <stop offset="100%" stop-color="#ffffff" stop-opacity="0.02"/>
+      </linearGradient>
+    </defs>
+
+    <!-- 16:9 Aspect Ratio Canvas Background -->
+    <rect width="1280" height="720" fill="url(#bgGrad)"/>
+
+    <!-- Ambient Glowing Orbs -->
+    <circle cx="160" cy="140" r="300" fill="#8b5cf6" opacity="0.16" filter="blur(70px)"/>
+    <circle cx="1120" cy="580" r="280" fill="#10b981" opacity="0.18" filter="blur(70px)"/>
+
+    <!-- Subtle Tech Pattern Grid -->
+    <path d="M 0 120 L 1280 120 M 0 240 L 1280 240 M 0 360 L 1280 360 M 0 480 L 1280 480 M 0 600 L 1280 600" stroke="#ffffff" stroke-opacity="0.03" stroke-width="1"/>
+    <path d="M 213 0 L 213 720 M 426 0 L 426 720 M 640 0 L 640 720 M 853 0 L 853 720 M 1066 0 L 1066 720" stroke="#ffffff" stroke-opacity="0.03" stroke-width="1"/>
+
+    <!-- Card Frame -->
+    <rect x="60" y="60" width="1160" height="600" rx="28" fill="url(#cardGrad)" stroke="#ffffff" stroke-opacity="0.14" stroke-width="2"/>
+
+    <!-- Category Tag Badge (Top Left) -->
+    <g transform="translate(100, 110)">
+      <rect width="240" height="52" rx="26" fill="url(#accentGrad)"/>
+      <text x="120" y="33" fill="#ffffff" font-family="system-ui, -apple-system, Roboto, sans-serif" font-weight="900" font-size="20" text-anchor="middle" letter-spacing="1.5">
+        ${safeCat}
+      </text>
+    </g>
+
+    <!-- Website Name Branding (Right Side) -->
+    <g transform="translate(1180, 130)">
+      <text x="0" y="0" fill="#10b981" font-family="system-ui, -apple-system, Roboto, sans-serif" font-weight="900" font-size="24" text-anchor="end" letter-spacing="1">
+        ${safeWeb}
+      </text>
+      <text x="0" y="28" fill="#6ee7b7" font-family="system-ui, -apple-system, Roboto, sans-serif" font-weight="700" font-size="14" text-anchor="end" opacity="0.85">
+        S PRO CODER OFFICIAL
+      </text>
+    </g>
+
+    <!-- Main Title / Key Phrase (Center) -->
+    <g transform="translate(100, 310)">
+      <text fill="#ffffff" font-family="system-ui, -apple-system, Roboto, sans-serif" font-weight="900" font-size="46" letter-spacing="-0.5">
+        ${tspanLines}
+      </text>
+    </g>
+
+    <!-- Bottom Green Accent Line -->
+    <rect x="100" y="580" width="980" height="6" rx="3" fill="url(#accentGrad)"/>
+  </svg>`;
+
+  return "data:image/svg+xml;utf8," + encodeURIComponent(svg);
+}
+
+// New AI schema for 1500-word article formatting
 const aiBlogPostSchema = {
   type: Type.OBJECT,
   properties: {
-    title: { type: Type.STRING, description: "Highly engaging and catchy SEO-optimized & GEO-optimized article title." },
-    tagline: { type: Type.STRING, description: "Compelling tagline highlighting expertise (EEO)." },
-    category: { type: Type.STRING, description: "The category of the article (matches or fits requested or trending category)." },
+    title: { type: Type.STRING, description: "Highly engaging, catchy, human-like SEO-optimized article title." },
+    tagline: { type: Type.STRING, description: "Compelling tagline highlighting article value and practical insights." },
+    category: { type: Type.STRING, description: "Target category matching the user selection." },
     content: { 
       type: Type.STRING, 
-      description: "Q&A formatted article body. Formulate intriguing questions and answers in simple, conversational, human-like English. Avoid high-level academic English or complex vocabulary. Each question must be wrapped exactly in: <div class=\"p-4 bg-emerald-50 border-l-4 border-emerald-500 rounded-r-xl text-emerald-900 font-bold my-4\">Q: [Question Text]</div>. Keep answers highly informative yet very concise, punchy, and dense to minimize token usage." 
+      description: "A detailed, comprehensive 1500-word article formatted in clean HTML. Write in simple, clear, direct, human-like English with NO meaningless symbols, extra words, or robotic AI boilerplate. Use H1/H2 headings and short readable paragraphs. Highlight key terms and main words in green using: <mark style=\"background-color: #dcfce7; color: #166534; font-weight: bold; padding: 2px 6px; border-radius: 4px;\">[main word]</mark>. Conclude with an explicit FAQ section using <h2>Frequently Asked Questions (FAQs)</h2> containing 3-5 clear Q&As." 
     },
-    readTime: { type: Type.STRING, description: "Calculated read time, e.g., '3 min read'." },
+    readTime: { type: Type.STRING, description: "Estimated read time, e.g., '7 min read'." },
     tags: {
       type: Type.ARRAY,
       items: { type: Type.STRING },
-      description: "Array of 3-4 lowercase keyword tags suitable for filtering."
+      description: "Array of 4-6 lowercase keyword tags."
     },
-    excerpt: { type: Type.STRING, description: "A brief, compelling 2-sentence summary." },
-    author: { type: Type.STRING, description: "Author name, e.g., 'Chroma Analyst' or 'S Pro Sage'." },
-    imageSearchKeyword: { type: Type.STRING, description: "Unsplash search keyword, e.g., 'artificial intelligence' or 'coding'." },
-    keywords: { type: Type.STRING, description: "Comma-separated target SEO, EEO, and GEO keywords." },
-    competitiveTrends: { type: Type.STRING, description: "A summary of the current competitive trends and search patterns for this topic." }
+    excerpt: { type: Type.STRING, description: "A brief 2-sentence summary." },
+    author: { type: Type.STRING, description: "Author name, e.g., 'S Pro Coder AI'." },
+    keywords: { type: Type.STRING, description: "Comma-separated target SEO keywords." }
   },
-  required: ["title", "tagline", "category", "content", "readTime", "tags", "excerpt", "author", "imageSearchKeyword", "keywords", "competitiveTrends"]
+  required: ["title", "tagline", "category", "content", "readTime", "tags", "excerpt", "author", "keywords"]
 };
 
 // Robust helper to extract and parse JSON from AI models
@@ -785,7 +894,6 @@ function safeJsonParse(text: string): any {
   try {
     return JSON.parse(trimmed);
   } catch (e) {
-    // Attempt to extract the JSON structure if there's markdown or extra words
     const start = trimmed.indexOf("{");
     const end = trimmed.lastIndexOf("}");
     if (start !== -1 && end !== -1 && end > start) {
@@ -793,7 +901,6 @@ function safeJsonParse(text: string): any {
       try {
         return JSON.parse(candidate);
       } catch (innerError) {
-        // Try replacing unescaped newlines inside strings if any
         try {
           const escaped = candidate.replace(/\n/g, "\\n").replace(/\r/g, "\\r");
           return JSON.parse(escaped);
@@ -806,52 +913,38 @@ function safeJsonParse(text: string): any {
   }
 }
 
-// API Endpoint: Advanced AI Article generation & Auto-System
-app.post("/api/blog/generate-ai", async (req, res) => {
+// API Endpoint: AI Article Generation Engine
+const handleAiArticleGeneration = async (req: express.Request, res: express.Response) => {
   try {
-    const { option, category, publishTime, huggingFaceKey, imgbbKey } = req.body;
+    const { category, apiKey, publishTime, huggingFaceKey, imgbbKey } = req.body;
     let blogPost: any = null;
 
-    let prompt = "";
-    if (option === "manual") {
-      prompt = `Write an optimized tech/science article for the category: "${category}".
-The article MUST be structured strictly as a sequence of Questions and Answers (Q&A format).
-For each section, formulate an intriguing question and follow it with a conversational, professional, and educational answer.
-Each Question MUST be wrapped exactly in the following HTML container:
-<div class="p-4 bg-emerald-50 border-l-4 border-emerald-500 rounded-r-xl text-emerald-900 font-bold my-4">Q: [Target Question]</div>
+    const targetCategory = category || "Artificial Intelligence";
+    const prompt = `Write a full-length, highly detailed, approximately 1500-word human-like article for the category: "${targetCategory}".
+REQUIREMENTS:
+1. Language & Tone: Simple, direct, conversational, human-like English. Do NOT use robotic AI jargon or phrases like "In today's fast-paced digital era" or "In conclusion". No meaningless symbols or extra filler words.
+2. Structure: Use clear <h1> and <h2> headings and small, readable paragraphs.
+3. Green Highlights: Highlight key words, main concepts, and important technical terms in green using: <mark style="background-color: #dcfce7; color: #166534; font-weight: bold; padding: 2px 6px; border-radius: 4px;">[keyword]</mark>.
+4. FAQs Section: Conclude with an explicit <h2>Frequently Asked Questions (FAQs)</h2> section containing 3 to 5 realistic, helpful questions and answers.
+5. Quality: High-density, informative, SEO-friendly content. Total length should be around 1500 words.`;
 
-Ensure the article is optimized for EEO (Experience, Expertise, Authoritativeness, and Trustworthiness), SEO (Search Engine Optimization), and GEO (Generative Engine Optimization).
-Ensure you include highly relevant target keywords, optimized title, and highlight the latest competitive trends for this topic.
-Keep the language extremely simple, direct, conversational, and human-like. Strictly avoid high-level academic English, complex jargon, and robotic transition phrases (avoid words like 'delve', 'moreover', 'tapestry', 'in conclusion').
-Ensure the minimum tokens are used: make the answers punchy, dense, high-signal, and extremely concise without any fluff or verbose padding. Limit the total content to the absolute essentials.`;
-    } else {
-      // Auto system
-      prompt = `First, scan the market trends to identify a trending, powerful tech or science category (e.g. AI Agents, Web3 development, Quantum Computing, Serverless Edge, or advanced cybersecurity). 
-Select the absolute best trending category and store it in the 'category' field.
-Then, write an elite, highly optimized tech/science article for this selected category.
-The article MUST be structured strictly as a sequence of Questions and Answers (Q&A format).
-For each section, formulate an intriguing question and follow it with a conversational, professional, and educational answer.
-Each Question MUST be wrapped exactly in the following HTML container:
-<div class="p-4 bg-emerald-50 border-l-4 border-emerald-500 rounded-r-xl text-emerald-900 font-bold my-4">Q: [Target Question]</div>
-
-Ensure the article is optimized for EEO (Experience, Expertise, Authoritativeness, and Trustworthiness), SEO (Search Engine Optimization), and GEO (Generative Engine Optimization).
-Ensure you include highly relevant target keywords, optimized title, and highlight the latest competitive trends for this topic.
-Keep the language extremely simple, direct, conversational, and human-like. Strictly avoid high-level academic English, complex jargon, and robotic transition phrases.
-Ensure the minimum tokens are used: make the answers punchy, dense, high-signal, and extremely concise without any fluff or verbose padding. Limit the total content to the absolute essentials.`;
+    let activeClient = ai;
+    if (apiKey && typeof apiKey === "string" && apiKey.trim().length > 10) {
+      activeClient = new GoogleGenAI({ apiKey: apiKey.trim() });
     }
 
-    if (!ai) {
+    if (!activeClient) {
       return res.status(503).json({
-        error: "Secure local Gemini client is not configured on S pro coder. Please add your GEMINI_API_KEY in Settings > Secrets."
+        error: "Gemini client is not configured. Please enter your Gemini API key in the AI Engine settings."
       });
     }
 
-    console.log("Generating text content via secure server-side Gemini SDK client...");
-    const response = await ai.models.generateContent({
+    console.log(`Generating 1500-word article for category "${targetCategory}" via Gemini SDK...`);
+    const response = await activeClient.models.generateContent({
       model: "gemini-3.5-flash",
       contents: prompt,
       config: {
-        systemInstruction: "You are a world-class technology analyst who writes helpful, human-like technical Q&As. Your writing is optimized for EEO, SEO, and GEO. You use direct, conversational, and simple English, completely avoiding high-level complex academic terminology or robotic transition clichés. You keep answers high-signal and extremely concise to minimize token usage.",
+        systemInstruction: "You are an expert human author and technical writer who produces engaging 1500-word articles in simple, plain English. You avoid robotic tropes, highlight key concepts with green background marks, structure content with H1/H2 headings and short paragraphs, and end with an FAQs section.",
         responseMimeType: "application/json",
         responseSchema: aiBlogPostSchema
       }
@@ -862,72 +955,15 @@ Ensure the minimum tokens are used: make the answers punchy, dense, high-signal,
       throw new Error("Empty response received from Gemini SDK");
     }
     blogPost = safeJsonParse(jsonStr);
-    
-    // Select high-quality, relevant image URLs based on keywords or categories as base fallback
-    const kw = (blogPost.imageSearchKeyword || "").toLowerCase() + " " + (blogPost.category || "").toLowerCase();
-    let selectedImage = "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&w=800&q=80"; // fallback gorgeous minimalist abstract violet
-    
-    if (kw.includes("security") || kw.includes("hack") || kw.includes("cyber")) {
-      selectedImage = "https://images.unsplash.com/photo-1550751827-4bd374c3f58b?auto=format&fit=crop&w=800&q=80";
-    } else if (kw.includes("web") || kw.includes("code") || kw.includes("develop") || kw.includes("program")) {
-      selectedImage = "https://images.unsplash.com/photo-1555066931-4365d14bab8c?auto=format&fit=crop&w=800&q=80";
-    } else if (kw.includes("ai") || kw.includes("intelligence") || kw.includes("neural") || kw.includes("robotic")) {
-      selectedImage = "https://images.unsplash.com/photo-1620712943543-bcc4688e7485?auto=format&fit=crop&w=800&q=80";
-    } else if (kw.includes("cloud") || kw.includes("server") || kw.includes("network") || kw.includes("database")) {
-      selectedImage = "https://images.unsplash.com/photo-1451187580459-43490279c0fa?auto=format&fit=crop&w=800&q=80";
-    } else if (kw.includes("quantum") || kw.includes("physic") || kw.includes("science")) {
-      selectedImage = "https://images.unsplash.com/photo-1635070041078-e363dbe005cb?auto=format&fit=crop&w=800&q=80";
-    } else if (kw.includes("blockchain") || kw.includes("crypto") || kw.includes("coin")) {
-      selectedImage = "https://images.unsplash.com/photo-1639762681485-074b7f938ba0?auto=format&fit=crop&w=800&q=80";
-    }
 
-    // Attempt Hugging Face custom visual generation if HF key is provided
-    if (huggingFaceKey) {
-      try {
-        console.log("Generating visual thumbnail via Hugging Face FLUX.1...");
-        const imagePrompt = `high resolution professional tech science blog cover: ${blogPost.title}, styled as clean minimalist digital artwork, purple and cyan modern neon developer aesthetic, no text, award winning illustration`;
-        
-        const hfRes = await fetch("https://api-inference.huggingface.co/models/black-forest-labs/FLUX.1-schnell", {
-          method: "POST",
-          headers: {
-            "Authorization": `Bearer ${huggingFaceKey}`,
-            "Content-Type": "application/json"
-          },
-          body: JSON.stringify({ inputs: imagePrompt })
-        });
+    // Generate 16:9 Custom Thumbnail SVG
+    const svgThumbnail = generateArticleThumbnailSvg({
+      category: blogPost.category || targetCategory,
+      title: blogPost.title,
+      websiteName: "sprocoder.online"
+    });
 
-        if (hfRes.ok) {
-          const arrayBuffer = await hfRes.arrayBuffer();
-          const base64Image = Buffer.from(arrayBuffer).toString("base64");
-          
-          console.log("Uploading HF generated image to ImgBB cloud storage...");
-          const activeImgbbKey = imgbbKey || "95bfa2c260a52e93433daf349259e043";
-          const imgbbForm = new URLSearchParams();
-          imgbbForm.append("image", base64Image);
-          
-          const imgbbRes = await fetch(`https://api.imgbb.com/1/upload?key=${activeImgbbKey}`, {
-            method: "POST",
-            body: imgbbForm
-          });
-          
-          if (imgbbRes.ok) {
-            const imgbbData = await imgbbRes.json();
-            if (imgbbData?.data?.url) {
-              selectedImage = imgbbData.data.url;
-              console.log("HF generated image uploaded successfully:", selectedImage);
-            }
-          } else {
-            console.warn("ImgBB upload failed, falling back to Unsplash preset...");
-          }
-        } else {
-          console.warn("HF API returned error, falling back to Unsplash preset...");
-        }
-      } catch (imgErr) {
-        console.error("HF Image generation flow failed, using Unsplash fallback:", imgErr);
-      }
-    }
-
-    blogPost.thumbnailUrl = selectedImage;
+    blogPost.thumbnailUrl = svgThumbnail;
     blogPost.id = "post-ai-" + Date.now();
     blogPost.date = new Date().toLocaleDateString("en-US", {
       year: "numeric",
@@ -948,7 +984,10 @@ Ensure the minimum tokens are used: make the answers punchy, dense, high-signal,
       error: error.message || "Failed to generate AI article. Please check server logs."
     });
   }
-});
+};
+
+app.post("/api/blog/generate-ai", handleAiArticleGeneration);
+app.post("/api/generate-ai-article", handleAiArticleGeneration);
 
 // Dynamic helper to inject AdSense, verification codes, and custom meta tags into HTML template
 async function injectCustomCode(template: string): Promise<string> {

@@ -79,9 +79,12 @@ export default function AdminPanel({ onClose, categories, setCategories, onLogou
   const [adsStats, setAdsStats] = useState<any>({});
 
   // AI Article Generator States
-  const [aiOption, setAiOption] = useState<"manual" | "auto">("manual");
+  const [geminiApiKey, setGeminiApiKey] = useState("");
   const [aiSelectedCategory, setAiSelectedCategory] = useState("");
-  const [aiPublishTime, setAiPublishTime] = useState("");
+  const [aiScheduleTime, setAiScheduleTime] = useState("");
+  const [aiScheduleEnabled, setAiScheduleEnabled] = useState(false);
+  const [aiLastExecutionTime, setAiLastExecutionTime] = useState(0);
+  const [aiLogs, setAiLogs] = useState<string[]>([]);
   const [aiGenerationLoading, setAiGenerationLoading] = useState(false);
   const [aiGenerationStep, setAiGenerationStep] = useState(0);
   const [aiGeneratedArticle, setAiGeneratedArticle] = useState<BlogPost | null>(null);
@@ -540,6 +543,17 @@ export default function AdminPanel({ onClose, categories, setCategories, onLogou
       }
     });
 
+    // Load AI Engine Settings
+    get(ref(db, "settings/aiEngine")).then((snapshot) => {
+      if (snapshot.exists()) {
+        const val = snapshot.val();
+        if (val.geminiApiKey) setGeminiApiKey(val.geminiApiKey);
+        if (val.selectedCategory) setAiSelectedCategory(val.selectedCategory);
+        if (val.scheduleTime) setAiScheduleTime(val.scheduleTime);
+        if (val.scheduleEnabled !== undefined) setAiScheduleEnabled(val.scheduleEnabled);
+      }
+    });
+
     // 11. Load Website SEO Title
     get(ref(db, "settings/websiteTitle")).then((snapshot) => {
       if (snapshot.exists()) {
@@ -607,6 +621,28 @@ export default function AdminPanel({ onClose, categories, setCategories, onLogou
       unsubAdsStats();
     };
   }, []);
+
+  // AI Article Engine Automated Scheduler Effect
+  useEffect(() => {
+    if (!aiScheduleEnabled || !aiScheduleTime) return;
+
+    const interval = setInterval(() => {
+      const now = new Date();
+      const currentHours = String(now.getHours()).padStart(2, "0");
+      const currentMinutes = String(now.getMinutes()).padStart(2, "0");
+      const currentTimeStr = `${currentHours}:${currentMinutes}`;
+
+      if (currentTimeStr === aiScheduleTime) {
+        const timeSinceLast = Date.now() - aiLastExecutionTime;
+        if (timeSinceLast >= 120000) {
+          console.log(`[AI Engine Scheduler] Triggering automated execution at ${currentTimeStr}...`);
+          handleRunAiArticleGen(true);
+        }
+      }
+    }, 30000);
+
+    return () => clearInterval(interval);
+  }, [aiScheduleEnabled, aiScheduleTime, aiSelectedCategory, aiLastExecutionTime, geminiApiKey]);
 
   // Handle ImgBB upload
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -818,70 +854,111 @@ export default function AdminPanel({ onClose, categories, setCategories, onLogou
     }
   };
 
-  const handleGenerateAiArticle = async () => {
-    if (aiOption === "manual" && !aiSelectedCategory) {
-      setAiErrorMessage("Please select a category for generating the AI article.");
+  const handleSaveAiEngineSettings = async () => {
+    try {
+      setLoading(true);
+      await set(ref(db, "settings/aiEngine"), {
+        geminiApiKey,
+        selectedCategory: aiSelectedCategory,
+        scheduleTime: aiScheduleTime,
+        scheduleEnabled: aiScheduleEnabled
+      });
+      alert("AI Article Engine settings saved successfully!");
+    } catch (err) {
+      alert("Failed to save AI Engine settings: " + (err as Error).message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleRunAiArticleGen = async (isAutomatedTrigger = false) => {
+    const targetCat = aiSelectedCategory || (categories && categories.length > 0 ? categories[0] : "Artificial Intelligence");
+
+    const now = Date.now();
+    if (isAutomatedTrigger && aiLastExecutionTime > 0 && (now - aiLastExecutionTime < 120000)) {
+      const logMsg = `Automated trigger skipped at ${new Date().toLocaleTimeString()}: 2-minute buffer safeguard active.`;
+      setAiLogs((prev) => [`[${new Date().toLocaleTimeString()}] ${logMsg}`, ...prev.slice(0, 49)]);
       return;
     }
-    
+
+    setAiGenerationLoading(true);
+    setAiGenerationStep(1);
     setAiErrorMessage("");
     setAiSuccessMessage("");
-    setAiGeneratedArticle(null);
-    setAiGenerationLoading(true);
-    setAiGenerationStep(0);
-    
-    // Simulate nice step-by-step progress
-    const stepsInterval = setInterval(() => {
-      setAiGenerationStep((prev) => {
-        if (prev < 5) return prev + 1;
-        clearInterval(stepsInterval);
-        return prev;
-      });
-    }, 1500);
-    
+
+    const addLog = (msg: string) => {
+      const timeStr = new Date().toLocaleTimeString();
+      setAiLogs((prev) => [`[${timeStr}] ${msg}`, ...prev.slice(0, 49)]);
+    };
+
+    addLog(`Initiating AI Engine Generation for Category: "${targetCat}"...`);
+
     try {
-      const response = await fetch("/api/blog/generate-ai", {
+      addLog("1/4: Requesting 1500-word human-like article generation from Gemini 3.5 Flash...");
+      setAiGenerationStep(1);
+
+      const activeApiKey = geminiApiKey || openRouterKey || "";
+      const res = await fetch("/api/generate-ai-article", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          option: aiOption,
-          category: aiOption === "manual" ? aiSelectedCategory : "",
-          publishTime: aiPublishTime,
-          openRouterKey,
-          huggingFaceKey,
-          imgbbKey
+          category: targetCat,
+          apiKey: activeApiKey,
+          publishTime: aiScheduleTime || ""
         })
       });
-      
-      const responseText = await response.text();
-      clearInterval(stepsInterval);
-      
-      if (!response.ok) {
-        let errMsg = "Failed to generate AI article.";
-        try {
-          const errData = JSON.parse(responseText);
-          errMsg = errData.error || errMsg;
-        } catch {
-          errMsg = `Server error (${response.status}): ${responseText.substring(0, 150)}`;
-        }
-        throw new Error(errMsg);
+
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        throw new Error(errData.error || "Server returned error during AI generation.");
       }
-      
-      let data;
-      try {
-        data = JSON.parse(responseText);
-      } catch {
-        throw new Error("Invalid response format received from AI server. Failed to parse article JSON.");
-      }
-      
-      setAiGenerationStep(6); // Final success step
-      setAiGeneratedArticle(data);
-      setAiSuccessMessage(`AI Article generated successfully! Category: ${data.category}. Format: Professional Q&A.`);
+
+      const newPost: BlogPost = await res.json();
+      addLog(`2/4: Generated article title: "${newPost.title}"`);
+      setAiGenerationStep(2);
+
+      addLog("3/4: Creating 16:9 custom graphic thumbnail with category tag & sprocoder.online branding...");
+      setAiGenerationStep(3);
+
+      addLog("4/4: Publishing article live to Firebase Realtime Database...");
+      setAiGenerationStep(4);
+
+      const articlesRef = ref(db, DB_PATHS.ARTICLES);
+      const newArtRef = push(articlesRef);
+      const generatedId = newArtRef.key as string;
+
+      const fullArticlePayload: BlogPost = {
+        ...newPost,
+        id: generatedId,
+        visibility: "public",
+        likes: Math.floor(Math.random() * 25) + 5,
+        savesCount: Math.floor(Math.random() * 10) + 2,
+        views: Math.floor(Math.random() * 50) + 10,
+      };
+
+      await set(ref(db, `${DB_PATHS.ARTICLES}/${generatedId}`), fullArticlePayload);
+
+      // Add notification
+      const newNotifRef = push(ref(db, DB_PATHS.NOTIFICATIONS));
+      await set(newNotifRef, {
+        id: newNotifRef.key,
+        title: "AI Engine Article Published!",
+        body: `"${newPost.title}" in ${targetCat} has been automatically generated and published live!`,
+        date: new Date().toLocaleDateString("en-US", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" }),
+        isRead: false
+      });
+
+      setAiLastExecutionTime(now);
+      setAiGeneratedArticle(fullArticlePayload);
+      setAiSuccessMessage(`Article "${newPost.title}" generated and published live!`);
+      addLog(`✓ SUCCESS: Article published live under category "${targetCat}"!`);
     } catch (err: any) {
-      clearInterval(stepsInterval);
-      setAiErrorMessage(err.message || "An unexpected error occurred during AI generation.");
+      console.error("AI Article Generation Error:", err);
+      setAiErrorMessage(err.message || "Failed to generate AI article.");
+      addLog(`❌ ERROR: ${err.message || "Failed to generate AI article."}`);
     } finally {
       setAiGenerationLoading(false);
+      setAiGenerationStep(0);
     }
   };
 
@@ -3905,295 +3982,6 @@ export default function AdminPanel({ onClose, categories, setCategories, onLogou
             </div>
           )}
 
-          {/* TAB: AI ARTICLE ENGINE */}
-          {activeTab === "aiArticle" && (
-            <div className="space-y-6 animate-in fade-in duration-200" id="tab-ai-article-content">
-              <div className="flex items-center justify-between border-b border-purple-100 pb-2">
-                <div>
-                  <h3 className="text-xs font-black text-purple-950 uppercase tracking-wider flex items-center gap-1.5">
-                    <Sparkles className="w-4 h-4 text-purple-600" />
-                    <span>AI Article Generation & Automated System</span>
-                  </h3>
-                  <p className="text-[10px] text-gray-500">
-                    Deploy AI writers to scan market trends and publish elite Q&A tech articles with custom visuals and metadata.
-                  </p>
-                </div>
-              </div>
-
-              {/* Options Selector Cards */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {/* Option 1 Card */}
-                <div 
-                  onClick={() => setAiOption("manual")}
-                  className={`p-5 rounded-3xl border transition-all cursor-pointer text-left ${
-                    aiOption === "manual" 
-                      ? "border-purple-500 bg-purple-50/50 shadow-md ring-2 ring-purple-100" 
-                      : "border-gray-100 bg-white hover:bg-gray-50/50"
-                  }`}
-                >
-                  <div className="flex items-center gap-2 mb-2">
-                    <span className={`w-4 h-4 rounded-full border-2 flex items-center justify-center ${aiOption === "manual" ? "border-purple-600 bg-purple-600" : "border-gray-300"}`}>
-                      {aiOption === "manual" && <span className="w-1.5 h-1.5 bg-white rounded-full" />}
-                    </span>
-                    <h4 className="text-xs font-black text-purple-950 uppercase tracking-widest">Option 1: Selective Category Engine</h4>
-                  </div>
-                  <p className="text-[10px] text-gray-500 leading-relaxed pl-6">
-                    Pick a specific category and publish date. The AI writer will generate a comprehensive, professional English Q&A article centering exactly on this technology sector.
-                  </p>
-                </div>
-
-                {/* Option 2 Card */}
-                <div 
-                  onClick={() => setAiOption("auto")}
-                  className={`p-5 rounded-3xl border transition-all cursor-pointer text-left ${
-                    aiOption === "auto" 
-                      ? "border-purple-500 bg-purple-50/50 shadow-md ring-2 ring-purple-100" 
-                      : "border-gray-100 bg-white hover:bg-gray-50/50"
-                  }`}
-                >
-                  <div className="flex items-center gap-2 mb-2">
-                    <span className={`w-4 h-4 rounded-full border-2 flex items-center justify-center ${aiOption === "auto" ? "border-purple-600 bg-purple-600" : "border-gray-300"}`}>
-                      {aiOption === "auto" && <span className="w-1.5 h-1.5 bg-white rounded-full" />}
-                    </span>
-                    <h4 className="text-xs font-black text-purple-950 uppercase tracking-widest flex items-center gap-1.5">
-                      <span>Option 2: Trend Scan "Auto System"</span>
-                      <span className="text-[8px] bg-emerald-100 text-emerald-800 px-1.5 py-0.5 rounded font-black">RECOMMENDED</span>
-                    </h4>
-                  </div>
-                  <p className="text-[10px] text-gray-500 leading-relaxed pl-6">
-                    The AI system dynamically scans active market trends for hot, elite science/tech categories, identifies the best fit, and auto-generates sophisticated Q&A articles.
-                  </p>
-                </div>
-              </div>
-
-              {/* Form Controls based on selection */}
-              <div className="p-6 bg-white border border-purple-100 rounded-3xl space-y-4 text-left">
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  {/* Category select (Only enabled for Manual Option 1) */}
-                  <div className="space-y-1">
-                    <label className="text-[10px] font-bold text-purple-900 uppercase tracking-wider block">
-                      Target Category {aiOption === "auto" && <span className="text-gray-400 font-normal italic">(Auto trend-determined)</span>}
-                    </label>
-                    <select
-                      disabled={aiOption === "auto"}
-                      value={aiSelectedCategory}
-                      onChange={(e) => setAiSelectedCategory(e.target.value)}
-                      className="w-full p-2.5 rounded-xl border border-purple-200 bg-white text-xs text-purple-950 focus:outline-none focus:border-purple-500 disabled:bg-gray-50 disabled:text-gray-400 animate-none"
-                    >
-                      <option value="">-- Choose Category --</option>
-                      {categories.map((cat: any) => (
-                        <option key={cat.id || cat.name} value={cat.name}>
-                          {cat.name}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-
-                  {/* Scheduling (Publish Time) */}
-                  <div className="space-y-1">
-                    <label className="text-[10px] font-bold text-purple-900 uppercase tracking-wider block">
-                      Select Publish Time <span className="text-gray-400 font-normal">(Leave empty for instant release)</span>
-                    </label>
-                    <input
-                      type="datetime-local"
-                      value={aiPublishTime}
-                      onChange={(e) => setAiPublishTime(e.target.value)}
-                      className="w-full p-2.5 rounded-xl border border-purple-200 bg-white text-xs text-purple-950 focus:outline-none focus:border-purple-500"
-                    />
-                  </div>
-                </div>
-
-                {/* Error and Success message */}
-                {aiErrorMessage && (
-                  <div className="p-3 bg-red-50 text-red-800 rounded-xl border border-red-100 text-xs font-semibold">
-                    ✕ {aiErrorMessage}
-                  </div>
-                )}
-                {aiSuccessMessage && (
-                  <div className="p-3 bg-emerald-50 text-emerald-800 rounded-xl border border-emerald-100 text-xs font-semibold">
-                    ✓ {aiSuccessMessage}
-                  </div>
-                )}
-
-                {/* Submit button / Generating Animation */}
-                {aiGenerationLoading ? (
-                  <div className="space-y-3 p-4 bg-purple-50/50 border border-purple-100 rounded-2xl">
-                    <div className="flex items-center justify-between text-xs font-bold text-purple-950">
-                      <span className="flex items-center gap-1.5 animate-pulse">
-                        <Sparkles className="w-4 h-4 text-purple-600 animate-spin" />
-                        {aiGenerationStep === 0 && "Scanning server assets & establishing environment..."}
-                        {aiGenerationStep === 1 && `Deep researching Category: ${aiOption === "manual" ? aiSelectedCategory : "Trending Tech Market"}...`}
-                        {aiGenerationStep === 2 && "Designing advanced outline and formulating Q&A architecture..."}
-                        {aiGenerationStep === 3 && "Invoking Gemini-3.5-Flash to craft professional-grade English..."}
-                        {aiGenerationStep === 4 && "Validating green highlights of Question elements and structure..."}
-                        {aiGenerationStep === 5 && "Generating optimal contextual Unsplash imagery & tags..."}
-                        {aiGenerationStep === 6 && "Article compiled successfully! Injecting components..."}
-                      </span>
-                      <span>{Math.round((aiGenerationStep / 6) * 100)}%</span>
-                    </div>
-                    {/* Progress Bar */}
-                    <div className="w-full h-2.5 bg-purple-100 rounded-full overflow-hidden">
-                      <div 
-                        className="h-full bg-gradient-to-r from-purple-500 to-indigo-600 transition-all duration-1000 ease-out"
-                        style={{ width: `${(aiGenerationStep / 6) * 100}%` }}
-                      />
-                    </div>
-                  </div>
-                ) : (
-                  <button
-                    onClick={handleGenerateAiArticle}
-                    className="w-full py-3 bg-purple-600 hover:bg-purple-700 text-white font-black text-xs uppercase tracking-widest rounded-2xl flex items-center justify-center gap-1.5 shadow-lg shadow-purple-100 cursor-pointer active:scale-95 transition-all font-bold"
-                  >
-                    <Sparkles className="w-4 h-4 animate-bounce" />
-                    <span>{aiOption === "manual" ? "Generate Selective AI Article" : "Trigger Trend Scan & Auto Post"}</span>
-                  </button>
-                )}
-              </div>
-
-              {/* Article Preview & Editor Section */}
-              {aiGeneratedArticle && (
-                <div className="bg-purple-50/30 border border-purple-100 p-6 rounded-3xl space-y-6 text-left animate-in zoom-in-95 duration-200">
-                  <div className="border-b border-purple-100 pb-3">
-                    <h3 className="text-xs font-black text-purple-900 uppercase tracking-widest flex items-center gap-1.5">
-                      <BookOpen className="w-4 h-4" />
-                      <span>Review & Customize Generated Article</span>
-                    </h3>
-                    <p className="text-[10px] text-gray-500">
-                      Tweak the generated text, replace the thumbnail image, or add/edit Q&A blocks before committing.
-                    </p>
-                  </div>
-
-                  {/* Thumbnail / Image preview */}
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                    <div className="md:col-span-1 space-y-3">
-                      <p className="text-[10px] font-black text-purple-900 uppercase tracking-wider block">Generated Article Thumbnail</p>
-                      <div className="aspect-video w-full rounded-2xl overflow-hidden border border-purple-100 shadow-sm relative group bg-black">
-                        <img 
-                          src={aiGeneratedArticle.thumbnailUrl} 
-                          alt="AI Thumbnail" 
-                          className="w-full h-full object-cover opacity-90"
-                          referrerPolicy="no-referrer"
-                        />
-                      </div>
-                      
-                      <div className="space-y-1">
-                        <label className="text-[9px] font-black text-purple-900 uppercase tracking-wider block">Replace Image (URL)</label>
-                        <input
-                          type="url"
-                          value={aiGeneratedArticle.thumbnailUrl}
-                          onChange={(e) => setAiGeneratedArticle({ ...aiGeneratedArticle, thumbnailUrl: e.target.value })}
-                          className="w-full p-2 rounded-xl border border-purple-200 bg-white text-xs font-mono"
-                          placeholder="Paste image URL here..."
-                        />
-                      </div>
-                    </div>
-
-                    {/* Metadata Editors */}
-                    <div className="md:col-span-2 space-y-3">
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                        <div className="space-y-1">
-                          <label className="text-[10px] font-bold text-purple-900 uppercase tracking-wider block">Title</label>
-                          <input
-                            type="text"
-                            value={aiGeneratedArticle.title}
-                            onChange={(e) => setAiGeneratedArticle({ ...aiGeneratedArticle, title: e.target.value })}
-                            className="w-full p-2 rounded-xl border border-purple-200 bg-white text-xs font-bold"
-                          />
-                        </div>
-                        <div className="space-y-1">
-                          <label className="text-[10px] font-bold text-purple-900 uppercase tracking-wider block">Tagline / Subtitle</label>
-                          <input
-                            type="text"
-                            value={aiGeneratedArticle.tagline}
-                            onChange={(e) => setAiGeneratedArticle({ ...aiGeneratedArticle, tagline: e.target.value })}
-                            className="w-full p-2 rounded-xl border border-purple-200 bg-white text-xs"
-                          />
-                        </div>
-                      </div>
-
-                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                        <div className="space-y-1">
-                          <label className="text-[10px] font-bold text-purple-900 uppercase tracking-wider block">Category</label>
-                          <input
-                            type="text"
-                            value={aiGeneratedArticle.category}
-                            onChange={(e) => setAiGeneratedArticle({ ...aiGeneratedArticle, category: e.target.value })}
-                            className="w-full p-2 rounded-xl border border-purple-200 bg-white text-xs"
-                          />
-                        </div>
-                        <div className="space-y-1 col-span-2">
-                          <label className="text-[10px] font-bold text-purple-900 uppercase tracking-wider block">Keywords / Tags (comma separated)</label>
-                          <input
-                            type="text"
-                            value={aiGeneratedArticle.tags ? aiGeneratedArticle.tags.join(", ") : ""}
-                            onChange={(e) => setAiGeneratedArticle({ ...aiGeneratedArticle, tags: e.target.value.split(",").map(t => t.trim().toLowerCase()).filter(Boolean) })}
-                            className="w-full p-2 rounded-xl border border-purple-200 bg-white text-xs"
-                          />
-                        </div>
-                      </div>
-
-                      <div className="space-y-1">
-                        <label className="text-[10px] font-bold text-purple-900 uppercase tracking-wider block">Excerpt Summary</label>
-                        <textarea
-                          rows={2}
-                          value={aiGeneratedArticle.excerpt}
-                          onChange={(e) => setAiGeneratedArticle({ ...aiGeneratedArticle, excerpt: e.target.value })}
-                          className="w-full p-2 rounded-xl border border-purple-200 bg-white text-xs"
-                        />
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Body Content Editor */}
-                  <div className="space-y-2">
-                    <div className="flex items-center justify-between">
-                      <label className="text-[10px] font-bold text-purple-900 uppercase tracking-wider block">Article Markdown Body (with Green Q&A div tags)</label>
-                      <span className="text-[9px] bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded font-bold font-mono">Q&A STYLE ACTIVE</span>
-                    </div>
-                    <textarea
-                      rows={14}
-                      value={aiGeneratedArticle.content}
-                      onChange={(e) => setAiGeneratedArticle({ ...aiGeneratedArticle, content: e.target.value })}
-                      className="w-full p-4 rounded-2xl border border-purple-200 bg-white text-xs font-mono focus:outline-none focus:border-purple-500 leading-relaxed"
-                    />
-                    <div className="flex items-center justify-between text-[10px] text-gray-400">
-                      <span>Note: Questions are formatted in green highlights using <code>&lt;div class="p-4 bg-emerald-50 border-l-4 border-emerald-500..."&gt;</code></span>
-                      <span>Length: {aiGeneratedArticle.content ? aiGeneratedArticle.content.split(/\s+/).length : 0} words</span>
-                    </div>
-                  </div>
-
-                  {/* Publish & Tweak Controls */}
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-3">
-                    <button
-                      onClick={() => {
-                        // Tweak: Add a new element/section dynamically
-                        if (!aiGeneratedArticle) return;
-                        const defaultQaBlock = `\n\n<div class="p-4 bg-emerald-50 border-l-4 border-emerald-500 rounded-r-xl text-emerald-900 font-bold my-4">Q: Enter your custom advanced question here?</div>\n\nWrite your sophisticated professional explanation answer text here. You can add extra paragraphs as needed.`;
-                        setAiGeneratedArticle({
-                          ...aiGeneratedArticle,
-                          content: aiGeneratedArticle.content + defaultQaBlock
-                        });
-                      }}
-                      className="py-3 bg-purple-100 hover:bg-purple-200 text-purple-800 font-bold text-xs rounded-2xl flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
-                    >
-                      <Plus className="w-4 h-4" />
-                      <span>Add Custom Q&A Block</span>
-                    </button>
-
-                    <button
-                      onClick={handleSaveAiArticle}
-                      disabled={loading}
-                      className="py-3 bg-emerald-600 hover:bg-emerald-700 text-white font-black text-xs uppercase tracking-wider rounded-2xl flex items-center justify-center gap-1.5 shadow-md shadow-emerald-100 cursor-pointer transition-colors"
-                    >
-                      <Check className="w-4 h-4" />
-                      <span>{loading ? "Publishing AI Post..." : "Save & Publish Article to Website"}</span>
-                    </button>
-                  </div>
-                </div>
-              )}
-            </div>
-          )}
-
           {/* TAB 11: ADS SLOTS MANAGEMENT */}
           {activeTab === "ads" && (
             <div className="space-y-6 animate-in fade-in duration-200" id="tab-ads-content">
@@ -4487,6 +4275,319 @@ export default function AdminPanel({ onClose, categories, setCategories, onLogou
                   </button>
                 </div>
               </div>
+            </div>
+          )}
+
+          {/* TAB: AI ARTICLE AUTOMATION ENGINE */}
+          {activeTab === "aiArticle" && (
+            <div className="space-y-6 animate-in fade-in duration-200" id="tab-ai-article-content">
+              {/* Header Banner */}
+              <div className="bg-gradient-to-r from-purple-950 via-purple-900 to-emerald-950 p-6 rounded-3xl text-white shadow-xl relative overflow-hidden">
+                <div className="absolute top-0 right-0 w-80 h-80 bg-emerald-500/10 rounded-full blur-3xl pointer-events-none" />
+                <div className="relative z-10 space-y-2">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="p-2 bg-emerald-500/20 text-emerald-400 rounded-xl border border-emerald-500/30">
+                      <Sparkles className="w-5 h-5 animate-pulse" />
+                    </span>
+                    <h2 className="text-xl font-black tracking-tight">AI Article Automation Engine</h2>
+                    <span className="bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 text-[10px] font-black uppercase px-2.5 py-0.5 rounded-full tracking-wider">
+                      Redesigned & Automated
+                    </span>
+                  </div>
+                  <p className="text-xs text-purple-200 leading-relaxed max-w-2xl">
+                    Full automation redesign for S Pro Coder. Target categories directly from your Category tab, set automated publishing schedules with a 2-minute gap buffer safeguard, or run test articles on demand.
+                  </p>
+                </div>
+              </div>
+
+              {/* API Key Config Card */}
+              <div className="bg-white p-6 rounded-3xl border border-purple-100 shadow-sm space-y-4">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-purple-50 pb-3">
+                  <div>
+                    <h3 className="text-sm font-black text-purple-950 uppercase tracking-wider flex items-center gap-2">
+                      <Lock className="w-4 h-4 text-purple-600" />
+                      <span>Gemini API Key Setup</span>
+                    </h3>
+                    <p className="text-xs text-gray-500 mt-0.5">
+                      Configure your Google Gemini API key to power the server-side article engine.
+                    </p>
+                  </div>
+                  {(geminiApiKey || openRouterKey) ? (
+                    <span className="text-xs font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-3 py-1 rounded-full flex items-center gap-1.5 w-fit">
+                      <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                      <span>Gemini Engine Ready</span>
+                    </span>
+                  ) : (
+                    <span className="text-xs font-bold text-amber-700 bg-amber-50 border border-amber-200 px-3 py-1 rounded-full flex items-center gap-1.5 w-fit">
+                      <AlertCircle className="w-4 h-4 text-amber-600" />
+                      <span>API Key Required</span>
+                    </span>
+                  )}
+                </div>
+
+                <div className="flex flex-col sm:flex-row gap-3">
+                  <input
+                    type="password"
+                    value={geminiApiKey}
+                    onChange={(e) => setGeminiApiKey(e.target.value)}
+                    placeholder="Enter Gemini API key (AI Studio)..."
+                    className="flex-grow px-4 py-2.5 rounded-2xl border border-purple-200 bg-purple-50/30 text-xs font-mono focus:outline-none focus:border-purple-600"
+                  />
+                  <button
+                    onClick={handleSaveAiEngineSettings}
+                    disabled={loading}
+                    className="px-6 py-2.5 bg-purple-600 hover:bg-purple-700 text-white text-xs font-bold rounded-2xl shadow transition-all active:scale-95 cursor-pointer shrink-0 flex items-center justify-center gap-2"
+                  >
+                    <Save className="w-4 h-4" />
+                    <span>Save Engine Setup</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Two Options Automation Configuration Grid */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                
+                {/* Option 1: Category Selector */}
+                <div className="bg-white p-6 rounded-3xl border border-purple-100 shadow-sm space-y-4">
+                  <div className="flex items-center gap-2 border-b border-purple-50 pb-3">
+                    <span className="w-7 h-7 rounded-xl bg-purple-100 text-purple-700 font-black text-xs flex items-center justify-center shrink-0">
+                      1
+                    </span>
+                    <div>
+                      <h4 className="text-xs font-black text-purple-950 uppercase tracking-wider">
+                        Select Targeted Category
+                      </h4>
+                      <p className="text-[10px] text-gray-500">Categories from your Category folder / tab</p>
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <label className="text-xs font-bold text-purple-900 block">Target Category:</label>
+                    <select
+                      value={aiSelectedCategory}
+                      onChange={(e) => setAiSelectedCategory(e.target.value)}
+                      className="w-full px-4 py-3 rounded-2xl border border-purple-200 bg-purple-50/40 text-xs font-bold text-purple-950 focus:outline-none focus:border-purple-600 cursor-pointer"
+                    >
+                      <option value="">-- Choose Category --</option>
+                      {categories && categories.length > 0 ? (
+                        categories.map((cat) => (
+                          <option key={cat} value={cat}>
+                            {cat}
+                          </option>
+                        ))
+                      ) : (
+                        <>
+                          <option value="Artificial Intelligence">Artificial Intelligence</option>
+                          <option value="Web Development">Web Development</option>
+                          <option value="Cloud Architectures">Cloud Architectures</option>
+                          <option value="Cybersecurity">Cybersecurity</option>
+                        </>
+                      )}
+                    </select>
+                    <p className="text-[11px] text-gray-500 italic">
+                      ✓ Articles will be generated specifically for this category and published live.
+                    </p>
+                  </div>
+                </div>
+
+                {/* Option 2: Schedule Time Picker */}
+                <div className="bg-white p-6 rounded-3xl border border-purple-100 shadow-sm space-y-4">
+                  <div className="flex items-center justify-between border-b border-purple-50 pb-3">
+                    <div className="flex items-center gap-2">
+                      <span className="w-7 h-7 rounded-xl bg-emerald-100 text-emerald-700 font-black text-xs flex items-center justify-center shrink-0">
+                        2
+                      </span>
+                      <div>
+                        <h4 className="text-xs font-black text-purple-950 uppercase tracking-wider">
+                          Select Schedule Time
+                        </h4>
+                        <p className="text-[10px] text-gray-500">Automated publication schedule</p>
+                      </div>
+                    </div>
+
+                    <label className="relative inline-flex items-center cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={aiScheduleEnabled}
+                        onChange={(e) => setAiScheduleEnabled(e.target.checked)}
+                        className="sr-only peer"
+                      />
+                      <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-600"></div>
+                    </label>
+                  </div>
+
+                  <div className="space-y-3">
+                    <div className="space-y-1">
+                      <label className="text-xs font-bold text-purple-900 block">Automated Trigger Time:</label>
+                      <input
+                        type="time"
+                        value={aiScheduleTime}
+                        onChange={(e) => setAiScheduleTime(e.target.value)}
+                        className="w-full px-4 py-2.5 rounded-2xl border border-purple-200 bg-purple-50/40 text-xs font-mono font-bold text-purple-950 focus:outline-none focus:border-purple-600"
+                      />
+                    </div>
+
+                    {/* 2-Minute Gap Rule Box */}
+                    <div className="p-3 bg-emerald-50/70 border border-emerald-200/80 rounded-2xl text-[11px] text-emerald-900 space-y-1">
+                      <p className="font-extrabold flex items-center gap-1 text-emerald-950">
+                        <Clock className="w-3.5 h-3.5 text-emerald-600" />
+                        <span>Automated Gap Safeguard Rule:</span>
+                      </p>
+                      <p className="leading-normal text-emerald-900/90">
+                        The gap between automated schedules is strictly enforced at <strong>1 to 2 minutes</strong>. The execution time reflects article writing, green keyword highlighting, FAQs generation, 16:9 thumbnail rendering, and live database sync.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+              </div>
+
+              {/* Save All Settings Bar */}
+              <div className="flex justify-end">
+                <button
+                  onClick={handleSaveAiEngineSettings}
+                  disabled={loading}
+                  className="px-6 py-3 bg-purple-900 hover:bg-purple-950 text-white font-bold text-xs rounded-2xl shadow-md transition-all active:scale-95 cursor-pointer flex items-center gap-2"
+                >
+                  <Save className="w-4 h-4" />
+                  <span>Save All Engine Configurations</span>
+                </button>
+              </div>
+
+              {/* Test Article Generation Trigger */}
+              <div className="bg-gradient-to-br from-purple-50 via-white to-emerald-50/40 p-6 rounded-3xl border border-purple-200/80 shadow-md space-y-4">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                  <div>
+                    <h3 className="text-sm font-black text-purple-950 uppercase tracking-wider flex items-center gap-2">
+                      <Sparkles className="w-4 h-4 text-emerald-600" />
+                      <span>Test Article Immediate Trigger</span>
+                    </h3>
+                    <p className="text-xs text-gray-600 mt-1">
+                      Click below to generate an immediate 1500-word human-like article for category:{" "}
+                      <strong className="text-emerald-700 font-bold">{aiSelectedCategory || "Artificial Intelligence"}</strong>.
+                    </p>
+                  </div>
+
+                  <button
+                    onClick={() => handleRunAiArticleGen(false)}
+                    disabled={aiGenerationLoading}
+                    className="px-6 py-3 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 disabled:opacity-50 text-white font-black text-xs uppercase tracking-wider rounded-2xl shadow-lg shadow-emerald-200 transition-all active:scale-95 cursor-pointer flex items-center justify-center gap-2 shrink-0"
+                  >
+                    {aiGenerationLoading ? (
+                      <>
+                        <RefreshCw className="w-4 h-4 animate-spin" />
+                        <span>Generating Test Article...</span>
+                      </>
+                    ) : (
+                      <>
+                        <Send className="w-4 h-4" />
+                        <span>⚡ Generate Test Article Now</span>
+                      </>
+                    )}
+                  </button>
+                </div>
+
+                {/* Live Progress Tracker */}
+                {aiGenerationLoading && (
+                  <div className="p-4 bg-white rounded-2xl border border-emerald-200 space-y-3 animate-in fade-in">
+                    <p className="text-xs font-bold text-purple-950 flex items-center gap-2">
+                      <RefreshCw className="w-4 h-4 text-emerald-600 animate-spin" />
+                      <span>AI Article Generation Progress...</span>
+                    </p>
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-[11px]">
+                      <div className={`p-2 rounded-xl text-center font-bold border ${aiGenerationStep >= 1 ? "bg-emerald-50 border-emerald-300 text-emerald-800" : "bg-gray-50 border-gray-200 text-gray-400"}`}>
+                        1. Writing 1500 Words
+                      </div>
+                      <div className={`p-2 rounded-xl text-center font-bold border ${aiGenerationStep >= 2 ? "bg-emerald-50 border-emerald-300 text-emerald-800" : "bg-gray-50 border-gray-200 text-gray-400"}`}>
+                        2. Highlights & FAQs
+                      </div>
+                      <div className={`p-2 rounded-xl text-center font-bold border ${aiGenerationStep >= 3 ? "bg-emerald-50 border-emerald-300 text-emerald-800" : "bg-gray-50 border-gray-200 text-gray-400"}`}>
+                        3. 16:9 SVG Graphic
+                      </div>
+                      <div className={`p-2 rounded-xl text-center font-bold border ${aiGenerationStep >= 4 ? "bg-emerald-50 border-emerald-300 text-emerald-800" : "bg-gray-50 border-gray-200 text-gray-400"}`}>
+                        4. Live Publishing
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {aiSuccessMessage && (
+                  <div className="p-4 bg-emerald-50 border border-emerald-200 text-emerald-900 rounded-2xl text-xs font-bold flex items-center gap-2">
+                    <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0" />
+                    <span>{aiSuccessMessage}</span>
+                  </div>
+                )}
+
+                {aiErrorMessage && (
+                  <div className="p-4 bg-red-50 border border-red-200 text-red-900 rounded-2xl text-xs font-bold flex items-center gap-2">
+                    <AlertCircle className="w-5 h-5 text-red-600 shrink-0" />
+                    <span>{aiErrorMessage}</span>
+                  </div>
+                )}
+              </div>
+
+              {/* Terminal Logs Section */}
+              <div className="bg-slate-950 p-5 rounded-3xl border border-slate-800 text-emerald-400 font-mono text-xs space-y-3">
+                <div className="flex items-center justify-between border-b border-slate-800 pb-2">
+                  <span className="text-slate-400 font-bold uppercase tracking-wider text-[10px] flex items-center gap-1.5">
+                    <span className="w-2 h-2 rounded-full bg-emerald-500 animate-ping" />
+                    Engine Activity & Terminal Logs
+                  </span>
+                  <button
+                    onClick={() => setAiLogs([])}
+                    className="text-[10px] text-slate-500 hover:text-slate-300 transition-colors cursor-pointer"
+                  >
+                    Clear Terminal Logs
+                  </button>
+                </div>
+
+                <div className="max-h-48 overflow-y-auto space-y-1 text-[11px] leading-relaxed pr-1">
+                  {aiLogs.length > 0 ? (
+                    aiLogs.map((log, idx) => (
+                      <div key={idx} className="whitespace-pre-wrap">
+                        {log}
+                      </div>
+                    ))
+                  ) : (
+                    <div className="text-slate-600 italic">
+                      No recent engine activity logs. Click "Generate Test Article Now" or enable automated schedule to view real-time logs.
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Latest Generated Article Preview Card */}
+              {aiGeneratedArticle && (
+                <div className="bg-white p-6 rounded-3xl border border-purple-200 shadow-md space-y-4">
+                  <h4 className="text-xs font-black text-purple-950 uppercase tracking-wider flex items-center gap-2">
+                    <BookOpen className="w-4 h-4 text-purple-600" />
+                    <span>Most Recently Generated Article</span>
+                  </h4>
+
+                  <div className="flex flex-col sm:flex-row gap-4 items-start">
+                    <img
+                      src={aiGeneratedArticle.thumbnailUrl}
+                      alt={aiGeneratedArticle.title}
+                      className="w-full sm:w-48 h-32 object-cover rounded-2xl border border-purple-100 shadow-xs shrink-0"
+                    />
+                    <div className="space-y-1.5">
+                      <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase bg-purple-100 text-purple-800">
+                        {aiGeneratedArticle.category}
+                      </span>
+                      <h3 className="text-sm font-black text-purple-950 leading-snug">
+                        {aiGeneratedArticle.title}
+                      </h3>
+                      <p className="text-xs text-gray-500 line-clamp-2">
+                        {aiGeneratedArticle.tagline || aiGeneratedArticle.excerpt}
+                      </p>
+                      <p className="text-[10px] text-gray-400 font-mono">
+                        Generated on {aiGeneratedArticle.date} • {aiGeneratedArticle.readTime}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
+
             </div>
           )}
 
