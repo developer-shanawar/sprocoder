@@ -11,7 +11,8 @@ import {
   Eye, 
   X, 
   CornerDownRight,
-  MessageCircle
+  MessageCircle,
+  Tag
 } from "lucide-react";
 import { BlogPost, Comment } from "../types";
 import { motion, AnimatePresence } from "motion/react";
@@ -34,6 +35,7 @@ interface ArticleDetailViewProps {
   onAddReply: (commentId: string, replyText: string) => void;
   currentUser: any;
   adsConfig?: any;
+  onSearchKeyword?: (keyword: string) => void;
 }
 
 export default function ArticleDetailView({
@@ -48,12 +50,35 @@ export default function ArticleDetailView({
   onAddComment,
   onAddReply,
   currentUser,
-  adsConfig = null
+  adsConfig = null,
+  onSearchKeyword
 }: ArticleDetailViewProps) {
   const [newComment, setNewComment] = useState("");
   const [activeReplyCommentId, setActiveReplyCommentId] = useState<string | null>(null);
   const [replyText, setReplyText] = useState("");
   const [lightboxImg, setLightboxImg] = useState<string | null>(null);
+
+  // Extract unique keywords for interactive Keywords Box
+  const keywordList = React.useMemo(() => {
+    const set = new Set<string>();
+    if (post.tags && Array.isArray(post.tags)) {
+      post.tags.forEach((t) => {
+        if (t && t.trim()) set.add(t.trim());
+      });
+    }
+    if (post.keywords) {
+      if (typeof post.keywords === "string") {
+        post.keywords.split(",").forEach((k) => {
+          if (k && k.trim()) set.add(k.trim());
+        });
+      } else if (Array.isArray(post.keywords)) {
+        (post.keywords as string[]).forEach((k) => {
+          if (k && k.trim()) set.add(k.trim());
+        });
+      }
+    }
+    return Array.from(set);
+  }, [post]);
 
   // Dynamic SEO Update on Article Mount / Change
   useEffect(() => {
@@ -273,97 +298,6 @@ export default function ArticleDetailView({
                 })()}
               </div>
             </article>
-            
-            {/* AI, GEO & LLM Knowledge Summary Table wrapped in interactive details/summary tag */}
-            <details className="group border-2 border-black rounded-[20px] bg-white shadow-[4px_4px_0px_0px_#000000] overflow-hidden my-6 cursor-pointer" id="llm-knowledge-extraction-container" open>
-              <summary className="list-none flex items-center justify-between p-5 sm:p-6 select-none focus:outline-none">
-                <div className="flex items-center gap-2">
-                  <span className="text-lg animate-bounce">📊</span>
-                  <h3 className="font-sans font-black text-purple-950 text-xs sm:text-sm uppercase tracking-widest">
-                    AI Knowledge Graph & GEO Data Index (Details)
-                  </h3>
-                </div>
-                <div className="text-purple-600 transition-transform duration-200 group-open:rotate-180">
-                  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-chevron-down"><path d="m6 9 6 6 6-6"/></svg>
-                </div>
-              </summary>
-              <div className="px-5 pb-5 sm:px-6 sm:pb-6 overflow-x-auto border-t border-purple-100">
-                <table className="w-full text-left text-xs sm:text-sm border-collapse">
-                  <tbody>
-                    <tr className="border-b border-purple-100">
-                      <td className="p-3 font-mono font-bold text-purple-800 w-[35%] bg-purple-50/35 uppercase tracking-wider text-[10px]">Document Type</td>
-                      <td className="p-3 text-slate-800 font-semibold">Technical News & Insights Article</td>
-                    </tr>
-                    <tr className="border-b border-purple-100">
-                      <td className="p-3 font-mono font-bold text-purple-800 bg-purple-50/35 uppercase tracking-wider text-[10px]">Primary Title</td>
-                      <td className="p-3 text-slate-900 font-extrabold">{post.title}</td>
-                    </tr>
-                    <tr className="border-b border-purple-100">
-                      <td className="p-3 font-mono font-bold text-purple-800 bg-purple-50/35 uppercase tracking-wider text-[10px]">Category & Domain</td>
-                      <td className="p-3 text-slate-800 font-semibold">{post.category || "General Tech"}</td>
-                    </tr>
-                    <tr className="border-b border-purple-100">
-                      <td className="p-3 font-mono font-bold text-purple-800 bg-purple-50/35 uppercase tracking-wider text-[10px]">Key Focus & Excerpt</td>
-                      <td className="p-3 text-slate-800 italic">"{post.tagline || post.excerpt}"</td>
-                    </tr>
-                    <tr className="border-b border-purple-100">
-                      <td className="p-3 font-mono font-bold text-purple-800 bg-purple-50/35 uppercase tracking-wider text-[10px]">Author Authority</td>
-                      <td className="p-3 text-slate-800 font-semibold">{post.author || "S Pro Coder Author"}</td>
-                    </tr>
-                    <tr className="border-b border-purple-100">
-                      <td className="p-3 font-mono font-bold text-purple-800 bg-purple-50/35 uppercase tracking-wider text-[10px]">Target Keywords</td>
-                      <td className="p-3 text-teal-800 font-mono font-bold">{post.keywords || post.tags?.join(", ") || "N/A"}</td>
-                    </tr>
-                    <tr className="border-b border-purple-100">
-                      <td className="p-3 font-mono font-bold text-purple-800 bg-purple-50/35 uppercase tracking-wider text-[10px]">Reading Time</td>
-                      <td className="p-3 text-slate-800 font-semibold font-mono">{post.readTime || "5 minutes"}</td>
-                    </tr>
-                    <tr>
-                      <td className="p-3 font-mono font-bold text-purple-800 bg-purple-50/35 uppercase tracking-wider text-[10px]">Published Date</td>
-                      <td className="p-3 text-slate-800 font-semibold font-mono">{post.date || "July 2026"}</td>
-                    </tr>
-                  </tbody>
-                </table>
-              </div>
-            </details>
-            
-            {/* SEO, EEO & GEO Optimization Summary */}
-            {(post.keywords || post.competitiveTrends) && (
-              <div className="p-5 rounded-2xl bg-emerald-50/40 border border-emerald-100/80 space-y-3 mt-6">
-                <div className="flex items-center gap-2 text-emerald-900 font-bold text-xs uppercase tracking-wider font-sans">
-                  <span className="flex h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
-                  <span>AI Search Engine Optimization (SEO/EEO/GEO)</span>
-                </div>
-                {post.keywords && (
-                  <div className="text-xs text-slate-700">
-                    <span className="font-bold text-emerald-900">Target Keywords: </span>
-                    <span className="font-mono text-[11px] bg-white border border-emerald-100 px-2 py-0.5 rounded text-emerald-800">
-                      {post.keywords}
-                    </span>
-                  </div>
-                )}
-                {post.competitiveTrends && (
-                  <div className="text-xs text-slate-700 space-y-1">
-                    <div className="font-bold text-emerald-900">Market & Competitive Trends:</div>
-                    <p className="leading-relaxed pl-3 border-l-2 border-emerald-200 text-slate-600 italic">
-                      {post.competitiveTrends}
-                    </p>
-                  </div>
-                )}
-              </div>
-            )}
-
-            {/* Hashtags and Keywords */}
-            <div className="flex flex-wrap gap-1.5 pt-6 border-t border-purple-100">
-              {post.tags?.map((tag) => (
-                <span
-                  key={tag}
-                  className="bg-purple-100/60 text-purple-700 text-[10px] font-mono font-bold px-3 py-1 rounded-md"
-                >
-                  #{tag}
-                </span>
-              ))}
-            </div>
           </div>
 
           {/* Right Column: Actions & Live Discussions (4 cols on desktop, naturally flows below on mobile) */}
@@ -651,6 +585,40 @@ export default function ArticleDetailView({
               )}
 
             </div>
+
+            {/* Keywords Box (below Related Articles & Comments) */}
+            {keywordList.length > 0 && (
+              <div className="p-6 rounded-3xl bg-white/50 backdrop-blur-md border border-purple-100 space-y-4 shadow-sm" id="article-keywords-container">
+                <div className="flex items-center gap-2 border-b border-purple-100 pb-3">
+                  <Tag className="w-4 h-4 text-purple-600" />
+                  <h3 className="font-black text-purple-950 text-xs uppercase tracking-wider">
+                    Keywords & SEO Tags
+                  </h3>
+                </div>
+                <p className="text-[10px] text-gray-500 font-medium">
+                  Click any keyword tag below to search and view all related articles & tutorials across the platform:
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  {keywordList.map((kw) => (
+                    <button
+                      key={kw}
+                      onClick={() => {
+                        if (onSearchKeyword) {
+                          onSearchKeyword(kw);
+                        } else {
+                          onClose();
+                        }
+                      }}
+                      className="px-3 py-1.5 rounded-xl text-xs font-bold font-mono bg-purple-50 hover:bg-purple-600 hover:text-white text-purple-800 border border-purple-200/80 hover:border-purple-600 shadow-sm transition-all duration-200 cursor-pointer flex items-center gap-1.5 active:scale-95 group"
+                      title={`Click to search articles matching "${kw}"`}
+                    >
+                      <span className="text-purple-400 group-hover:text-white transition-colors">#</span>
+                      <span>{kw}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
 
           </div>
 

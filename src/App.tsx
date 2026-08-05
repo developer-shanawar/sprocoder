@@ -353,6 +353,13 @@ export default function App() {
     const rawPath = window.location.pathname;
     const path = rawPath.replace(/\.html$/, "");
     setCurrentPath(rawPath);
+
+    // Sync search query parameter if present in URL (e.g. ?q=keyword)
+    const urlParams = new URLSearchParams(window.location.search);
+    const querySearch = urlParams.get("q") || urlParams.get("search");
+    if (querySearch) {
+      setSearchQuery(querySearch);
+    }
     
     if (!path || path === "/" || path === "") {
       setCurrentTab("home");
@@ -1392,12 +1399,19 @@ export default function App() {
   // Filter posts based on query, selected category, and active view
   const filteredPosts = React.useMemo(() => {
     return visiblePosts.filter((post) => {
-      const q = (searchQuery || "").toLowerCase();
+      const q = (searchQuery || "").toLowerCase().trim();
+      if (!q) {
+        const matchesCategory = selectedCategory ? post.category === selectedCategory : true;
+        return matchesCategory;
+      }
       const matchesSearch = 
         (post.title || "").toLowerCase().includes(q) ||
         (post.tagline || "").toLowerCase().includes(q) ||
         (post.content || "").toLowerCase().includes(q) ||
-        (post.excerpt || "").toLowerCase().includes(q);
+        (post.excerpt || "").toLowerCase().includes(q) ||
+        (post.category || "").toLowerCase().includes(q) ||
+        (post.keywords || "").toLowerCase().includes(q) ||
+        (post.tags || []).some((t) => t.toLowerCase().includes(q));
       
       const matchesCategory = selectedCategory ? post.category === selectedCategory : true;
       return matchesSearch && matchesCategory;
@@ -1448,6 +1462,26 @@ export default function App() {
         .slice(0, 5);
     }
   }, [visiblePosts, leftSidebarFilter]);
+
+  // Handle clicking on a keyword tag from article view
+  const handleSearchKeyword = (keyword: string) => {
+    setSelectedPost(null);
+    setCurrentTab("articles");
+    setSelectedCategory(null);
+    setSearchQuery(keyword);
+
+    // Update browser URL query parameter for shareability and direct routing
+    const searchUrl = `/blog?q=${encodeURIComponent(keyword)}`;
+    window.history.pushState({}, "", searchUrl);
+
+    // Smooth scroll down to the articles grid after transition
+    setTimeout(() => {
+      const gridEl = document.getElementById("articles-view-container") || document.getElementById("all-articles-grid");
+      if (gridEl) {
+        gridEl.scrollIntoView({ behavior: "smooth", block: "start" });
+      }
+    }, 100);
+  };
 
   // Selected article reading and history log push
   const handleSelectPost = async (post: BlogPost) => {
@@ -1775,6 +1809,7 @@ export default function App() {
             onAddReply={(commentId, text) => handleAddReply(selectedPost, commentId, text)}
             currentUser={currentUser}
             adsConfig={adsConfig}
+            onSearchKeyword={handleSearchKeyword}
           />
         ) : (
           <>
