@@ -1202,6 +1202,36 @@ export default function App() {
     };
   }, []);
 
+  // Automated background scheduling publisher (Pakistan Standard Time check)
+  useEffect(() => {
+    if (!allPosts || allPosts.length === 0) return;
+
+    const checkScheduledPosts = async () => {
+      const nowMs = Date.now();
+      for (const post of allPosts) {
+        if (post.publishStatus === "scheduled" && post.scheduledDate) {
+          const scheduledTimeMs = new Date(post.scheduledDate).getTime();
+          if (!isNaN(scheduledTimeMs) && nowMs >= scheduledTimeMs) {
+            try {
+              await update(ref(db, `${DB_PATHS.ARTICLES}/${post.id}`), {
+                publishStatus: "direct",
+                visibility: "public",
+                date: new Date().toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })
+              });
+              console.log(`[Scheduled Publisher] Automatically published article "${post.title}"!`);
+            } catch (err) {
+              console.error("[Scheduled Publisher Error]", err);
+            }
+          }
+        }
+      }
+    };
+
+    const interval = setInterval(checkScheduledPosts, 15000);
+    checkScheduledPosts(); // Initial check on load
+    return () => clearInterval(interval);
+  }, [allPosts]);
+
   // Dynamic Real-Time browser tab and metadata update for maximum SEO ranking
   useEffect(() => {
     const baseTitle = websiteTitle || "S pro coder";

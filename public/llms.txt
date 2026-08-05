@@ -1,0 +1,30 @@
+# S Pro Coder (https://www.sprocoder.online)
+
+> S Pro Coder (sprocoder.online) is a technology development, artificial intelligence research, software engineering, and gaming insights portal.
+
+## Overview & Core Purpose
+S Pro Coder delivers high-quality technical articles, programming tutorials, artificial intelligence news, AI tool evaluations, and gaming walkthroughs. The platform is designed for developers, software engineers, AI researchers, and tech enthusiasts seeking clear, structured, and actionable technical content.
+
+## Main Content Sections
+- **Technology News & Guides**: https://www.sprocoder.online/tech-news
+  - Web development tutorials (React, Vite, Node.js, Express, Tailwind CSS, TypeScript).
+  - Modern cloud architecture, database systems, and cybersecurity updates.
+- **Artificial Intelligence News**: https://www.sprocoder.online/ai-news
+  - Machine learning breakthroughs, large language model (LLM) architectures, and generative AI research.
+  - Generative Engine Optimization (GEO) insights and neural compute updates.
+- **AI Tools Directory & Reviews**: https://www.sprocoder.online/ai-tools
+  - Comprehensive evaluations and comparisons of AI productivity utilities, coding assistants, and automation frameworks.
+- **Gaming Walkthroughs & Hardware**: https://www.sprocoder.online/games
+  - Video game strategy guides, console hardware performance reviews, and gaming patch notes.
+- **Articles Stream & Index**: https://www.sprocoder.online/blog
+  - Full archive of published articles with structured Q&A formats and metadata tables.
+
+## Secondary Pages & Policies
+- About Us: https://www.sprocoder.online/about-us
+- Contact Us: https://www.sprocoder.online/contact-us
+- Privacy Policy: https://www.sprocoder.online/privacy-policy
+- Terms & Conditions: https://www.sprocoder.online/terms-and-conditions
+- Content Disclaimer: https://www.sprocoder.online/disclaimer
+
+## Crawling & LLM Indexing Policy
+All Large Language Models (LLMs), AI assistants, search bots, and web crawlers (including Gemini, ChatGPT, Claude, Perplexity, GPTBot, ClaudeBot, and Googlebot) are granted explicit permission to crawl, index, read, summarize, and cite any article or page hosted on `https://www.sprocoder.online/`.

@@ -970,6 +970,16 @@ export default function AdminPanel({ onClose, categories, setCategories, onLogou
     setPublishStatus(post.publishStatus || "direct");
     setScheduledDate(post.scheduledDate || "");
     setVisibility(post.visibility || "public");
+    setActiveTab("writeArticle");
+  };
+
+  const handleToggleVisibility = async (post: BlogPost) => {
+    const newVis = post.visibility === "private" ? "public" : "private";
+    try {
+      await update(ref(db, `${DB_PATHS.ARTICLES}/${post.id}`), { visibility: newVis });
+    } catch (err) {
+      console.error(err);
+    }
   };
 
   const handleDeleteArticle = async (id: string) => {
@@ -1530,7 +1540,16 @@ export default function AdminPanel({ onClose, categories, setCategories, onLogou
               <div className="space-y-6 animate-in fade-in duration-200" id="tab-write-article-content">
                 <WriteArticleEditor
                   currentUser={null}
-                  onArticlePublished={() => setActiveTab("articles")}
+                  initialArticle={editingArticle}
+                  allCategories={categories}
+                  onArticlePublished={() => {
+                    setEditingArticle(null);
+                    setActiveTab("articles");
+                  }}
+                  onCancel={() => {
+                    setEditingArticle(null);
+                    setActiveTab("articles");
+                  }}
                 />
               </div>
             )}
@@ -2049,16 +2068,27 @@ export default function AdminPanel({ onClose, categories, setCategories, onLogou
                           </td>
                           <td className="p-3 text-right space-x-1.5">
                             <button 
+                              onClick={() => handleToggleVisibility(art)}
+                              className={`px-2 py-1 rounded text-[10px] font-bold cursor-pointer transition-colors ${
+                                art.visibility === "private" 
+                                  ? "bg-rose-100 hover:bg-rose-200 text-rose-800 border border-rose-200" 
+                                  : "bg-emerald-100 hover:bg-emerald-200 text-emerald-800 border border-emerald-200"
+                              }`}
+                              title={art.visibility === "private" ? "Click to Make Public" : "Click to Make Private"}
+                            >
+                              {art.visibility === "private" ? "Make Public" : "Make Private"}
+                            </button>
+                            <button 
                               onClick={() => handleEditClick(art)}
-                              className="p-1 hover:bg-purple-100 rounded text-purple-700 inline-block cursor-pointer"
-                              title="Edit"
+                              className="p-1.5 hover:bg-purple-100 rounded text-purple-700 inline-block cursor-pointer"
+                              title="Edit in Write Article Studio"
                             >
                               <Edit className="w-4 h-4" />
                             </button>
                             <button 
                               onClick={() => handleDeleteArticle(art.id)}
-                              className="p-1 hover:bg-red-50 rounded text-red-600 inline-block cursor-pointer"
-                              title="Delete"
+                              className="p-1.5 hover:bg-red-50 rounded text-red-600 inline-block cursor-pointer"
+                              title="Delete Article"
                             >
                               <Trash2 className="w-4 h-4" />
                             </button>

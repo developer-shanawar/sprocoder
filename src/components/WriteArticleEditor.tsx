@@ -1,32 +1,55 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { 
   Bold, Italic, Heading1, Heading2, Heading3, List, Quote, Image as ImageIcon, 
-  Sparkles, Save, Eye, Edit3, Send, CheckCircle2, AlertCircle, RefreshCw, Wand2, Globe, Tag, Clock, BookOpen
+  Sparkles, Save, Eye, Edit3, Send, CheckCircle2, AlertCircle, RefreshCw, Wand2, Globe, Tag, Clock, BookOpen, Lock, Calendar
 } from "lucide-react";
 import { runArticleFormatterBot } from "../utils/articleFormatterBot";
 import { BlogPost, UserAccount } from "../types";
 import { db, DB_PATHS } from "../firebase";
-import { ref, push, set } from "firebase/database";
+import { ref, push, set, update } from "firebase/database";
 
 interface WriteArticleEditorProps {
   currentUser: UserAccount | null;
+  initialArticle?: BlogPost | null;
+  allCategories?: string[];
   onArticlePublished?: (post: BlogPost) => void;
   onCancel?: () => void;
 }
 
 export default function WriteArticleEditor({
   currentUser,
+  initialArticle = null,
+  allCategories = [],
   onArticlePublished,
   onCancel
 }: WriteArticleEditorProps) {
-  const [title, setTitle] = useState("");
-  const [tagline, setTagline] = useState("");
-  const [category, setCategory] = useState("AI & Machine Learning");
-  const [content, setContent] = useState("");
-  const [thumbnailUrl, setThumbnailUrl] = useState("https://images.unsplash.com/photo-1518770660439-4636190af475?auto=format&fit=crop&w=1200&q=80");
-  const [tagsInput, setTagsInput] = useState("AI, WebDev, Programming");
-  const [excerpt, setExcerpt] = useState("");
+  const [title, setTitle] = useState(initialArticle?.title || "");
+  const [tagline, setTagline] = useState(initialArticle?.tagline || "");
+  const [category, setCategory] = useState(initialArticle?.category || (allCategories && allCategories[0]) || "Technology");
+  const [content, setContent] = useState(initialArticle?.content || "");
+  const [thumbnailUrl, setThumbnailUrl] = useState(initialArticle?.thumbnailUrl || "https://images.unsplash.com/photo-1518770660439-4636190af475?auto=format&fit=crop&w=1200&q=80");
+  const [tagsInput, setTagsInput] = useState(initialArticle?.tags ? initialArticle.tags.join(", ") : "AI, WebDev, Programming");
+  const [excerpt, setExcerpt] = useState(initialArticle?.excerpt || "");
   const [fontSize, setFontSize] = useState<"normal" | "large" | "extra-large">("large");
+  const [visibility, setVisibility] = useState<"public" | "private">(initialArticle?.visibility || "public");
+  const [publishStatus, setPublishStatus] = useState<"direct" | "scheduled">(initialArticle?.publishStatus || "direct");
+  const [scheduledDate, setScheduledDate] = useState(initialArticle?.scheduledDate || "");
+
+  // Update states whenever initialArticle changes
+  useEffect(() => {
+    if (initialArticle) {
+      setTitle(initialArticle.title || "");
+      setTagline(initialArticle.tagline || "");
+      setCategory(initialArticle.category || "Technology");
+      setContent(initialArticle.content || "");
+      setThumbnailUrl(initialArticle.thumbnailUrl || "https://images.unsplash.com/photo-1518770660439-4636190af475?auto=format&fit=crop&w=1200&q=80");
+      setTagsInput(initialArticle.tags ? initialArticle.tags.join(", ") : "");
+      setExcerpt(initialArticle.excerpt || "");
+      setVisibility(initialArticle.visibility || "public");
+      setPublishStatus(initialArticle.publishStatus || "direct");
+      setScheduledDate(initialArticle.scheduledDate || "");
+    }
+  }, [initialArticle]);
 
   // Mode: Editor vs Preview
   const [activeView, setActiveView] = useState<"edit" | "preview">("edit");
@@ -34,8 +57,13 @@ export default function WriteArticleEditor({
   const [isPublishing, setIsPublishing] = useState(false);
   const [statusMsg, setStatusMsg] = useState<{ type: "success" | "error"; text: string } | null>(null);
 
-  // Categories list
-  const categoriesList = [
+  // Combine default categories with passed categories list to make sure all created domains/sections show up
+  const defaultCategories = [
+    "Technology",
+    "Artificial Intelligence",
+    "AI Tools",
+    "Games",
+    "Coding",
     "AI & Machine Learning",
     "Web Development",
     "Cloud Architecture",
@@ -45,6 +73,7 @@ export default function WriteArticleEditor({
     "Database Systems",
     "Programming Tutorials"
   ];
+  const categoriesList = Array.from(new Set([...allCategories, ...defaultCategories])).filter(Boolean);
 
   // ImgBB upload handler
   const handleUploadImage = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -82,7 +111,7 @@ export default function WriteArticleEditor({
 
     setTimeout(() => {
       const parsedTags = tagsInput.split(",").map((t) => t.trim()).filter(Boolean);
-      const authorName = currentUser ? currentUser.name : "S Pro Coder";
+      const authorName = currentUser ? currentUser.name : (initialArticle?.author || "S Pro Coder");
 
       const botResult = runArticleFormatterBot({
         title,
@@ -122,11 +151,16 @@ export default function WriteArticleEditor({
     setContent(newContent);
   };
 
-  // Publish Article
+  // Publish / Update Article
   const handlePublishArticle = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!title.trim() || !content.trim()) {
       setStatusMsg({ type: "error", text: "Please provide both an article title and content." });
+      return;
+    }
+
+    if (publishStatus === "scheduled" && !scheduledDate) {
+      setStatusMsg({ type: "error", text: "Please select a scheduled date and time in Pakistan Time (PKT)." });
       return;
     }
 
@@ -135,7 +169,7 @@ export default function WriteArticleEditor({
 
     try {
       const parsedTags = tagsInput.split(",").map((t) => t.trim()).filter(Boolean);
-      const authorName = currentUser ? currentUser.name : "S Pro Coder";
+      const authorName = currentUser ? currentUser.name : (initialArticle?.author || "S Pro Coder");
 
       // Always run Bot before finalizing publish to ensure perfect formatting
       const botResult = runArticleFormatterBot({
@@ -149,11 +183,23 @@ export default function WriteArticleEditor({
         excerpt
       });
 
-      const newArtRef = push(ref(db, DB_PATHS.ARTICLES));
-      const newId = newArtRef.key || "art_" + Date.now();
+      let articleId = initialArticle?.id;
+      let targetRef;
 
-      const newPost: BlogPost = {
-        id: newId,
+      if (articleId) {
+        targetRef = ref(db, `${DB_PATHS.ARTICLES}/${articleId}`);
+      } else {
+        const newArtRef = push(ref(db, DB_PATHS.ARTICLES));
+        articleId = newArtRef.key || "art_" + Date.now();
+        targetRef = newArtRef;
+      }
+
+      const isScheduled = publishStatus === "scheduled" && scheduledDate;
+      // If scheduled, initial visibility is private until scheduled time passes (or published automatically by background timer)
+      const finalVisibility = isScheduled ? "private" : visibility;
+
+      const postData: BlogPost = {
+        id: articleId,
         title: botResult.formattedTitle,
         tagline: botResult.formattedTagline,
         category: category,
@@ -162,36 +208,47 @@ export default function WriteArticleEditor({
         readTime: botResult.readTime,
         tags: parsedTags,
         author: authorName,
-        date: new Date().toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }),
-        likes: 0,
-        savesCount: 0,
-        views: 1,
+        date: initialArticle?.date || new Date().toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }),
+        likes: initialArticle?.likes || 0,
+        savesCount: initialArticle?.savesCount || 0,
+        views: initialArticle?.views || 1,
+        feedViews: initialArticle?.feedViews || 0,
+        articleViews: initialArticle?.articleViews || 0,
         thumbnailUrl: thumbnailUrl || "https://images.unsplash.com/photo-1518770660439-4636190af475?auto=format&fit=crop&w=1200&q=80",
         seoFormatted: true,
         metaDescription: botResult.metaDescription,
         keywords: botResult.keywords,
         schemaMarkup: botResult.schemaMarkup,
         canonicalUrl: botResult.canonicalUrl,
-        visibility: "public",
-        publishStatus: "direct"
+        visibility: finalVisibility,
+        publishStatus: publishStatus,
+        scheduledDate: scheduledDate
       };
 
-      await set(newArtRef, newPost);
+      await set(targetRef, postData);
 
-      setStatusMsg({ type: "success", text: "🎉 Article published successfully and indexed for Google search!" });
+      const msgText = initialArticle 
+        ? "🎉 Article updated successfully and re-indexed for Google Search!" 
+        : (isScheduled 
+            ? `⏰ Article scheduled successfully for ${new Date(scheduledDate).toLocaleString()} (Pakistan Time - PKT)!` 
+            : "🎉 Article published live successfully!");
+
+      setStatusMsg({ type: "success", text: msgText });
       
       if (onArticlePublished) {
-        onArticlePublished(newPost);
+        onArticlePublished(postData);
       }
 
-      // Reset form
-      setTitle("");
-      setTagline("");
-      setContent("");
-      setExcerpt("");
+      if (!initialArticle) {
+        // Reset form for fresh article
+        setTitle("");
+        setTagline("");
+        setContent("");
+        setExcerpt("");
+      }
     } catch (err: any) {
       console.error(err);
-      setStatusMsg({ type: "error", text: err.message || "Failed to publish article." });
+      setStatusMsg({ type: "error", text: err.message || "Failed to save article." });
     } finally {
       setIsPublishing(false);
     }
@@ -204,11 +261,11 @@ export default function WriteArticleEditor({
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-gradient-to-r from-purple-950 via-purple-900 to-indigo-950 p-6 rounded-3xl text-white shadow-xl">
         <div>
           <span className="text-[10px] font-black uppercase tracking-widest text-purple-300 bg-white/10 px-3 py-1 rounded-full inline-block mb-2">
-            Separate Article Studio
+            {initialArticle ? "Editing Existing Article" : "Separate Article Studio"}
           </span>
           <h1 className="text-2xl font-black tracking-tight flex items-center gap-2">
             <Edit3 className="w-6 h-6 text-purple-400" />
-            <span>Write & Publish New Article</span>
+            <span>{initialArticle ? `Editing: ${initialArticle.title}` : "Write & Publish New Article"}</span>
           </h1>
           <p className="text-xs text-purple-200 mt-1">
             Publish high-quality tech tutorials, insights, and AI documentation formatted for Google SEO & crawling standards.
@@ -302,7 +359,7 @@ export default function WriteArticleEditor({
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-1.5">
                 <label className="text-xs font-black text-purple-950 uppercase tracking-wider block">
-                  Category Domain
+                  Category Domain / Section
                 </label>
                 <select
                   value={category}
@@ -327,6 +384,103 @@ export default function WriteArticleEditor({
                   className="w-full p-3 rounded-2xl border border-purple-100 bg-white text-xs font-bold text-purple-950 focus:outline-none focus:border-purple-600"
                 />
               </div>
+            </div>
+
+            {/* Visibility & Publishing Options Block */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2">
+              
+              {/* Public / Private Option */}
+              <div className="p-4 bg-purple-50/70 border border-purple-100 rounded-2xl space-y-2">
+                <label className="text-xs font-black text-purple-950 uppercase tracking-wider block flex items-center gap-1.5">
+                  <Globe className="w-4 h-4 text-purple-600" />
+                  <span>Article Visibility</span>
+                </label>
+                <div className="flex items-center gap-4">
+                  <label className="flex items-center gap-1.5 text-xs text-purple-950 font-bold cursor-pointer">
+                    <input 
+                      type="radio" 
+                      name="studioVisibility" 
+                      value="public" 
+                      checked={visibility === "public"} 
+                      onChange={() => setVisibility("public")} 
+                      className="text-purple-600 focus:ring-purple-500" 
+                    />
+                    <span className="flex items-center gap-1 bg-white px-2.5 py-1 rounded-lg border border-purple-200 shadow-sm">
+                      <Globe className="w-3.5 h-3.5 text-emerald-600" />
+                      Public
+                    </span>
+                  </label>
+                  <label className="flex items-center gap-1.5 text-xs text-purple-950 font-bold cursor-pointer">
+                    <input 
+                      type="radio" 
+                      name="studioVisibility" 
+                      value="private" 
+                      checked={visibility === "private"} 
+                      onChange={() => setVisibility("private")} 
+                      className="text-purple-600 focus:ring-purple-500" 
+                    />
+                    <span className="flex items-center gap-1 bg-white px-2.5 py-1 rounded-lg border border-purple-200 shadow-sm">
+                      <Lock className="w-3.5 h-3.5 text-rose-600" />
+                      Private
+                    </span>
+                  </label>
+                </div>
+                <p className="text-[10px] text-gray-500">
+                  Public articles are live for all readers. Private articles are saved in your control deck only.
+                </p>
+              </div>
+
+              {/* Direct Publish vs Schedule */}
+              <div className="p-4 bg-indigo-50/70 border border-indigo-100 rounded-2xl space-y-2">
+                <label className="text-xs font-black text-indigo-950 uppercase tracking-wider block flex items-center gap-1.5">
+                  <Calendar className="w-4 h-4 text-indigo-600" />
+                  <span>Publishing Schedule Flow</span>
+                </label>
+                <div className="flex items-center gap-4">
+                  <label className="flex items-center gap-1.5 text-xs text-indigo-950 font-bold cursor-pointer">
+                    <input 
+                      type="radio" 
+                      name="studioPublishStatus" 
+                      value="direct" 
+                      checked={publishStatus === "direct"} 
+                      onChange={() => setPublishStatus("direct")} 
+                      className="text-indigo-600 focus:ring-indigo-500" 
+                    />
+                    <span>Direct Publish</span>
+                  </label>
+                  <label className="flex items-center gap-1.5 text-xs text-indigo-950 font-bold cursor-pointer">
+                    <input 
+                      type="radio" 
+                      name="studioPublishStatus" 
+                      value="scheduled" 
+                      checked={publishStatus === "scheduled"} 
+                      onChange={() => setPublishStatus("scheduled")} 
+                      className="text-indigo-600 focus:ring-indigo-500" 
+                    />
+                    <span>Schedule Date & Time</span>
+                  </label>
+                </div>
+
+                {publishStatus === "scheduled" && (
+                  <div className="space-y-1 pt-1 animate-in fade-in duration-200">
+                    <div className="flex items-center gap-2">
+                      <span className="text-[10px] font-bold text-indigo-900 uppercase shrink-0">Publish Time:</span>
+                      <input 
+                        type="datetime-local" 
+                        required={publishStatus === "scheduled"} 
+                        value={scheduledDate} 
+                        onChange={(e) => setScheduledDate(e.target.value)} 
+                        className="w-full px-3 py-1.5 rounded-lg border border-indigo-200 bg-white text-xs focus:outline-none focus:border-indigo-500 font-mono" 
+                      />
+                    </div>
+                    <p className="text-[10px] text-indigo-700 font-bold flex items-center gap-1 mt-1">
+                      <span>🇵🇰 Timezone:</span>
+                      <span className="underline">Pakistan Standard Time (PKT - UTC+5)</span>
+                    </p>
+                  </div>
+                )}
+              </div>
+
             </div>
 
             {/* Thumbnail Image URL & Upload */}
@@ -474,7 +628,7 @@ export default function WriteArticleEditor({
               className="px-8 py-3 bg-gradient-to-r from-purple-800 via-indigo-800 to-purple-950 hover:from-purple-900 hover:to-slate-950 text-white font-black text-sm rounded-2xl shadow-lg cursor-pointer transition-all flex items-center gap-2 active:scale-95 disabled:opacity-50"
             >
               <Send className="w-4 h-4" />
-              <span>{isPublishing ? "Publishing Article..." : "Publish Article Live"}</span>
+              <span>{isPublishing ? "Saving..." : (initialArticle ? "Update & Save Changes" : "Publish Article Live")}</span>
             </button>
           </div>
 
@@ -523,3 +677,4 @@ export default function WriteArticleEditor({
     </div>
   );
 }
+

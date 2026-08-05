@@ -204,6 +204,43 @@ async function getArticlesCached(): Promise<any[]> {
   return [];
 }
 
+// Serve SEO and AI indexing files explicitly
+app.get("/robots.txt", async (req, res) => {
+  try {
+    const fs = await import("fs");
+    const filePath = path.resolve(process.cwd(), "public", "robots.txt");
+    if (fs.existsSync(filePath)) {
+      const content = fs.readFileSync(filePath, "utf-8");
+      return res.status(200).set({ "Content-Type": "text/plain" }).send(content);
+    }
+  } catch (e) {}
+  return res.status(200).set({ "Content-Type": "text/plain" }).send("User-agent: *\nAllow: /\n\nSitemap: https://www.sprocoder.online/sitemap.xml\n");
+});
+
+app.get("/sitemap.xml", async (req, res) => {
+  try {
+    const fs = await import("fs");
+    const filePath = path.resolve(process.cwd(), "public", "sitemap.xml");
+    if (fs.existsSync(filePath)) {
+      const content = fs.readFileSync(filePath, "utf-8");
+      return res.status(200).set({ "Content-Type": "application/xml" }).send(content);
+    }
+  } catch (e) {}
+  return res.status(404).end();
+});
+
+app.get("/llms.txt", async (req, res) => {
+  try {
+    const fs = await import("fs");
+    const filePath = path.resolve(process.cwd(), "public", "llms.txt");
+    if (fs.existsSync(filePath)) {
+      const content = fs.readFileSync(filePath, "utf-8");
+      return res.status(200).set({ "Content-Type": "text/plain" }).send(content);
+    }
+  } catch (e) {}
+  return res.status(404).end();
+});
+
 // Clean router for dynamic article pre-rendering to serve fast HTML payload
 app.get([
   "/blog/:slug",
