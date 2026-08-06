@@ -57,6 +57,23 @@ function getYouTubeId(url: string): string {
   return trimmed;
 }
 
+// Utility to recursively sanitize object properties for Firebase set/update operations
+function sanitizeForFirebase(obj: any): any {
+  if (obj === undefined) return "";
+  if (obj === null || typeof obj !== "object") return obj;
+  if (Array.isArray(obj)) {
+    return obj.map(sanitizeForFirebase);
+  }
+  const clean: Record<string, any> = {};
+  for (const key of Object.keys(obj)) {
+    const val = obj[key];
+    if (val !== undefined) {
+      clean[key] = sanitizeForFirebase(val);
+    }
+  }
+  return clean;
+}
+
 interface AdminPanelProps {
   onClose: () => void;
   categories: string[];
@@ -145,7 +162,7 @@ export default function AdminPanel({ onClose, categories, setCategories, onLogou
           bannedAt: null
         });
         setUserActionSuccess(`User ${targetUser.name} has been reactivated/unbanned.`);
-        setSelectedUserControl((prev) => prev ? { ...prev, isBanned: false, banReason: undefined, bannedAt: undefined } : null);
+        setSelectedUserControl((prev) => prev ? { ...prev, isBanned: false, banReason: "", bannedAt: "" } : null);
       }
       setTimeout(() => setUserActionSuccess(null), 3000);
     } catch (err) {
@@ -948,7 +965,7 @@ export default function AdminPanel({ onClose, categories, setCategories, onLogou
         visibility: visibility || "public"
       };
 
-      await set(ref(db, `${DB_PATHS.ARTICLES}/${articleId}`), articlePayload);
+      await set(ref(db, `${DB_PATHS.ARTICLES}/${articleId}`), sanitizeForFirebase(articlePayload));
 
       // If it is a new article, trigger notification in database
       if (isNew) {
@@ -1140,13 +1157,13 @@ export default function AdminPanel({ onClose, categories, setCategories, onLogou
         id: generatedId,
         visibility: isPreGen ? "private" : "public",
         publishStatus: isPreGen ? "scheduled" : "direct",
-        scheduledDate: isPreGen ? (aiScheduleTime || new Date().toISOString()) : undefined,
+        scheduledDate: isPreGen ? (aiScheduleTime || new Date().toISOString()) : "",
         likes: Math.floor(Math.random() * 25) + 5,
         savesCount: Math.floor(Math.random() * 10) + 2,
         views: Math.floor(Math.random() * 50) + 10,
       };
 
-      await set(ref(db, `${DB_PATHS.ARTICLES}/${generatedId}`), fullArticlePayload);
+      await set(ref(db, `${DB_PATHS.ARTICLES}/${generatedId}`), sanitizeForFirebase(fullArticlePayload));
 
       if (!isPreGen) {
         // Auto-sync Privacy Policy & Disclaimer pages
@@ -2325,8 +2342,8 @@ export default function AdminPanel({ onClose, categories, setCategories, onLogou
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-purple-50">
-                      {articles.map((art) => (
-                        <tr key={art.id} className="hover:bg-purple-50/50">
+                      {articles.map((art, artIdx) => (
+                        <tr key={art.id || `art-row-${artIdx}`} className="hover:bg-purple-50/50">
                           <td className="p-3">
                             <img 
                               src={art.thumbnailUrl} 
@@ -2623,14 +2640,14 @@ export default function AdminPanel({ onClose, categories, setCategories, onLogou
                         if (userFilterRole === "reader") return u.role === "reader" || !u.role;
                         return true;
                       })
-                      .map((user) => {
+                      .map((user, userIdx) => {
                         const userPublishedCount = articles.filter(
                           (art) => art.author === user.name || art.author === user.username || (art as any).userEmail === user.email
                         ).length;
 
                         return (
                           <tr 
-                            key={user.id} 
+                            key={user.id || `usr-${userIdx}`} 
                             onClick={() => {
                               setSelectedUserControl(user);
                               setBanReasonInput(user.banReason || "");
@@ -4092,7 +4109,7 @@ export default function AdminPanel({ onClose, categories, setCategories, onLogou
                     <tbody className="divide-y divide-purple-50/50">
                       {[...articles]
                         .sort((a, b) => ((b.articleViews || b.views || 0) - (a.articleViews || a.views || 0)))
-                        .map((post) => {
+                        .map((post, postIdx) => {
                           const commentsArray = post.comments 
                             ? (Array.isArray(post.comments) 
                               ? post.comments 
@@ -4110,7 +4127,7 @@ export default function AdminPanel({ onClose, categories, setCategories, onLogou
                           const engagementRate = articleViews > 0 ? ((engagementPoints / articleViews) * 100).toFixed(1) : "0";
 
                           return (
-                            <tr key={post.id} className="hover:bg-purple-50/40 transition-colors">
+                            <tr key={post.id || `post-${postIdx}`} className="hover:bg-purple-50/40 transition-colors">
                               <td className="py-3 pr-2 text-left">
                                 <p className="font-extrabold text-purple-950 line-clamp-1">{post.title}</p>
                                 <span className="text-[9px] text-purple-600 bg-purple-50 px-2 py-0.5 rounded-full font-bold uppercase tracking-wider inline-block mt-0.5">

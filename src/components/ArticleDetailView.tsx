@@ -38,6 +38,17 @@ interface ArticleDetailViewProps {
   onSearchKeyword?: (keyword: string) => void;
 }
 
+function decodeHtmlEntities(str: string): string {
+  if (!str) return "";
+  return str
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&amp;/g, "&")
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/&nbsp;/g, " ");
+}
+
 export default function ArticleDetailView({
   post,
   allPosts,
@@ -285,10 +296,38 @@ export default function ArticleDetailView({
                               <blockquote className="border-l-4 border-purple-500 pl-4 italic text-slate-600 my-4 bg-purple-50/50 py-1.5 pr-2 rounded-r-xl">
                                 {children}
                               </blockquote>
+                            ),
+                            pre: ({ children }) => (
+                              <div className="my-4 max-w-full overflow-x-auto rounded-2xl bg-slate-950 p-4 border border-slate-800 shadow-lg">
+                                <pre className="font-mono text-xs sm:text-sm text-emerald-400 whitespace-pre-wrap break-words leading-relaxed max-w-full">
+                                  {children}
+                                </pre>
+                              </div>
+                            ),
+                            code: ({ inline, className, children, ...props }: any) => {
+                              if (inline) {
+                                return (
+                                  <code className="px-1.5 py-0.5 rounded-md bg-purple-100 text-purple-900 font-mono text-xs font-semibold break-words" {...props}>
+                                    {children}
+                                  </code>
+                                );
+                              }
+                              return (
+                                <code className="font-mono text-xs sm:text-sm text-emerald-300 whitespace-pre-wrap break-words block max-w-full" {...props}>
+                                  {children}
+                                </code>
+                              );
+                            },
+                            table: ({ children }) => (
+                              <div className="my-4 max-w-full overflow-x-auto rounded-xl border border-purple-100 shadow-sm">
+                                <table className="min-w-full divide-y divide-purple-100 text-xs sm:text-sm">
+                                  {children}
+                                </table>
+                              </div>
                             )
                           }}
                         >
-                          {part}
+                          {decodeHtmlEntities(part)}
                         </Markdown>
                       );
                     } else {

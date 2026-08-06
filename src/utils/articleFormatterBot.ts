@@ -92,10 +92,18 @@ export function runArticleFormatterBot(input: {
   body = body.replace(/ +/g, " "); // collapse double spaces
   body = body.replace(/\n{3,}/g, "\n\n"); // max 2 line breaks
 
-  // 2. Format Headings cleanly (# -> H1, ## -> H2, ### -> H3)
+  // 2. Format Headings cleanly (# -> H1, ## -> H2, ### -> H3) while preserving code blocks
   const lines = body.split("\n");
+  let inCodeBlock = false;
   const formattedLines = lines.map((line) => {
     const trimmed = line.trim();
+    if (trimmed.startsWith("```") || trimmed.startsWith("<pre") || trimmed.endsWith("</pre>")) {
+      inCodeBlock = !inCodeBlock;
+      return line;
+    }
+    if (inCodeBlock) {
+      return line;
+    }
     if (!trimmed) return "";
     
     // Auto-fix headings missing space after #
@@ -104,7 +112,7 @@ export function runArticleFormatterBot(input: {
     }
 
     // Auto-format bold key sentences if short heading-like line without markdown
-    if (trimmed.length < 55 && !trimmed.startsWith("#") && !trimmed.startsWith("-") && !trimmed.startsWith(">") && !trimmed.endsWith(".") && !trimmed.endsWith(":")) {
+    if (trimmed.length < 55 && !trimmed.startsWith("#") && !trimmed.startsWith("-") && !trimmed.startsWith(">") && !trimmed.startsWith("<") && !trimmed.endsWith(".") && !trimmed.endsWith(":") && !trimmed.endsWith(";")) {
       return `## ${trimmed}`;
     }
 

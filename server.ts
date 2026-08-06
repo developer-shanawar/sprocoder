@@ -1021,14 +1021,19 @@ const handleAiArticleGeneration = async (req: express.Request, res: express.Resp
       keyPool = [apiKey.trim()];
     }
 
-    let activeClient = ai;
+    const clientsToTry: { name: string; client: GoogleGenAI }[] = [];
     if (keyPool.length > 0) {
-      // Pick a key randomly or round-robin to distribute quota load
-      const selectedKey = keyPool[Math.floor(Math.random() * keyPool.length)];
-      activeClient = new GoogleGenAI({ apiKey: selectedKey });
+      for (let i = 0; i < keyPool.length; i++) {
+        clientsToTry.push({ name: `Key Pool #${i + 1}`, client: new GoogleGenAI({ apiKey: keyPool[i] }) });
+      }
+    } else if (process.env.GEMINI_API_KEY) {
+      clientsToTry.push({ name: "Environment Key", client: new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY }) });
+    }
+    if (clientsToTry.length === 0 && ai) {
+      clientsToTry.push({ name: "Default Gemini Client", client: ai });
     }
 
-    if (!activeClient) {
+    if (clientsToTry.length === 0) {
       return res.status(503).json({
         error: "Gemini client is not configured. Please enter at least one valid Gemini API key in the AI Engine settings."
       });
@@ -1045,22 +1050,66 @@ CRITICAL AUTHORING GUIDELINES (FOR GOOGLE INDEXING & HUMAN LEGIBILITY):
 6. FAQs Section: Conclude with a dedicated <h2>Frequently Asked Questions (FAQs)</h2> section containing 3 to 5 clear, insightful Q&A items.
 7. Length & Depth: High information density, approximately 1500 words of actionable, practical content.`;
 
-    console.log(`Generating high-quality 1500-word article for category "${targetCategory}" via Gemini SDK (Key Pool Size: ${keyPool.length})...`);
-    const response = await activeClient.models.generateContent({
-      model: "gemini-3.5-flash",
-      contents: prompt,
-      config: {
-        systemInstruction: "You are a world-class senior engineer and technical author sharing real-world experiences, step-by-step tutorials, and production insights. You produce 1500-word articles in plain, direct English with step-by-step sections, green highlighted key terms, code examples, and an FAQs section. You never use AI clichés.",
-        responseMimeType: "application/json",
-        responseSchema: aiBlogPostSchema
-      }
-    });
+    console.log(`Generating high-quality 1500-word article for category "${targetCategory}" via Gemini SDK (Clients: ${clientsToTry.length})...`);
 
-    const jsonStr = response.text;
-    if (!jsonStr) {
-      throw new Error("Empty response received from Gemini SDK");
+    const modelsToTry = ["gemini-3.5-flash", "gemini-2.5-flash"];
+    let lastErrorMsg = "";
+    let hitQuotaOrDenied = false;
+
+    for (const clientObj of clientsToTry) {
+      for (const modelName of modelsToTry) {
+        try {
+          console.log(`Attempting article generation with ${clientObj.name} using ${modelName}...`);
+          const response = await clientObj.client.models.generateContent({
+            model: modelName,
+            contents: prompt,
+            config: {
+              systemInstruction: "You are a world-class senior engineer and technical author sharing real-world experiences, step-by-step tutorials, and production insights. You produce 1500-word articles in plain, direct English with step-by-step sections, green highlighted key terms, code examples, and an FAQs section. You never use AI clichés.",
+              responseMimeType: "application/json",
+              responseSchema: aiBlogPostSchema
+            }
+          });
+
+          const jsonStr = response.text;
+          if (jsonStr) {
+            blogPost = safeJsonParse(jsonStr);
+            if (blogPost && blogPost.title) {
+              break;
+            }
+          }
+        } catch (err: any) {
+          const msg = err?.message || String(err || "");
+          console.warn(`Attempt failed for ${clientObj.name} with ${modelName}:`, msg);
+          lastErrorMsg = msg;
+          if (
+            msg.includes("429") ||
+            msg.includes("RESOURCE_EXHAUSTED") ||
+            msg.toLowerCase().includes("quota") ||
+            msg.toLowerCase().includes("limit") ||
+            msg.includes("403") ||
+            msg.includes("PERMISSION_DENIED") ||
+            msg.toLowerCase().includes("denied")
+          ) {
+            hitQuotaOrDenied = true;
+          }
+        }
+      }
+      if (blogPost) break;
     }
-    blogPost = safeJsonParse(jsonStr);
+
+    if (!blogPost) {
+      if (hitQuotaOrDenied || lastErrorMsg.toLowerCase().includes("quota") || lastErrorMsg.toLowerCase().includes("limit")) {
+        return res.status(429).json({
+          error: "API Limit Reached or Project Access Denied: The Gemini API quota/limit has been reached or access was denied. Article generation stopped.",
+          quotaExceeded: true,
+          limitReached: true,
+          projectDenied: true
+        });
+      }
+      return res.status(503).json({
+        error: lastErrorMsg || "API Service Temporarily Unavailable. Article generation stopped."
+      });
+    }
 
     // Generate 16:9 Custom Thumbnail SVG with random color variant (0 to 5)
     const randomVariant = Math.floor(Math.random() * 6);
