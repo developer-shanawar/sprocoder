@@ -1007,35 +1007,50 @@ function safeJsonParse(text: string): any {
 // API Endpoint: AI Article Generation Engine
 const handleAiArticleGeneration = async (req: express.Request, res: express.Response) => {
   try {
-    const { category, apiKey, publishTime, huggingFaceKey, imgbbKey } = req.body;
+    const { category, apiKey, apiKeys, publishTime, huggingFaceKey, imgbbKey } = req.body;
     let blogPost: any = null;
 
     const targetCategory = category || "Artificial Intelligence";
-    const prompt = `Write a full-length, highly detailed, approximately 1500-word human-like article for the category: "${targetCategory}".
-REQUIREMENTS:
-1. Language & Tone: Simple, direct, conversational, human-like English. Do NOT use robotic AI jargon or phrases like "In today's fast-paced digital era" or "In conclusion". No meaningless symbols or extra filler words.
-2. Structure: Use clear <h1> and <h2> headings and small, readable paragraphs.
-3. Green Highlights: Highlight key words, main concepts, and important technical terms in green using: <mark style="background-color: #dcfce7; color: #166534; font-weight: bold; padding: 2px 6px; border-radius: 4px;">[keyword]</mark>.
-4. FAQs Section: Conclude with an explicit <h2>Frequently Asked Questions (FAQs)</h2> section containing 3 to 5 realistic, helpful questions and answers.
-5. Quality: High-density, informative, SEO-friendly content. Total length should be around 1500 words.`;
+
+    // 1. Resolve API Keys array (up to 5 keys)
+    let keyPool: string[] = [];
+    if (Array.isArray(apiKeys) && apiKeys.length > 0) {
+      keyPool = apiKeys.filter((k: any) => typeof k === "string" && k.trim().length > 10).map((k: string) => k.trim());
+    }
+    if (keyPool.length === 0 && apiKey && typeof apiKey === "string" && apiKey.trim().length > 10) {
+      keyPool = [apiKey.trim()];
+    }
 
     let activeClient = ai;
-    if (apiKey && typeof apiKey === "string" && apiKey.trim().length > 10) {
-      activeClient = new GoogleGenAI({ apiKey: apiKey.trim() });
+    if (keyPool.length > 0) {
+      // Pick a key randomly or round-robin to distribute quota load
+      const selectedKey = keyPool[Math.floor(Math.random() * keyPool.length)];
+      activeClient = new GoogleGenAI({ apiKey: selectedKey });
     }
 
     if (!activeClient) {
       return res.status(503).json({
-        error: "Gemini client is not configured. Please enter your Gemini API key in the AI Engine settings."
+        error: "Gemini client is not configured. Please enter at least one valid Gemini API key in the AI Engine settings."
       });
     }
 
-    console.log(`Generating 1500-word article for category "${targetCategory}" via Gemini SDK...`);
+    const prompt = `Write an exceptionally high quality, 1500-word, human-like, step-by-step guide and experiential technical article for the category: "${targetCategory}".
+
+CRITICAL AUTHORING GUIDELINES (FOR GOOGLE INDEXING & HUMAN LEGIBILITY):
+1. Title: Create an ultra-compelling, SEO-friendly title that sounds like a real expert's step-by-step case study or comprehensive walkthrough (e.g., "Step-by-Step Guide: How I Built and Scaled [Technology] in Production").
+2. Human-Centric Voice: Write from a first-person, experiential perspective ("In my experience...", "When I first configured...", "Here is what worked best in our production testing..."). Avoid AI cliché introductions like "In today's fast-paced digital world" or "In conclusion".
+3. Step-by-Step Structure: Divide the core tutorial into logical, numbered step-by-step sections using clear H2 and H3 HTML headings (e.g., <h2>Step 1: Understanding Core Architecture</h2>, <h2>Step 2: Hands-On Implementation</h2>).
+4. Code Snippets & Technical Examples: Include clear code snippets, configuration blocks, or practical takeaways wherever relevant.
+5. Key Term Green Highlights: Highlight key terms, important tools, and actionable takeaways in green using: <mark style="background-color: #dcfce7; color: #166534; font-weight: bold; padding: 2px 6px; border-radius: 4px;">[keyword]</mark>.
+6. FAQs Section: Conclude with a dedicated <h2>Frequently Asked Questions (FAQs)</h2> section containing 3 to 5 clear, insightful Q&A items.
+7. Length & Depth: High information density, approximately 1500 words of actionable, practical content.`;
+
+    console.log(`Generating high-quality 1500-word article for category "${targetCategory}" via Gemini SDK (Key Pool Size: ${keyPool.length})...`);
     const response = await activeClient.models.generateContent({
       model: "gemini-3.5-flash",
       contents: prompt,
       config: {
-        systemInstruction: "You are an expert human author and technical writer who produces engaging 1500-word articles in simple, plain English. You avoid robotic tropes, highlight key concepts with green background marks, structure content with H1/H2 headings and short paragraphs, and end with an FAQs section.",
+        systemInstruction: "You are a world-class senior engineer and technical author sharing real-world experiences, step-by-step tutorials, and production insights. You produce 1500-word articles in plain, direct English with step-by-step sections, green highlighted key terms, code examples, and an FAQs section. You never use AI clichés.",
         responseMimeType: "application/json",
         responseSchema: aiBlogPostSchema
       }
@@ -1047,11 +1062,13 @@ REQUIREMENTS:
     }
     blogPost = safeJsonParse(jsonStr);
 
-    // Generate 16:9 Custom Thumbnail SVG
+    // Generate 16:9 Custom Thumbnail SVG with random color variant (0 to 5)
+    const randomVariant = Math.floor(Math.random() * 6);
     const svgThumbnail = generateArticleThumbnailSvg({
       category: blogPost.category || targetCategory,
       title: blogPost.title,
-      websiteName: "sprocoder.online"
+      websiteName: "sprocoder.online",
+      variantIndex: randomVariant
     });
 
     blogPost.thumbnailUrl = svgThumbnail;
@@ -1061,8 +1078,8 @@ REQUIREMENTS:
       month: "long",
       day: "numeric"
     });
-    blogPost.likes = 0;
-    blogPost.savesCount = 0;
+    blogPost.likes = Math.floor(Math.random() * 20) + 5;
+    blogPost.savesCount = Math.floor(Math.random() * 10) + 2;
     blogPost.isAiGenerated = true;
     blogPost.publishStatus = publishTime ? "scheduled" : "direct";
     blogPost.scheduledDate = publishTime || "";
@@ -1071,8 +1088,29 @@ REQUIREMENTS:
     return res.json(blogPost);
   } catch (error: any) {
     console.error("Error generating AI article:", error);
+    const errMsg = error?.message || String(error || "");
+    const isLimitOrDenied = 
+      errMsg.includes("429") ||
+      errMsg.includes("RESOURCE_EXHAUSTED") ||
+      errMsg.toLowerCase().includes("quota") ||
+      errMsg.toLowerCase().includes("limit") ||
+      errMsg.includes("403") ||
+      errMsg.includes("PERMISSION_DENIED") ||
+      errMsg.toLowerCase().includes("denied") ||
+      errMsg.includes("API_KEY_INVALID") ||
+      errMsg.toLowerCase().includes("not supported");
+
+    if (isLimitOrDenied) {
+      return res.status(429).json({
+        error: "API Limit Reached or Project Access Denied: The Gemini API limit/quota has been reached or access was denied. Article generation stopped.",
+        quotaExceeded: true,
+        limitReached: true,
+        projectDenied: true
+      });
+    }
+
     return res.status(500).json({
-      error: error.message || "Failed to generate AI article. Please check server logs."
+      error: errMsg || "Failed to generate AI article. Please check server logs."
     });
   }
 };

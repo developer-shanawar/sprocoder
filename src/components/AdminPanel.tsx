@@ -4,7 +4,7 @@ import {
   Plus, Edit, Trash2, Heart, Bookmark, Eye, FileText, Upload, Save, Check, RefreshCw, Lock,
   Youtube, Star, Bold, Italic, Underline, Link, Heading1, Heading2, List, Quote, Globe,
   TrendingUp, BarChart2, Send, Instagram, Facebook, Mail, Sparkles, MessageCircle, AlertCircle,
-  ShieldAlert, ShieldCheck, UserCheck, UserX, Search, Filter, Clock, Calendar, User, Ban, X, CheckCircle2
+  ShieldAlert, ShieldCheck, UserCheck, UserX, Search, Filter, Clock, Calendar, User, Ban, X, CheckCircle2, UserPlus
 } from "lucide-react";
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, PieChart, Pie, Cell, Legend } from "recharts";
 import { db, DB_PATHS } from "../firebase";
@@ -80,16 +80,27 @@ export default function AdminPanel({ onClose, categories, setCategories, onLogou
 
   // AI Article Generator States
   const [geminiApiKey, setGeminiApiKey] = useState("");
+  const [geminiApiKeys, setGeminiApiKeys] = useState<string[]>([""]);
   const [aiSelectedCategory, setAiSelectedCategory] = useState("");
+  const [aiSelectedCategories, setAiSelectedCategories] = useState<string[]>([]);
   const [aiScheduleTime, setAiScheduleTime] = useState("");
   const [aiScheduleEnabled, setAiScheduleEnabled] = useState(false);
   const [aiLastExecutionTime, setAiLastExecutionTime] = useState(0);
+  const [preGeneratedForSchedule, setPreGeneratedForSchedule] = useState(false);
   const [aiLogs, setAiLogs] = useState<string[]>([]);
   const [aiGenerationLoading, setAiGenerationLoading] = useState(false);
   const [aiGenerationStep, setAiGenerationStep] = useState(0);
   const [aiGeneratedArticle, setAiGeneratedArticle] = useState<BlogPost | null>(null);
   const [aiSuccessMessage, setAiSuccessMessage] = useState("");
   const [aiErrorMessage, setAiErrorMessage] = useState("");
+  const [quotaHaltedDate, setQuotaHaltedDate] = useState<string>("");
+
+  // New Account / Team User Creation State
+  const [newUserName, setNewUserName] = useState("");
+  const [newUserEmail, setNewUserEmail] = useState("");
+  const [newUserPassword, setNewUserPassword] = useState("");
+  const [newUserRole, setNewUserRole] = useState<"admin" | "author" | "reader" | "marketer" | "guest">("author");
+  const [createUserLoading, setCreateUserLoading] = useState(false);
 
   // Disclaimer Page and Social Media Configuration States
   const [disclaimerContent, setDisclaimerContent] = useState("");
@@ -166,6 +177,48 @@ export default function AdminPanel({ onClose, categories, setCategories, onLogou
       setTimeout(() => setUserActionSuccess(null), 3000);
     } catch (err) {
       alert("Failed to delete user account: " + (err as Error).message);
+    }
+  };
+
+  const handleCreateNewUser = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newUserName.trim() || !newUserEmail.trim()) {
+      alert("Name and Email are required.");
+      return;
+    }
+
+    setCreateUserLoading(true);
+    try {
+      const usersRef = ref(db, DB_PATHS.USERS);
+      const newUserRef = push(usersRef);
+      const newUserId = newUserRef.key as string;
+      const cleanEmail = newUserEmail.trim().toLowerCase();
+      const usernameCandidate = cleanEmail.split("@")[0].replace(/[^a-zA-Z0-9]/g, "");
+
+      const userPayload: UserAccount = {
+        id: newUserId,
+        name: newUserName.trim(),
+        email: cleanEmail,
+        password: newUserPassword.trim() || "12345678",
+        username: usernameCandidate,
+        registeredAt: new Date().toLocaleDateString("en-US", { year: "numeric", month: "short", day: "numeric" }),
+        lastLogin: new Date().toLocaleDateString("en-US", { year: "numeric", month: "short", day: "numeric" }),
+        role: newUserRole,
+        isBanned: false,
+        avatarUrl: `https://api.dicebear.com/7.x/bottts/svg?seed=${encodeURIComponent(newUserName.trim())}`
+      };
+
+      await set(ref(db, `users/${newUserId}`), userPayload);
+      setUserActionSuccess(`New account "${newUserName.trim()}" created successfully with ${newUserRole.toUpperCase()} access!`);
+      setNewUserName("");
+      setNewUserEmail("");
+      setNewUserPassword("");
+      setNewUserRole("author");
+      setTimeout(() => setUserActionSuccess(null), 4000);
+    } catch (err) {
+      alert("Failed to create user account: " + (err as Error).message);
+    } finally {
+      setCreateUserLoading(false);
     }
   };
 
@@ -548,7 +601,17 @@ export default function AdminPanel({ onClose, categories, setCategories, onLogou
       if (snapshot.exists()) {
         const val = snapshot.val();
         if (val.geminiApiKey) setGeminiApiKey(val.geminiApiKey);
+        if (Array.isArray(val.geminiApiKeys) && val.geminiApiKeys.length > 0) {
+          setGeminiApiKeys(val.geminiApiKeys);
+        } else if (val.geminiApiKey) {
+          setGeminiApiKeys([val.geminiApiKey]);
+        }
         if (val.selectedCategory) setAiSelectedCategory(val.selectedCategory);
+        if (Array.isArray(val.selectedCategories) && val.selectedCategories.length > 0) {
+          setAiSelectedCategories(val.selectedCategories);
+        } else if (val.selectedCategory) {
+          setAiSelectedCategories([val.selectedCategory]);
+        }
         if (val.scheduleTime) setAiScheduleTime(val.scheduleTime);
         if (val.scheduleEnabled !== undefined) setAiScheduleEnabled(val.scheduleEnabled);
       }
@@ -622,27 +685,71 @@ export default function AdminPanel({ onClose, categories, setCategories, onLogou
     };
   }, []);
 
-  // AI Article Engine Automated Scheduler & 24-Hour Fallback Safeguard Effect
+  // AI Article Engine Automated Scheduler with 5-Min Pre-Generation & 24-Hour Fallback Safeguard
   useEffect(() => {
     const checkInterval = setInterval(async () => {
       if (!aiScheduleEnabled) return;
 
       const now = new Date();
+      const todayStr = now.toISOString().split("T")[0];
+
+      // Stop automated generation for today if API limit reached or project access denied
+      if (quotaHaltedDate === todayStr) {
+        return;
+      }
+
       const currentHours = String(now.getHours()).padStart(2, "0");
       const currentMinutes = String(now.getMinutes()).padStart(2, "0");
       const currentTimeStr = `${currentHours}:${currentMinutes}`;
 
-      // 1. Time-based schedule trigger
-      if (aiScheduleTime && currentTimeStr === aiScheduleTime) {
-        const timeSinceLast = Date.now() - aiLastExecutionTime;
-        if (timeSinceLast >= 120000) {
-          console.log(`[AI Engine Scheduler] Triggering scheduled execution at ${currentTimeStr}...`);
-          handleRunAiArticleGen(true);
+      // 1. Compute 5 minutes prior to scheduled publish time
+      if (aiScheduleTime) {
+        const [schH, schM] = aiScheduleTime.split(":").map(Number);
+        if (!isNaN(schH) && !isNaN(schM)) {
+          let preH = schH;
+          let preM = schM - 5;
+          if (preM < 0) {
+            preM += 60;
+            preH = (preH - 1 + 24) % 24;
+          }
+          const preTimeStr = `${String(preH).padStart(2, "0")}:${String(preM).padStart(2, "0")}`;
+
+          // Trigger 5-minute pre-generation if not already pre-generated
+          if (currentTimeStr === preTimeStr && !preGeneratedForSchedule) {
+            console.log(`[AI Engine Scheduler] 5-minute Pre-generation triggered at ${preTimeStr} for target schedule ${aiScheduleTime}...`);
+            setPreGeneratedForSchedule(true);
+            handleRunAiArticleGen(true, true);
+          }
+
+          // Trigger live publishing at exact scheduled time
+          if (currentTimeStr === aiScheduleTime) {
+            setPreGeneratedForSchedule(false); // reset flag for next day
+            const scheduledPosts = articles.filter((art) => art.publishStatus === "scheduled");
+            if (scheduledPosts.length > 0) {
+              for (const post of scheduledPosts) {
+                await update(ref(db, `${DB_PATHS.ARTICLES}/${post.id}`), {
+                  visibility: "public",
+                  publishStatus: "direct",
+                  date: new Date().toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" })
+                });
+                await syncLegalPagesWithContent(post.title, post.category);
+              }
+              setAiLogs((prev) => [
+                `[${new Date().toLocaleTimeString()}] 🚀 Scheduled time ${aiScheduleTime} reached! ${scheduledPosts.length} pre-generated article(s) published LIVE to public feed!`,
+                ...prev.slice(0, 49)
+              ]);
+            } else {
+              const timeSinceLast = Date.now() - aiLastExecutionTime;
+              if (timeSinceLast >= 120000) {
+                console.log(`[AI Engine Scheduler] Triggering live execution at ${currentTimeStr}...`);
+                handleRunAiArticleGen(true, false);
+              }
+            }
+          }
         }
       }
 
       // 2. 24-Hour Auto System Detection Safeguard
-      // Check if any article was published in the past 24 hours (86,400,000 ms)
       if (articles && articles.length > 0) {
         const lastPost = articles[0];
         let lastPostTime = 0;
@@ -661,13 +768,13 @@ export default function AdminPanel({ onClose, categories, setCategories, onLogou
             `[${new Date().toLocaleTimeString()}] ⚡ 24-Hour Safeguard Alert: No article published in past 24 hours. Auto-generating fresh content now...`,
             ...prev.slice(0, 49)
           ]);
-          handleRunAiArticleGen(true);
+          handleRunAiArticleGen(true, false);
         }
       }
     }, 30000);
 
     return () => clearInterval(checkInterval);
-  }, [aiScheduleEnabled, aiScheduleTime, aiSelectedCategory, aiLastExecutionTime, articles]);
+  }, [aiScheduleEnabled, aiScheduleTime, aiSelectedCategory, aiSelectedCategories, aiLastExecutionTime, articles, preGeneratedForSchedule, quotaHaltedDate]);
 
   // Handle ImgBB upload
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -882,9 +989,12 @@ export default function AdminPanel({ onClose, categories, setCategories, onLogou
   const handleSaveAiEngineSettings = async () => {
     try {
       setLoading(true);
+      const cleanedKeys = geminiApiKeys.map((k) => k.trim()).filter(Boolean);
       await set(ref(db, "settings/aiEngine"), {
-        geminiApiKey,
-        selectedCategory: aiSelectedCategory,
+        geminiApiKey: cleanedKeys[0] || geminiApiKey,
+        geminiApiKeys: cleanedKeys,
+        selectedCategory: aiSelectedCategories[0] || aiSelectedCategory,
+        selectedCategories: aiSelectedCategories,
         scheduleTime: aiScheduleTime,
         scheduleEnabled: aiScheduleEnabled
       });
@@ -937,11 +1047,19 @@ export default function AdminPanel({ onClose, categories, setCategories, onLogou
     }
   };
 
-  const handleRunAiArticleGen = async (isAutomatedTrigger = false) => {
-    const targetCat = aiSelectedCategory || (categories && categories.length > 0 ? categories[0] : "Artificial Intelligence");
+  const handleRunAiArticleGen = async (isAutomatedTrigger = false, isPreGen = false) => {
+    // Select category from target categories or fall back to default
+    let targetCat = "";
+    if (aiSelectedCategories.length > 0) {
+      // Pick random or cycle from selected target categories
+      const randomIndex = Math.floor(Math.random() * aiSelectedCategories.length);
+      targetCat = aiSelectedCategories[randomIndex];
+    } else {
+      targetCat = aiSelectedCategory || (categories && categories.length > 0 ? categories[0] : "Artificial Intelligence");
+    }
 
     const now = Date.now();
-    if (isAutomatedTrigger && aiLastExecutionTime > 0 && (now - aiLastExecutionTime < 120000)) {
+    if (isAutomatedTrigger && !isPreGen && aiLastExecutionTime > 0 && (now - aiLastExecutionTime < 120000)) {
       const logMsg = `Automated trigger skipped at ${new Date().toLocaleTimeString()}: 2-minute buffer safeguard active.`;
       setAiLogs((prev) => [`[${new Date().toLocaleTimeString()}] ${logMsg}`, ...prev.slice(0, 49)]);
       return;
@@ -957,26 +1075,50 @@ export default function AdminPanel({ onClose, categories, setCategories, onLogou
       setAiLogs((prev) => [`[${timeStr}] ${msg}`, ...prev.slice(0, 49)]);
     };
 
-    addLog(`Initiating AI Engine Generation for Category: "${targetCat}"...`);
+    addLog(`Initiating AI Engine Generation ${isPreGen ? "(5-min Pre-Generation)" : ""} for Category: "${targetCat}"...`);
 
     try {
-      addLog("1/4: Requesting 1500-word human-like article generation from Gemini 3.5 Flash...");
+      addLog("1/4: Requesting 1500-word human-like article generation from Gemini API Pool...");
       setAiGenerationStep(1);
 
-      const activeApiKey = geminiApiKey || openRouterKey || "";
+      const cleanedKeys = geminiApiKeys.map((k) => k.trim()).filter(Boolean);
+      const activeApiKey = cleanedKeys[0] || geminiApiKey || openRouterKey || "";
       const res = await fetch("/api/generate-ai-article", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           category: targetCat,
           apiKey: activeApiKey,
+          apiKeys: cleanedKeys,
           publishTime: aiScheduleTime || ""
         })
       });
 
       if (!res.ok) {
         const errData = await res.json().catch(() => ({}));
-        throw new Error(errData.error || "Server returned error during AI generation.");
+        const rawErr = errData.error || "Server returned error during AI generation.";
+        const isLimitOrDenied =
+          errData.quotaExceeded ||
+          errData.limitReached ||
+          errData.projectDenied ||
+          rawErr.toLowerCase().includes("limit") ||
+          rawErr.toLowerCase().includes("quota") ||
+          rawErr.toLowerCase().includes("exhausted") ||
+          rawErr.toLowerCase().includes("denied") ||
+          rawErr.includes("429") ||
+          rawErr.includes("403");
+
+        if (isLimitOrDenied) {
+          const todayStr = new Date().toISOString().split("T")[0];
+          setQuotaHaltedDate(todayStr);
+          const haltMsg = "API Limit Reached or Project Access Denied: The Gemini API quota limit has been reached or access was denied. Article generation has stopped and will retry automatically tomorrow at the scheduled time.";
+          setAiErrorMessage(haltMsg);
+          addLog(`🛑 GENERATION HALTED: API limit reached or project access denied.`);
+          addLog(`[System Notice] Articles will not be generated for today (${todayStr}). Scheduled retry set for tomorrow at ${aiScheduleTime || "the scheduled time"}.`);
+          return;
+        }
+
+        throw new Error(rawErr);
       }
 
       const newPost: BlogPost = await res.json();
@@ -986,7 +1128,7 @@ export default function AdminPanel({ onClose, categories, setCategories, onLogou
       addLog("3/4: Creating 16:9 custom graphic thumbnail with category tag & sprocoder.online branding...");
       setAiGenerationStep(3);
 
-      addLog("4/4: Publishing article live to Firebase Realtime Database...");
+      addLog(isPreGen ? "4/4: Pre-saving article in Private/Scheduled state (5 minutes prior to schedule)..." : "4/4: Publishing article live to Firebase Realtime Database...");
       setAiGenerationStep(4);
 
       const articlesRef = ref(db, DB_PATHS.ARTICLES);
@@ -996,7 +1138,9 @@ export default function AdminPanel({ onClose, categories, setCategories, onLogou
       const fullArticlePayload: BlogPost = {
         ...newPost,
         id: generatedId,
-        visibility: "public",
+        visibility: isPreGen ? "private" : "public",
+        publishStatus: isPreGen ? "scheduled" : "direct",
+        scheduledDate: isPreGen ? (aiScheduleTime || new Date().toISOString()) : undefined,
         likes: Math.floor(Math.random() * 25) + 5,
         savesCount: Math.floor(Math.random() * 10) + 2,
         views: Math.floor(Math.random() * 50) + 10,
@@ -1004,30 +1148,50 @@ export default function AdminPanel({ onClose, categories, setCategories, onLogou
 
       await set(ref(db, `${DB_PATHS.ARTICLES}/${generatedId}`), fullArticlePayload);
 
-      // Auto-sync Privacy Policy & Disclaimer pages
-      const legalUpdated = await syncLegalPagesWithContent(newPost.title, targetCat);
-      if (legalUpdated) {
-        addLog("✓ Legal Compliance: Privacy Policy & Disclaimer automatically synchronized for new AI content release.");
-      }
+      if (!isPreGen) {
+        // Auto-sync Privacy Policy & Disclaimer pages
+        const legalUpdated = await syncLegalPagesWithContent(newPost.title, targetCat);
+        if (legalUpdated) {
+          addLog("✓ Legal Compliance: Privacy Policy & Disclaimer automatically synchronized for new AI content release.");
+        }
 
-      // Add notification
-      const newNotifRef = push(ref(db, DB_PATHS.NOTIFICATIONS));
-      await set(newNotifRef, {
-        id: newNotifRef.key,
-        title: "AI Engine Article Published!",
-        body: `"${newPost.title}" in ${targetCat} has been automatically generated and published live! Legal disclosures updated.`,
-        date: new Date().toLocaleDateString("en-US", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" }),
-        isRead: false
-      });
+        // Add notification
+        const newNotifRef = push(ref(db, DB_PATHS.NOTIFICATIONS));
+        await set(newNotifRef, {
+          id: newNotifRef.key,
+          title: "AI Engine Article Published!",
+          body: `"${newPost.title}" in ${targetCat} has been automatically generated and published live! Legal disclosures updated.`,
+          date: new Date().toLocaleDateString("en-US", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" }),
+          isRead: false
+        });
+      }
 
       setAiLastExecutionTime(now);
       setAiGeneratedArticle(fullArticlePayload);
-      setAiSuccessMessage(`Article "${newPost.title}" generated and published live! Legal pages synchronized.`);
-      addLog(`✓ SUCCESS: Article published live under category "${targetCat}"!`);
+      setAiSuccessMessage(isPreGen ? `Article "${newPost.title}" pre-generated for schedule time (${aiScheduleTime})!` : `Article "${newPost.title}" generated and published live! Legal pages synchronized.`);
+      addLog(isPreGen ? `✓ PRE-GEN SUCCESS: Article prepared for ${aiScheduleTime} under category "${targetCat}"!` : `✓ SUCCESS: Article published live under category "${targetCat}"!`);
     } catch (err: any) {
       console.error("AI Article Generation Error:", err);
-      setAiErrorMessage(err.message || "Failed to generate AI article.");
-      addLog(`❌ ERROR: ${err.message || "Failed to generate AI article."}`);
+      const errMsg = err?.message || "Failed to generate AI article.";
+      const isLimitOrDenied =
+        errMsg.toLowerCase().includes("limit") ||
+        errMsg.toLowerCase().includes("quota") ||
+        errMsg.toLowerCase().includes("exhausted") ||
+        errMsg.toLowerCase().includes("denied") ||
+        errMsg.includes("429") ||
+        errMsg.includes("403");
+
+      if (isLimitOrDenied) {
+        const todayStr = new Date().toISOString().split("T")[0];
+        setQuotaHaltedDate(todayStr);
+        const haltMsg = "API Limit Reached or Project Access Denied: The Gemini API quota limit has been reached or access was denied. Article generation has stopped and will retry automatically tomorrow at the scheduled time.";
+        setAiErrorMessage(haltMsg);
+        addLog(`🛑 GENERATION HALTED: API limit reached or project access denied.`);
+        addLog(`[System Notice] Articles will not be generated for today (${todayStr}). Scheduled retry set for tomorrow at ${aiScheduleTime || "the scheduled time"}.`);
+      } else {
+        setAiErrorMessage(errMsg);
+        addLog(`❌ ERROR: ${errMsg}`);
+      }
     } finally {
       setAiGenerationLoading(false);
       setAiGenerationStep(0);
@@ -2301,6 +2465,96 @@ export default function AdminPanel({ onClose, categories, setCategories, onLogou
                   </button>
                 </div>
               )}
+
+              {/* CREATE NEW USER ACCOUNT / GRANT ACCESS FORM */}
+              <form onSubmit={handleCreateNewUser} className="p-5 rounded-2xl bg-white border border-purple-100 shadow-sm space-y-4">
+                <div className="flex items-center justify-between border-b border-purple-50 pb-3">
+                  <div>
+                    <h4 className="text-xs font-black text-purple-950 uppercase tracking-wider flex items-center gap-2">
+                      <UserPlus className="w-4 h-4 text-purple-600" />
+                      <span>Create User / Grant Access Level</span>
+                    </h4>
+                    <p className="text-[11px] text-gray-500">
+                      Add a new team member or user account and specify their granular permission access level.
+                    </p>
+                  </div>
+                  <span className="text-[10px] font-bold text-purple-700 bg-purple-50 border border-purple-100 px-2.5 py-1 rounded-full">
+                    5 Access Types
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-bold text-purple-900 uppercase tracking-wider block">Full Name</label>
+                    <input
+                      type="text"
+                      required
+                      placeholder="e.g. Shanawar S Pro"
+                      value={newUserName}
+                      onChange={(e) => setNewUserName(e.target.value)}
+                      className="w-full px-3 py-2 rounded-xl border border-purple-200 bg-purple-50/30 text-xs focus:outline-none focus:border-purple-600"
+                    />
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-bold text-purple-900 uppercase tracking-wider block">Email Address</label>
+                    <input
+                      type="email"
+                      required
+                      placeholder="e.g. writer@sprocoder.online"
+                      value={newUserEmail}
+                      onChange={(e) => setNewUserEmail(e.target.value)}
+                      className="w-full px-3 py-2 rounded-xl border border-purple-200 bg-purple-50/30 text-xs focus:outline-none focus:border-purple-600"
+                    />
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-bold text-purple-900 uppercase tracking-wider block">Password</label>
+                    <input
+                      type="password"
+                      placeholder="Default: 12345678"
+                      value={newUserPassword}
+                      onChange={(e) => setNewUserPassword(e.target.value)}
+                      className="w-full px-3 py-2 rounded-xl border border-purple-200 bg-purple-50/30 text-xs focus:outline-none focus:border-purple-600 font-mono"
+                    />
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-bold text-purple-900 uppercase tracking-wider block">Access Permission Level</label>
+                    <select
+                      value={newUserRole}
+                      onChange={(e) => setNewUserRole(e.target.value as any)}
+                      className="w-full px-3 py-2 rounded-xl border border-purple-200 bg-purple-50/30 text-xs font-bold text-purple-950 focus:outline-none focus:border-purple-600 cursor-pointer"
+                    >
+                      <option value="admin">1. Complete Admin Access</option>
+                      <option value="author">2. Article Writer Access</option>
+                      <option value="reader">3. User / Message Reader Access</option>
+                      <option value="marketer">4. Analytics & Marketing Access</option>
+                      <option value="guest">5. Guest / Limited Access</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-2 bg-purple-50/50 p-3 rounded-xl border border-purple-100/60">
+                  <div className="text-[10px] text-purple-900 font-medium space-y-0.5">
+                    <span className="font-bold uppercase text-purple-950 block">Access Permission Summary:</span>
+                    {newUserRole === "admin" && <p className="text-purple-700">✓ Complete unrestricted access to all tabs, settings, and database management.</p>}
+                    {newUserRole === "author" && <p className="text-amber-800">✓ Restricted to writing and managing tech & AI articles. Other tabs locked.</p>}
+                    {newUserRole === "reader" && <p className="text-slate-700">✓ Restricted to viewing contact messages. All control tabs locked.</p>}
+                    {newUserRole === "marketer" && <p className="text-emerald-800">✓ Access to Analytics, Ad Slots, Featured Articles, and Messages.</p>}
+                    {newUserRole === "guest" && <p className="text-gray-600">✓ Read-only access to dashboard statistics.</p>}
+                  </div>
+
+                  <button
+                    type="submit"
+                    disabled={createUserLoading}
+                    className="px-5 py-2.5 bg-purple-700 hover:bg-purple-800 text-white font-bold text-xs rounded-xl shadow-md transition-all active:scale-95 cursor-pointer shrink-0 flex items-center gap-1.5"
+                  >
+                    {createUserLoading ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <UserPlus className="w-3.5 h-3.5" />}
+                    <span>+ Create User Account</span>
+                  </button>
+                </div>
+              </form>
 
               {/* Search & Filter Bar */}
               <div className="flex flex-col sm:flex-row items-center gap-3 bg-purple-50/50 p-3 rounded-2xl border border-purple-100">
@@ -4372,92 +4626,145 @@ export default function AdminPanel({ onClose, categories, setCategories, onLogou
                 </div>
               </div>
 
-              {/* API Key Config Card */}
+              {/* API Key Config Card (Multi API Key Pool, up to 5 keys) */}
               <div className="bg-white p-6 rounded-3xl border border-purple-100 shadow-sm space-y-4">
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-purple-50 pb-3">
                   <div>
                     <h3 className="text-sm font-black text-purple-950 uppercase tracking-wider flex items-center gap-2">
                       <Lock className="w-4 h-4 text-purple-600" />
-                      <span>Gemini API Key Setup</span>
+                      <span>Gemini Multi API Key Setup (Up to 5 Keys)</span>
                     </h3>
                     <p className="text-xs text-gray-500 mt-0.5">
-                      Configure your Google Gemini API key to power the server-side article engine.
+                      Configure up to 5 Google Gemini API keys to distribute quota usage across key pools seamlessly.
                     </p>
                   </div>
-                  {(geminiApiKey || openRouterKey) ? (
-                    <span className="text-xs font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-3 py-1 rounded-full flex items-center gap-1.5 w-fit">
-                      <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-                      <span>Gemini Engine Ready</span>
+                  <div className="flex items-center gap-2">
+                    <span className="text-[10px] font-bold text-purple-700 bg-purple-50 border border-purple-200 px-3 py-1 rounded-full">
+                      {geminiApiKeys.filter(k => k.trim()).length} / 5 Active Keys
                     </span>
-                  ) : (
-                    <span className="text-xs font-bold text-amber-700 bg-amber-50 border border-amber-200 px-3 py-1 rounded-full flex items-center gap-1.5 w-fit">
-                      <AlertCircle className="w-4 h-4 text-amber-600" />
-                      <span>API Key Required</span>
-                    </span>
-                  )}
+                  </div>
                 </div>
 
-                <div className="flex flex-col sm:flex-row gap-3">
-                  <input
-                    type="password"
-                    value={geminiApiKey}
-                    onChange={(e) => setGeminiApiKey(e.target.value)}
-                    placeholder="Enter Gemini API key (AI Studio)..."
-                    className="flex-grow px-4 py-2.5 rounded-2xl border border-purple-200 bg-purple-50/30 text-xs font-mono focus:outline-none focus:border-purple-600"
-                  />
-                  <button
-                    onClick={handleSaveAiEngineSettings}
-                    disabled={loading}
-                    className="px-6 py-2.5 bg-purple-600 hover:bg-purple-700 text-white text-xs font-bold rounded-2xl shadow transition-all active:scale-95 cursor-pointer shrink-0 flex items-center justify-center gap-2"
-                  >
-                    <Save className="w-4 h-4" />
-                    <span>Save Engine Setup</span>
-                  </button>
+                <div className="space-y-2.5">
+                  {geminiApiKeys.map((keyVal, idx) => (
+                    <div key={idx} className="flex items-center gap-2">
+                      <span className="w-6 h-6 rounded-lg bg-purple-100 text-purple-800 text-[10px] font-black flex items-center justify-center shrink-0">
+                        #{idx + 1}
+                      </span>
+                      <input
+                        type="password"
+                        value={keyVal}
+                        onChange={(e) => {
+                          const updated = [...geminiApiKeys];
+                          updated[idx] = e.target.value;
+                          setGeminiApiKeys(updated);
+                          if (idx === 0) setGeminiApiKey(e.target.value);
+                        }}
+                        placeholder={`Gemini API Key #${idx + 1}...`}
+                        className="flex-grow px-3.5 py-2 rounded-xl border border-purple-200 bg-purple-50/30 text-xs font-mono focus:outline-none focus:border-purple-600"
+                      />
+                      {geminiApiKeys.length > 1 && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const updated = geminiApiKeys.filter((_, i) => i !== idx);
+                            setGeminiApiKeys(updated);
+                          }}
+                          className="p-2 text-red-500 hover:text-red-700 hover:bg-red-50 rounded-lg cursor-pointer"
+                          title="Remove key slot"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      )}
+                    </div>
+                  ))}
+
+                  <div className="flex flex-wrap items-center justify-between gap-3 pt-2">
+                    {geminiApiKeys.length < 5 && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (geminiApiKeys.length < 5) {
+                            setGeminiApiKeys([...geminiApiKeys, ""]);
+                          }
+                        }}
+                        className="px-3.5 py-1.5 bg-purple-100 hover:bg-purple-200 text-purple-900 text-xs font-bold rounded-xl transition-all flex items-center gap-1 cursor-pointer"
+                      >
+                        <Plus className="w-3.5 h-3.5" />
+                        <span>Add API Key Slot ({geminiApiKeys.length}/5)</span>
+                      </button>
+                    )}
+
+                    <button
+                      onClick={handleSaveAiEngineSettings}
+                      disabled={loading}
+                      className="px-6 py-2.5 bg-purple-600 hover:bg-purple-700 text-white text-xs font-bold rounded-2xl shadow transition-all active:scale-95 cursor-pointer shrink-0 flex items-center justify-center gap-2 ml-auto"
+                    >
+                      <Save className="w-4 h-4" />
+                      <span>Save API Key Pool</span>
+                    </button>
+                  </div>
                 </div>
               </div>
 
               {/* Two Options Automation Configuration Grid */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 
-                {/* Option 1: Category Selector */}
+                {/* Option 1: Multi Target Category Selector (Up to 5) */}
                 <div className="bg-white p-6 rounded-3xl border border-purple-100 shadow-sm space-y-4">
-                  <div className="flex items-center gap-2 border-b border-purple-50 pb-3">
-                    <span className="w-7 h-7 rounded-xl bg-purple-100 text-purple-700 font-black text-xs flex items-center justify-center shrink-0">
-                      1
-                    </span>
-                    <div>
-                      <h4 className="text-xs font-black text-purple-950 uppercase tracking-wider">
-                        Select Targeted Category
-                      </h4>
-                      <p className="text-[10px] text-gray-500">Categories from your Category folder / tab</p>
+                  <div className="flex items-center justify-between border-b border-purple-50 pb-3">
+                    <div className="flex items-center gap-2">
+                      <span className="w-7 h-7 rounded-xl bg-purple-100 text-purple-700 font-black text-xs flex items-center justify-center shrink-0">
+                        1
+                      </span>
+                      <div>
+                        <h4 className="text-xs font-black text-purple-950 uppercase tracking-wider">
+                          Select Target Categories (Up to 5)
+                        </h4>
+                        <p className="text-[10px] text-gray-500">Pick up to 5 categories from your Category list</p>
+                      </div>
                     </div>
+                    <span className="text-[10px] font-bold bg-purple-50 text-purple-800 border border-purple-200 px-2.5 py-1 rounded-full">
+                      {aiSelectedCategories.length} / 5 Selected
+                    </span>
                   </div>
 
-                  <div className="space-y-2">
-                    <label className="text-xs font-bold text-purple-900 block">Target Category:</label>
-                    <select
-                      value={aiSelectedCategory}
-                      onChange={(e) => setAiSelectedCategory(e.target.value)}
-                      className="w-full px-4 py-3 rounded-2xl border border-purple-200 bg-purple-50/40 text-xs font-bold text-purple-950 focus:outline-none focus:border-purple-600 cursor-pointer"
-                    >
-                      <option value="">-- Choose Category --</option>
-                      {categories && categories.length > 0 ? (
-                        categories.map((cat) => (
-                          <option key={cat} value={cat}>
-                            {cat}
-                          </option>
-                        ))
-                      ) : (
-                        <>
-                          <option value="Artificial Intelligence">Artificial Intelligence</option>
-                          <option value="Web Development">Web Development</option>
-                          <option value="Cloud Architectures">Cloud Architectures</option>
-                          <option value="Cybersecurity">Cybersecurity</option>
-                        </>
-                      )}
-                    </select>
-                    <p className="text-[11px] text-gray-500 italic">
-                      ✓ Articles will be generated specifically for this category and published live.
+                  <div className="space-y-3">
+                    <div className="flex flex-wrap gap-2 max-h-48 overflow-y-auto p-1">
+                      {(categories && categories.length > 0 ? categories : [
+                        "Artificial Intelligence", "Web Development", "Cloud Architectures", "Cybersecurity", "Data Science", "DevOps"
+                      ]).map((cat) => {
+                        const isSelected = aiSelectedCategories.includes(cat);
+                        return (
+                          <button
+                            key={cat}
+                            type="button"
+                            onClick={() => {
+                              if (isSelected) {
+                                setAiSelectedCategories(aiSelectedCategories.filter(c => c !== cat));
+                              } else {
+                                if (aiSelectedCategories.length < 5) {
+                                  setAiSelectedCategories([...aiSelectedCategories, cat]);
+                                } else {
+                                  alert("You can select up to 5 target categories maximum.");
+                                }
+                              }
+                            }}
+                            className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all border cursor-pointer flex items-center gap-1.5 ${
+                              isSelected
+                                ? "bg-purple-600 text-white border-purple-600 shadow-sm"
+                                : "bg-purple-50/60 hover:bg-purple-100 text-purple-900 border-purple-200/80"
+                            }`}
+                          >
+                            <span>{cat}</span>
+                            {isSelected && <Check className="w-3 h-3 text-white" />}
+                          </button>
+                        );
+                      })}
+                    </div>
+
+                    <p className="text-[11px] text-purple-900/80 italic bg-purple-50/50 p-2.5 rounded-xl border border-purple-100">
+                      ✓ The automated engine will cycle through these selected target categories to generate high-quality articles.
                     </p>
                   </div>
                 </div>

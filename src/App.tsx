@@ -1523,33 +1523,50 @@ export default function App() {
     }
   }, [allPosts, selectedPost]);
 
-  // Personalized "Recommended For You" articles matching user interest categories
+  // Personalized "Recommended For You" articles matching user interest categories / keywords or top best articles
   const userRecommendedArticles = React.useMemo(() => {
     if (!allPosts || allPosts.length === 0) return [];
+    const publicPosts = allPosts.filter((p) => p.visibility === "public");
+    if (publicPosts.length === 0) return [];
+
     const topCats = userPreferredCategoryList;
+    const recommended: BlogPost[] = [];
+    const usedIds = new Set<string>();
 
+    // 1. First add articles matching user interest categories / keywords
     if (topCats.length > 0) {
-      const matched = allPosts.filter((p) => p.visibility === "public" && topCats.includes(p.category));
-      if (matched.length > 0) {
-        return matched
-          .sort((a, b) => {
-            const scoreA = (a.likes || 0) * 3 + (a.savesCount || 0) * 4 + (a.views || 0);
-            const scoreB = (b.likes || 0) * 3 + (b.savesCount || 0) * 4 + (b.views || 0);
-            return scoreB - scoreA;
-          })
-          .slice(0, 3);
-      }
-    }
-
-    // Fallback: top 3 engagement articles
-    return [...allPosts]
-      .filter((p) => p.visibility === "public")
-      .sort((a, b) => {
+      const matched = publicPosts.filter((p) => topCats.includes(p.category));
+      matched.sort((a, b) => {
         const scoreA = (a.likes || 0) * 3 + (a.savesCount || 0) * 4 + (a.views || 0);
         const scoreB = (b.likes || 0) * 3 + (b.savesCount || 0) * 4 + (b.views || 0);
         return scoreB - scoreA;
-      })
-      .slice(0, 3);
+      });
+
+      for (const item of matched) {
+        if (recommended.length < 3 && !usedIds.has(item.id)) {
+          recommended.push(item);
+          usedIds.add(item.id);
+        }
+      }
+    }
+
+    // 2. If less than 3 articles, backfill with best/top engagement articles from any category
+    if (recommended.length < 3) {
+      const remaining = [...publicPosts].sort((a, b) => {
+        const scoreA = (a.likes || 0) * 4 + (a.savesCount || 0) * 5 + (a.views || 0) * 2;
+        const scoreB = (b.likes || 0) * 4 + (b.savesCount || 0) * 5 + (b.views || 0) * 2;
+        return scoreB - scoreA;
+      });
+
+      for (const item of remaining) {
+        if (recommended.length < 3 && !usedIds.has(item.id)) {
+          recommended.push(item);
+          usedIds.add(item.id);
+        }
+      }
+    }
+
+    return recommended;
   }, [allPosts, userPreferredCategoryList]);
 
   // Selected article reading and history log push
@@ -1966,65 +1983,6 @@ export default function App() {
                           <span className="flex items-center gap-1 text-purple-600 font-bold">
                             <Eye className="w-3 h-3" />
                             {rec.views || 0}
-                          </span>
-                        </div>
-                      </a>
-                    );
-                  })}
-                </div>
-              </div>
-
-              {/* 2. TOP PERFORMING ARTICLES (HIGH ENGAGEMENT) */}
-              <div className="bg-gradient-to-r from-purple-900 via-indigo-900 to-slate-900 text-white border-2 border-black rounded-[28px] p-5 shadow-md space-y-4">
-                <div className="flex items-center justify-between border-b border-purple-700/60 pb-3">
-                  <div className="flex items-center gap-2">
-                    <Flame className="w-5 h-5 text-amber-400 fill-amber-400" />
-                    <h3 className="font-sans font-black text-xs sm:text-sm uppercase tracking-wider text-amber-300">
-                      Top Performing Articles
-                    </h3>
-                  </div>
-                  <span className="text-[10px] bg-amber-400/20 text-amber-300 font-mono font-bold px-2.5 py-0.5 rounded-full border border-amber-400/30">
-                    Highest Engagement
-                  </span>
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  {topPerformingArticles.map((topArt, index) => {
-                    const topUrl = `/blog/${slugify(topArt.title)}`;
-                    const rankBadges = ["#1 TOP READ", "#2 TRENDING", "#3 POPULAR"];
-                    return (
-                      <a
-                        key={`top-${topArt.id}`}
-                        href={topUrl}
-                        onClick={(e) => {
-                          if (!e.ctrlKey && !e.metaKey && !e.shiftKey && e.button === 0) {
-                            e.preventDefault();
-                            handleSelectPost(topArt);
-                          }
-                        }}
-                        className="group bg-white/10 hover:bg-white/15 border border-white/10 rounded-2xl p-3.5 transition-all flex flex-col justify-between space-y-2 no-underline"
-                      >
-                        <div className="space-y-2">
-                          <div className="flex items-center justify-between">
-                            <span className="text-[9px] bg-amber-400 text-slate-950 font-black px-2 py-0.5 rounded tracking-wider">
-                              {rankBadges[index] || `#${index + 1}`}
-                            </span>
-                            <span className="text-[9px] text-purple-200 font-mono">
-                              {topArt.category}
-                            </span>
-                          </div>
-                          <h4 className="text-xs font-bold text-white group-hover:text-amber-300 transition-colors line-clamp-2 leading-snug">
-                            {topArt.title}
-                          </h4>
-                        </div>
-                        <div className="flex items-center justify-between text-[10px] text-purple-200 font-mono border-t border-white/10 pt-2">
-                          <span className="flex items-center gap-1">
-                            <Heart className="w-3 h-3 text-rose-400 fill-rose-400" />
-                            {topArt.likes || 0}
-                          </span>
-                          <span className="flex items-center gap-1 text-amber-300 font-bold">
-                            <Eye className="w-3 h-3" />
-                            {topArt.views || 0} views
                           </span>
                         </div>
                       </a>

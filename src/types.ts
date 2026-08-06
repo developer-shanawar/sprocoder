@@ -71,7 +71,7 @@ export interface UserAccount {
   savedArticles?: string[]; // list of post ids
   likedArticles?: string[]; // list of liked post ids
   history?: HistoryEntry[]; // list of reading logs
-  role?: "admin" | "author" | "reader";
+  role?: "admin" | "author" | "reader" | "marketer" | "guest";
   isBanned?: boolean;
   banReason?: string;
   bannedAt?: string;
