@@ -435,9 +435,9 @@ export default function Header({
                 id="profile-dropdown-trigger"
               >
                 {currentUser.avatarUrl ? (
-                  <img src={currentUser.avatarUrl} alt={currentUser.name} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                  <img src={currentUser.avatarUrl} alt={currentUser.name || "User"} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
                 ) : (
-                  currentUser.name.slice(0, 2).toUpperCase()
+                  (currentUser.name || currentUser.username || currentUser.email || "U").slice(0, 2).toUpperCase()
                 )}
               </button>
 
@@ -454,13 +454,13 @@ export default function Header({
                     <div className="border-b border-purple-50 pb-3 flex items-center gap-3">
                       <div className="w-10 h-10 rounded-full overflow-hidden bg-purple-600 text-white font-extrabold text-sm flex items-center justify-center shadow shrink-0">
                         {currentUser.avatarUrl ? (
-                          <img src={currentUser.avatarUrl} alt={currentUser.name} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                          <img src={currentUser.avatarUrl} alt={currentUser.name || "User"} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
                         ) : (
-                          currentUser.name.slice(0, 2).toUpperCase()
+                          (currentUser.name || currentUser.username || currentUser.email || "U").slice(0, 2).toUpperCase()
                         )}
                       </div>
                       <div className="text-left">
-                        <p className="font-extrabold text-xs text-purple-950">{currentUser.name}</p>
+                        <p className="font-extrabold text-xs text-purple-950">{currentUser.name || currentUser.username || currentUser.email || "User"}</p>
                         <p className="text-[10px] text-gray-500 truncate max-w-[180px]">{currentUser.email}</p>
                         <span className="text-[8px] bg-emerald-100 text-emerald-800 font-extrabold px-1.5 py-0.5 rounded-full mt-1 inline-block">
                           ACTIVE READER

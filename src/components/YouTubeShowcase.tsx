@@ -129,7 +129,7 @@ export default function YouTubeShowcase() {
             .filter((vid) => vid.link && vid.link.trim() !== "");
         }
         // Slice up to 5 videos
-        setVideos(loadedVideos.slice(0, 5));
+        setVideos((loadedVideos || []).slice(0, 5));
       } else {
         setVideos(defaultVideos);
       }

@@ -169,7 +169,7 @@ export default function RightSidebar({
                   <div className="absolute inset-0 border border-white/40 rounded-xl" />
                 )}
                 <span className="text-[9px] mt-1 text-white/40 group-hover:text-white/80 transition-colors duration-200">
-                  {opt.id.slice(0, 3)}
+                  {(opt?.id || "").slice(0, 3)}
                 </span>
               </button>
             ))}

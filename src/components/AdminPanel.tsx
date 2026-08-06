@@ -949,7 +949,7 @@ export default function AdminPanel({ onClose, categories, setCategories, onLogou
         content: cleanedContent,
         readTime: `${Math.max(1, Math.ceil(cleanedContent.split(/\s+/).length / 200))} min read`,
         tags: parsedTags,
-        excerpt: tagline.trim() || cleanedContent.slice(0, 150) + "...",
+        excerpt: tagline.trim() || (cleanedContent || "").slice(0, 150) + "...",
         author: existingPost ? (existingPost.author || "Admin - S pro coder") : "Admin - S pro coder",
         date: existingPost ? (existingPost.date || new Date().toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" })) : new Date().toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" }),
         likes: likes || 0,
@@ -1260,7 +1260,7 @@ export default function AdminPanel({ onClose, categories, setCategories, onLogou
 
       post.content = processedLines.join("\n").replace(/ {2,}/g, " ");
       post.readTime = `${Math.max(1, Math.ceil(post.content.split(/\s+/).length / 200))} min read`;
-      post.excerpt = post.tagline.trim() || post.content.slice(0, 150) + "...";
+      post.excerpt = (post.tagline || "").trim() || (post.content || "").slice(0, 150) + "...";
       
       // Save to Firebase database
       await set(ref(db, `${DB_PATHS.ARTICLES}/${post.id}`), post);

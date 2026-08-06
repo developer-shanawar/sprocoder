@@ -178,14 +178,14 @@ export default function UserProfile({
             {avatarUrl ? (
               <img 
                 src={avatarUrl} 
-                alt={currentUser.name} 
+                alt={currentUser.name || "User"} 
                 className="w-16 h-16 rounded-2xl object-cover border-2 border-white/40 shadow-inner"
                 referrerPolicy="no-referrer"
                 loading="lazy"
               />
             ) : (
               <div className="w-16 h-16 rounded-2xl bg-white/20 backdrop-blur-md border border-white/30 flex items-center justify-center text-2xl font-black shadow-inner">
-                {currentUser.name.slice(0, 2).toUpperCase()}
+                {(currentUser.name || currentUser.username || currentUser.email || "U").slice(0, 2).toUpperCase()}
               </div>
             )}
             
@@ -202,7 +202,7 @@ export default function UserProfile({
 
           <div>
             <div className="flex items-center gap-1.5">
-              <h2 className="text-xl sm:text-2xl font-black tracking-tight">{currentUser.name}</h2>
+              <h2 className="text-xl sm:text-2xl font-black tracking-tight">{currentUser.name || currentUser.username || currentUser.email || "User"}</h2>
               <ShieldCheck className="w-4 h-4 text-emerald-400" />
             </div>
             <div className="flex items-center gap-2">

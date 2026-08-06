@@ -1440,7 +1440,7 @@ export default function App() {
 
   const totalHomeFeedPosts = homeFeedPosts.length;
   const paginatedHomeFeedPosts = React.useMemo(() => {
-    return homeFeedPosts.slice(homePaginationIndex, homePaginationIndex + 5);
+    return (homeFeedPosts || []).slice(homePaginationIndex, homePaginationIndex + 5);
   }, [homeFeedPosts, homePaginationIndex]);
 
   // Left sidebar Spotlights calculation (Popular vs Oldest)

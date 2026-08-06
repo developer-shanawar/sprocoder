@@ -41,7 +41,7 @@ export default function ContactForm() {
       await set(newNotifRef, {
         id: newNotifRef.key,
         title: "New Contact Message",
-        body: `From ${name.trim()} (${country.trim()}): "${message.trim().slice(0, 45)}..."`,
+        body: `From ${(name || "").trim()} (${(country || "").trim()}): "${(message || "").trim().slice(0, 45)}..."`,
         date: new Date().toLocaleDateString("en-US", {
           month: "short",
           day: "numeric",
