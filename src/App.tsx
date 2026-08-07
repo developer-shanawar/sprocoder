@@ -600,6 +600,9 @@ export default function App() {
             targetPath = "/";
           }
           break;
+        case "courses":
+          targetPath = selectedCourseSlug ? `/courses/${selectedCourseSlug}` : "/courses";
+          break;
         case "articles":
           targetPath = "/blog";
           break;
@@ -636,7 +639,7 @@ export default function App() {
       window.history.pushState(null, "", targetPath);
     }
     setCurrentPath(targetPath);
-  }, [currentTab, selectedPost, selectedCategory]);
+  }, [currentTab, selectedPost, selectedCategory, selectedCourseSlug]);
 
   // Real-time Visitor hit tracker for Web Analytics
   useEffect(() => {
@@ -1917,7 +1920,7 @@ export default function App() {
               Loading Article...
             </p>
           </div>
-        ) : (selectedPost && (currentTab === "home" || currentTab === "articles")) ? (
+        ) : selectedPost ? (
           <ArticleDetailView 
             key={selectedPost.id}
             post={selectedPost}
@@ -2497,14 +2500,37 @@ export default function App() {
             <React.Suspense fallback={<LoadingSpinner />}>
               <CoursesView
                 courses={courses}
-                allArticles={allPosts}
+                allPosts={allPosts}
                 selectedCourseSlug={selectedCourseSlug}
-                onSelectCourse={(slug) => {
+                onSelectCourseBySlug={(slug) => {
                   setSelectedCourseSlug(slug);
                   window.history.pushState(null, "", slug ? `/courses/${slug}` : "/courses");
                 }}
-                onSelectArticle={(article) => {
-                  handleSelectPost(article);
+                onSelectCourseLesson={(course, lesson, matchedPost) => {
+                  const postToOpen: BlogPost = matchedPost ? {
+                    ...matchedPost,
+                    content: matchedPost.content && matchedPost.content.length > 50 ? matchedPost.content : (lesson.content || matchedPost.content)
+                  } : {
+                    id: lesson.articleId || `lesson-${lesson.id || Date.now()}`,
+                    title: lesson.title,
+                    tagline: lesson.tagline || lesson.excerpt || "",
+                    category: course.category || "Web Development",
+                    content: lesson.content || `<h2>${lesson.title}</h2><p>${lesson.excerpt || lesson.tagline || ""}</p>`,
+                    readTime: lesson.readTime || "7 min read",
+                    tags: lesson.tags || ["Course", course.category],
+                    excerpt: lesson.excerpt || "",
+                    author: course.author || "Shanawar Ali",
+                    date: course.createdAt || new Date().toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" }),
+                    likes: 12,
+                    savesCount: 5,
+                    thumbnailUrl: course.thumbnailUrl,
+                    isAiGenerated: true
+                  };
+                  handleSelectPost(postToOpen);
+                }}
+                onNavigateHome={() => {
+                  setCurrentTab("home");
+                  window.history.pushState(null, "", "/");
                 }}
               />
             </React.Suspense>

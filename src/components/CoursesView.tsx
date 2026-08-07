@@ -26,13 +26,16 @@ export default function CoursesView({
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState<string>("All");
 
+  const safeCourses = courses || [];
+  const safePosts = allPosts || [];
+
   const activeCourse = selectedCourseSlug 
-    ? courses.find(c => c.slug === selectedCourseSlug || c.id === selectedCourseSlug)
+    ? safeCourses.find(c => c.slug === selectedCourseSlug || c.id === selectedCourseSlug)
     : null;
 
   const categories = ["All", "Web Development", "Artificial Intelligence", "AI Tools", "Coding Tutorials", "Software Architecture"];
 
-  const filteredCourses = courses.filter((course) => {
+  const filteredCourses = safeCourses.filter((course) => {
     const matchesSearch = searchQuery === "" || 
       course.title.toLowerCase().includes(searchQuery.toLowerCase()) || 
       course.description.toLowerCase().includes(searchQuery.toLowerCase());
@@ -161,10 +164,11 @@ export default function CoursesView({
             <div className="space-y-3">
               {activeCourse.lessons && activeCourse.lessons.length > 0 ? (
                 activeCourse.lessons.map((lesson, index) => {
-                  // Check if there is a matching post in allPosts by ID or title
-                  const matchedPost = allPosts.find(p => 
+                  // Check if there is a matching post in safePosts by ID or title
+                  const matchedPost = safePosts.find(p => 
                     (lesson.articleId && p.id === lesson.articleId) ||
-                    p.title.toLowerCase().trim() === lesson.title.toLowerCase().trim()
+                    (lesson.articleSlug && p.title && p.title.toLowerCase().trim() === lesson.title.toLowerCase().trim()) ||
+                    (p.title && p.title.toLowerCase().trim() === lesson.title.toLowerCase().trim())
                   );
 
                   return (
