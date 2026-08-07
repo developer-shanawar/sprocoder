@@ -78,31 +78,31 @@ const CodeBlock: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   };
 
   return (
-    <div className="my-6 max-w-full rounded-2xl bg-[#090d16] border border-slate-700/80 shadow-xl overflow-hidden group">
-      <div className="flex items-center justify-between px-4 py-2 bg-slate-900 border-b border-slate-800 text-slate-300 text-xs font-mono select-none">
+    <div className="my-6 max-w-full rounded-2xl bg-[#0f172a] border border-slate-700 shadow-xl overflow-hidden group">
+      <div className="flex items-center justify-between px-4 py-2.5 bg-[#1e293b] border-b border-slate-700/80 text-slate-200 text-xs font-mono select-none">
         <div className="flex items-center gap-2">
           <div className="flex gap-1.5">
-            <span className="w-2.5 h-2.5 rounded-full bg-rose-500/90 inline-block"></span>
-            <span className="w-2.5 h-2.5 rounded-full bg-amber-500/90 inline-block"></span>
-            <span className="w-2.5 h-2.5 rounded-full bg-emerald-500/90 inline-block"></span>
+            <span className="w-2.5 h-2.5 rounded-full bg-rose-500 inline-block"></span>
+            <span className="w-2.5 h-2.5 rounded-full bg-amber-500 inline-block"></span>
+            <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 inline-block"></span>
           </div>
-          <span className="text-[11px] font-extrabold text-slate-200 ml-2 tracking-wider uppercase">Source Code</span>
+          <span className="text-[11px] font-extrabold text-slate-200 ml-2 tracking-wider uppercase">Source Code / Example</span>
         </div>
         <button
           onClick={handleCopy}
           type="button"
-          className="flex items-center gap-1 px-3 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-[11px] font-bold transition-all cursor-pointer border border-slate-700 active:scale-95"
+          className="flex items-center gap-1.5 px-3 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-100 text-[11px] font-bold transition-all cursor-pointer border border-slate-600 active:scale-95 shadow-xs"
         >
           {copied ? (
             <span className="text-emerald-400 font-extrabold">✓ Copied</span>
           ) : (
-            <span className="text-slate-300 font-bold">Copy Code</span>
+            <span className="text-slate-200 font-bold">Copy Code</span>
           )}
         </button>
       </div>
 
-      <div className="p-4 sm:p-5 overflow-x-auto bg-[#070b12]">
-        <pre className="font-mono text-xs sm:text-sm text-emerald-300 leading-relaxed whitespace-pre break-words max-w-full">
+      <div className="p-4 sm:p-5 overflow-x-auto bg-[#0b1329]">
+        <pre className="font-mono text-xs sm:text-sm text-emerald-300 font-semibold leading-relaxed whitespace-pre break-words max-w-full tracking-wide">
           {children}
         </pre>
       </div>
@@ -367,16 +367,16 @@ export default function ArticleDetailView({
                             code: ({ inline, className, children, ...props }: any) => {
                               if (inline) {
                                 return (
-                                  <code className="px-1.5 py-0.5 rounded-md bg-purple-100/90 text-purple-950 font-mono text-xs font-bold border border-purple-200/80 break-words mx-0.5 inline-block" {...props}>
+                                  <code className="px-2 py-0.5 rounded-md bg-slate-900 text-emerald-300 font-mono text-xs font-extrabold border border-slate-700 shadow-xs break-words mx-0.5 inline-block" {...props}>
                                     {children}
                                   </code>
                                 );
                               }
                               return (
-                                <code className="font-mono text-xs sm:text-sm text-emerald-300 whitespace-pre break-words block max-w-full" {...props}>
+                                <code className="font-mono text-xs sm:text-sm text-emerald-300 font-semibold whitespace-pre break-words block max-w-full" {...props}>
                                   {children}
                                 </code>
-                              );
+                               );
                             },
                             table: ({ children }) => (
                               <div className="my-4 max-w-full overflow-x-auto rounded-xl border border-purple-100 shadow-sm">

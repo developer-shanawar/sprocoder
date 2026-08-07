@@ -993,23 +993,67 @@ function generateArticleThumbnailSvg({
   return "data:image/svg+xml;utf8," + encodeURIComponent(svg);
 }
 
-// 2026 Modern Tech Trends Seed Topics
-const MODERN_2026_TRENDS = [
-  "React 19 Server Components and Compiler Optimizations in 2026",
-  "Next.js 15+ App Router, Server Actions, and Partial Prerendering At Scale",
-  "Tailwind CSS v4 Engine and CSS-First Theme Architecture",
-  "Vite 6 and Rolldown: Building Lightning-Fast Web Apps in 2026",
-  "GPT-5 and Next-Gen LLM Integrations in Modern Web Applications",
-  "Gemini 3.5 & Multimodal Web Agents: Real-time Voice & Visual AI in JS",
-  "Claude 3.5 Sonnet Workflows and Autonomous AI Developer Agents",
-  "WebGPU and 3D Canvas Hardware Accelerated Rendering in Modern Browsers",
-  "Edge Computing, Serverless Workers, and Distributed Databases in 2026",
-  "WebAssembly (WASM) for High-Performance Browser Data Processing",
-  "AI-Driven Dynamic SEO and Search Engine GEO Strategies for 2026",
-  "Real-Time WebSockets, RTC Data Channels, and Collaborative Web Apps",
-  "Micro-Frontends and Module Federation with Modern Vite & Webpack",
-  "Vector Databases and Local Browser RAG Architectures"
-];
+// 2026 Category-Specific Tech Trends Seed Topics
+const CATEGORY_TREND_SEEDS: Record<string, string[]> = {
+  "Artificial Intelligence": [
+    "GPT-5 vs Gemini 3.5: Next-Gen Multimodal Reasoning and Architectural Benchmarks",
+    "Claude 3.5 Sonnet & Computer Use: Autonomous AI Workflows and Enterprise Agents",
+    "OpenAI Sora v2 & Veo: High-Fidelity Generative Video & Physics Engine Breakthroughs",
+    "DeepSeek V3 & Open-Weight MoE Models: Cost-Effective AI Inference at Scale",
+    "Real-time Multimodal Voice Models & Audio-to-Audio AI Neural Pipelines in 2026",
+    "AGI Benchmarks & Alignment Frameworks: Autonomous AI Decision Making",
+    "Fine-Tuning Llama 3.3 & DeepSeek MoE with LoRA and QLoRA on Enterprise Datasets"
+  ],
+  "AI Tools": [
+    "Top 10 AI Productivity Tools in 2026 for Automated Research and Workflow Execution",
+    "Best AI Coding Assistants in 2026: Cursor, GitHub Copilot, Gemini Code Assist, and Claude Dev",
+    "Autonomous AI Agents for Data Analysis, SEO Content Generation, and Enterprise Automation",
+    "Top Generative AI Video & Image Generators for Designers in 2026",
+    "Local AI Runner Tools: Ollama, LM Studio, and Jan.ai for Private LLM Deployment"
+  ],
+  "Tech News": [
+    "Silicon Tech War: Custom AI Chips (NVIDIA B200, Google TPU v6, Apple M5) Shaking the Industry",
+    "Quantum Computing Milestones in 2026: Error-Corrected Qubits and Commercial Quantum Encryption",
+    "Autonomous EV Innovations & Solid-State Battery Breakthroughs in 2026",
+    "The 2026 Global Tech Outlook: AI Regulations, Semiconductor Alliances, and Market Shifts",
+    "Satellite Direct-to-Cell Broadband and 6G Network Standardization Progress"
+  ],
+  "Web Development": [
+    "React 19 Server Components, Actions, and Compiler Optimizations in 2026",
+    "Next.js 15+ App Router, Partial Prerendering, and Micro-Frontend Architecture",
+    "Tailwind CSS v4 Engine: CSS-First Theme Architecture & Ultra-Fast Builds",
+    "Vite 6 and Rolldown: Replacing Legacy Bundlers in Modern Web Applications",
+    "TypeScript 5.8+ Best Practices: Advanced Type Inference and Performance Tuning"
+  ],
+  "Games": [
+    "Unreal Engine 5.5+ & Photorealistic Ray Tracing in Next-Gen Games",
+    "AI-Driven Non-Player Characters (NPCs) & Dynamic Procedural World Generation",
+    "Handheld Gaming PCs in 2026: Steam Deck 2, Custom ARM APUs, and Thermal Efficiency",
+    "WebGPU & Browser Game Engines: Console-Quality Graphics in JS & WASM",
+    "Game Engine Optimization: DLSS 4, Frame Generation, and Shader Compilation Techniques"
+  ],
+  "Coding Tutorials": [
+    "Step-by-Step Practical Guide: Building High-Performance REST & GraphQL APIs",
+    "Mastering Async Rust & Concurrency for High-Throughput Systems",
+    "Building Scalable Microservices with Go and gRPC: Production Testing & Deployment",
+    "Python 3.13+ Performance Guide: Free-Threaded No-GIL Multithreading in Practice",
+    "Data Structures & Algorithms: Solving Complex Graph and DP Problems in 2026"
+  ],
+  "Software Architecture": [
+    "Event-Driven Architecture with Kafka & RabbitMQ in High-Throughput Systems",
+    "Microservices vs Distributed Monolith: Architecture Lessons Learned at Scale",
+    "Database Sharding & Distributed SQL (CockroachDB, YugabyteDB) Architecture",
+    "Zero-Trust Architecture & Cloud-Native Security Enforcement in Kubernetes",
+    "Domain-Driven Design (DDD) for Complex Enterprise Systems"
+  ],
+  "Cybersecurity": [
+    "Post-Quantum Cryptography & Lattice-Based Encryption Standards in 2026",
+    "AI-Powered Cyber Threats vs Autonomous Security Operations Center (SOC) Defense",
+    "Zero-Day Vulnerability Mitigation & Automated Binary Exploit Patching",
+    "Cloud Infrastructure Security: Identity-Based Access Control and Cloud Guardrails",
+    "Ransomware Defenses: Immutable Backups, Air-Gapped Storage, and EDR Solutions"
+  ]
+};
 
 // New AI schema for 1500-word article formatting
 const aiBlogPostSchema = {
@@ -1067,7 +1111,59 @@ const handleAiArticleGeneration = async (req: express.Request, res: express.Resp
     let blogPost: any = null;
 
     const targetCategory = category || "Artificial Intelligence";
-    const randomTrendSeed = MODERN_2026_TRENDS[Math.floor(Math.random() * MODERN_2026_TRENDS.length)];
+    
+    // Resolve seeds for specific category
+    let seeds = CATEGORY_TREND_SEEDS[targetCategory];
+    if (!seeds) {
+      const catLower = targetCategory.toLowerCase();
+      for (const [key, val] of Object.entries(CATEGORY_TREND_SEEDS)) {
+        if (catLower.includes(key.toLowerCase()) || key.toLowerCase().includes(catLower)) {
+          seeds = val;
+          break;
+        }
+      }
+    }
+    if (!seeds || seeds.length === 0) {
+      seeds = CATEGORY_TREND_SEEDS["Artificial Intelligence"];
+    }
+    const randomTrendSeed = seeds[Math.floor(Math.random() * seeds.length)];
+
+    // Build strict category boundary directive
+    const catLower = targetCategory.toLowerCase();
+    let categoryBoundaryRule = "";
+
+    if (catLower.includes("intelligence") || catLower.includes("ai")) {
+      categoryBoundaryRule = `STRICT CATEGORY BOUNDARY (ARTIFICIAL INTELLIGENCE / AI TOOLS):
+- Focus EXCLUSIVELY on Artificial Intelligence (AI models like GPT-5 / Gemini 3.5 / Claude 3.5, LLM benchmarks, neural architectures, AI agents, machine learning algorithms, or generative AI breakthroughs).
+- DO NOT mention React, Next.js, web frameworks, HTML, CSS, or unrelated web development.
+- Include an AI-focused technical block or code example (e.g. Python script using Google GenAI SDK / OpenAI API, cURL request, JSON schema, or prompt engineering configuration).`;
+    } else if (catLower.includes("web") || catLower.includes("coding") || catLower.includes("tutorial")) {
+      categoryBoundaryRule = `STRICT CATEGORY BOUNDARY (WEB DEVELOPMENT / CODING TUTORIALS):
+- Focus EXCLUSIVELY on modern web development or programming concepts (frameworks, APIs, TypeScript/JavaScript, backend/frontend engineering, CSS, Vite, Node.js).
+- Include clean, modern programming code snippets (TypeScript, JavaScript, Python, HTML/CSS).`;
+    } else if (catLower.includes("game")) {
+      categoryBoundaryRule = `STRICT CATEGORY BOUNDARY (GAMES / GAMING):
+- Focus EXCLUSIVELY on 2026 video games, gaming technology, game development engines (Unreal Engine, Unity), GPU graphics, or gaming hardware.
+- DO NOT mention web frameworks like React or unrelated web development.
+- Include a game dev script or graphics code block (C#, C++, GLSL shader, or Game Config YAML/JSON).`;
+    } else if (catLower.includes("security") || catLower.includes("cyber")) {
+      categoryBoundaryRule = `STRICT CATEGORY BOUNDARY (CYBERSECURITY):
+- Focus EXCLUSIVELY on cybersecurity, cryptography, vulnerability analysis, zero-trust architecture, cloud security, or network defense.
+- DO NOT mention unrelated web frameworks like React.
+- Include a security configuration snippet, bash command block, or Python security script.`;
+    } else if (catLower.includes("architecture")) {
+      categoryBoundaryRule = `STRICT CATEGORY BOUNDARY (SOFTWARE ARCHITECTURE):
+- Focus EXCLUSIVELY on software architecture, system design, microservices, cloud infrastructure, or database scaling.
+- Include an architecture configuration block, Docker/Kubernetes manifest, or system code block.`;
+    } else if (catLower.includes("news")) {
+      categoryBoundaryRule = `STRICT CATEGORY BOUNDARY (TECH NEWS):
+- Focus EXCLUSIVELY on 2026 major tech industry updates, silicon chips, mobile tech, gadget innovation, or corporate tech shifts.
+- Include a technical specification table, benchmark data block, or hardware configuration commands.`;
+    } else {
+      categoryBoundaryRule = `STRICT CATEGORY BOUNDARY (${targetCategory.toUpperCase()}):
+- Write strictly within the boundary of ${targetCategory}. Do not mix unrelated topics.
+- Include relevant code or technical specification blocks matching ${targetCategory}.`;
+    }
 
     // 1. Resolve API Keys array (up to 5 keys)
     let keyPool: string[] = [];
@@ -1096,17 +1192,20 @@ const handleAiArticleGeneration = async (req: express.Request, res: express.Resp
       });
     }
 
-    const prompt = `Write a 100% unique, exceptionally high quality, 1500-word SEO-optimized technical article for category: "${targetCategory}".
+    const prompt = `Write a 100% unique, exceptionally high quality, 1500-word SEO-optimized article specifically for category: "${targetCategory}".
+
+${categoryBoundaryRule}
 
 STRICT CREATIVE & TECHNICAL DIRECTIVES:
-1. FOCUS ON 2026 MODERN TECH & TRENDS: Focus exclusively on cutting-edge 2026 web technologies and AI advancements (e.g., React 19, Next.js 15+, Tailwind v4, Vite 6, WebGPU, WASM, GPT-5, Gemini 3.5, Claude 3.5, Edge AI Agents, Server Actions). DO NOT write about older, pre-2022 tech (no legacy jQuery or basic HTML 101).
+1. STRICT TOPICAL BOUNDARY: Do NOT cross into unrelated categories. Stay 100% inside "${targetCategory}".
 2. UNIQUE & SEPARATE TITLE VS CONTENT:
-   - TITLE: Must be a catchy, highly clickable 8 to 14 word headline. Example: "Next-Gen Web Architecture in 2026: Scaling AI Agents with React 19 and Edge Workers".
-   - CONTENT: Must be a deep 1500+ word step-by-step technical guide with code blocks, clear H2/H3 headings, green highlighted key terms using <mark style="background-color: #dcfce7; color: #166534; font-weight: bold; padding: 2px 6px; border-radius: 4px;">[keyword]</mark>, and an explicit FAQ section.
-   - THE TITLE AND CONTENT MUST BE COMPLETELY DIFFERENT. The title is purely the headline, while the content is the full detailed article body.
-3. TREND SEED REF: Explore relevant concepts inspired by: "${randomTrendSeed}".
-4. HUMAN EXPERIENCED VOICE: Write from a principal software engineer's hands-on perspective ("In our production tests...", "Here is how we optimized..."). No generic AI clichés.
-5. FAQS SECTION: Conclude with <h2>Frequently Asked Questions (FAQs)</h2> containing 3 to 5 clear, insightful Q&A items.`;
+   - TITLE: Must be a catchy, highly clickable 8 to 14 word headline specific to "${targetCategory}". (Example headline only, do NOT copy title into content).
+   - CONTENT: Must be a deep, detailed 1500+ word step-by-step article body formatted in clean HTML/Markdown.
+   - THE TITLE AND CONTENT MUST BE COMPLETELY SEPARATE AND DIFFERENT.
+3. TREND & TOPIC SEED: Focus on latest 2026 insights inspired by: "${randomTrendSeed}".
+4. CODE / TECHNICAL EXAMPLE: Include at least one relevant code snippet, API request, or technical specification block appropriate for "${targetCategory}".
+5. KEY TERM GREEN HIGHLIGHTS: Highlight key terms and main words in green using: <mark>[keyword]</mark>.
+6. FAQS SECTION: Conclude with <h2>Frequently Asked Questions (FAQs)</h2> containing 3 to 5 clear, insightful Q&A items matching "${targetCategory}".`;
 
     console.log(`Generating high-quality 1500-word article for category "${targetCategory}" via Gemini SDK (Clients: ${clientsToTry.length})...`);
 
@@ -1122,7 +1221,7 @@ STRICT CREATIVE & TECHNICAL DIRECTIVES:
             model: modelName,
             contents: prompt,
             config: {
-              systemInstruction: "You are a world-class principal engineer and tech editor sharing real-world experiences and 2026 web/AI trends. You produce unique, 1500-word articles in clear, direct English with distinct titles, step-by-step sections, green highlighted key terms, code examples, and an FAQs section.",
+              systemInstruction: `You are an expert technical editor and specialist author writing exclusively for the category: "${targetCategory}". You produce 100% unique, 1500-word articles that strictly adhere to "${targetCategory}" without crossing into unrelated subjects or frameworks. You write separate titles and content, green highlighted key terms using <mark>[keyword]</mark>, relevant code/technical examples, and an explicit FAQs section.`,
               responseMimeType: "application/json",
               responseSchema: aiBlogPostSchema
             }
