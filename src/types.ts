@@ -102,6 +102,35 @@ export interface AdminPages {
   disclaimerContent: string;
 }
 
+export interface CourseLesson {
+  id: string;
+  lessonNumber: number;
+  title: string;
+  tagline?: string;
+  excerpt: string;
+  readTime: string;
+  articleId?: string;
+  articleSlug?: string;
+  content?: string;
+  tags?: string[];
+}
+
+export interface Course {
+  id: string;
+  title: string;
+  slug: string;
+  description: string;
+  category: string;
+  thumbnailUrl: string;
+  level: "Beginner" | "Intermediate" | "Advanced";
+  estimatedHours: string;
+  articleCount: number;
+  lessons: CourseLesson[];
+  createdAt: string;
+  author: string;
+  isAiGenerated?: boolean;
+}
+
 export interface AppState {
   posts: BlogPost[];
   selectedPostId: string | null;

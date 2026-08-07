@@ -9,7 +9,7 @@ import {
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, PieChart, Pie, Cell, Legend } from "recharts";
 import { db, DB_PATHS } from "../firebase";
 import { ref, set, push, remove, get, update, onValue } from "firebase/database";
-import { BlogPost, UserAccount, ContactMessage } from "../types";
+import { BlogPost, UserAccount, ContactMessage, Course } from "../types";
 import WriteArticleEditor from "./WriteArticleEditor";
 
 function slugify(text: any): string {
@@ -82,8 +82,19 @@ interface AdminPanelProps {
 }
 
 export default function AdminPanel({ onClose, categories, setCategories, onLogout }: AdminPanelProps) {
-  const [activeTab, setActiveTab] = useState<"users" | "articles" | "writeArticle" | "categories" | "messages" | "pages" | "videos" | "featured" | "analytics" | "customCode" | "aiArticle" | "ads">("articles");
+  const [activeTab, setActiveTab] = useState<"users" | "articles" | "writeArticle" | "categories" | "messages" | "pages" | "videos" | "featured" | "analytics" | "customCode" | "aiArticle" | "ads" | "courses">("articles");
   const [loading, setLoading] = useState(false);
+
+  // Courses & AI Course Generator States
+  const [coursesList, setCoursesList] = useState<Course[]>([]);
+  const [aiCourseTitlePrompt, setAiCourseTitlePrompt] = useState("How to Learn HTML for Beginners in 2026");
+  const [aiCourseCat, setAiCourseCat] = useState("Web Development");
+  const [aiCourseLessonCount, setAiCourseLessonCount] = useState<number>(5);
+  const [aiCourseCustomPrompt, setAiCourseCustomPrompt] = useState("");
+  const [aiCourseLoading, setAiCourseLoading] = useState(false);
+  const [aiCourseSuccessMsg, setAiCourseSuccessMsg] = useState("");
+  const [aiCourseErrorMsg, setAiCourseErrorMsg] = useState("");
+  const [aiCourseLogs, setAiCourseLogs] = useState<string[]>([]);
 
   // Ad Management States
   const [headerBannerAd, setHeaderBannerAd] = useState("");
@@ -476,6 +487,18 @@ export default function AdminPanel({ onClose, categories, setCategories, onLogou
         setArticles(articlesList);
       } else {
         setArticles([]);
+      }
+    });
+
+    // 2.5. Sync Courses
+    const coursesRef = ref(db, DB_PATHS.COURSES);
+    const unsubCourses = onValue(coursesRef, (snapshot) => {
+      if (snapshot.exists()) {
+        const data = snapshot.val();
+        const cList: Course[] = Object.values(data);
+        setCoursesList(cList);
+      } else {
+        setCoursesList([]);
       }
     });
 
@@ -1322,6 +1345,82 @@ export default function AdminPanel({ onClose, categories, setCategories, onLogou
     }
   };
 
+  // Delete Course
+  const handleDeleteCourse = async (id: string) => {
+    if (!confirm("Are you sure you want to delete this course?")) return;
+    try {
+      await remove(ref(db, `${DB_PATHS.COURSES}/${id}`));
+      alert("Course deleted successfully.");
+    } catch (err) {
+      console.error(err);
+      alert("Failed to delete course.");
+    }
+  };
+
+  // Run AI Course Curriculum Generation
+  const handleRunAiCourseGen = async () => {
+    if (!aiCourseTitlePrompt.trim()) {
+      alert("Please enter a course title or topic.");
+      return;
+    }
+
+    setAiCourseLoading(true);
+    setAiCourseErrorMsg("");
+    setAiCourseSuccessMsg("");
+    setAiCourseLogs([]);
+
+    const addCourseLog = (msg: string) => {
+      setAiCourseLogs((prev) => [`[${new Date().toLocaleTimeString()}] ${msg}`, ...prev]);
+    };
+
+    addCourseLog(`Initializing AI Course Generator for: "${aiCourseTitlePrompt}" (${aiCourseLessonCount} lessons)...`);
+
+    try {
+      const cleanedKeys = geminiApiKeys.map((k) => k.trim()).filter(Boolean);
+      const activeApiKey = cleanedKeys[0] || geminiApiKey || openRouterKey || "";
+
+      addCourseLog("Sending curriculum structure request to Gemini API...");
+      const res = await fetch("/api/ai-generate-course", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          courseName: aiCourseTitlePrompt,
+          category: aiCourseCat,
+          targetCount: aiCourseLessonCount,
+          promptInstructions: aiCourseCustomPrompt,
+          apiKey: activeApiKey,
+          apiKeys: cleanedKeys
+        })
+      });
+
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        throw new Error(errData.error || "Failed to generate AI course.");
+      }
+
+      const { course, articles } = await res.json();
+      addCourseLog(`Course generated: "${course.title}" with ${articles.length} lessons!`);
+
+      // 1. Save all generated articles into Firebase Realtime Database
+      addCourseLog("Saving lesson articles into Firebase Database...");
+      for (const art of articles) {
+        await set(ref(db, `${DB_PATHS.ARTICLES}/${art.id}`), sanitizeForFirebase(art));
+      }
+
+      // 2. Save Course object into Firebase Realtime Database
+      addCourseLog("Saving Course metadata into Firebase Database...");
+      await set(ref(db, `${DB_PATHS.COURSES}/${course.id}`), sanitizeForFirebase(course));
+
+      setAiCourseSuccessMsg(`🎉 Success! Course "${course.title}" and ${articles.length} step-by-step lesson articles published live to website!`);
+      addCourseLog("🎉 Course and all lesson articles published live!");
+    } catch (err: any) {
+      console.error("AI Course Generation Error:", err);
+      setAiCourseErrorMsg(err.message || "An unexpected error occurred during course generation.");
+    } finally {
+      setAiCourseLoading(false);
+    }
+  };
+
   // Add Category (Limit to 10)
   const handleAddCategory = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -1738,6 +1837,20 @@ export default function AdminPanel({ onClose, categories, setCategories, onLogou
                 >
                   <Sparkles className="w-4 h-4 shrink-0 text-purple-500 animate-pulse" />
                   <span className="truncate">AI Article Engine</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setActiveTab("courses")}
+                  className={`flex items-center gap-2.5 px-4 py-3 rounded-2xl text-xs font-bold transition-all text-left cursor-pointer ${
+                    activeTab === "courses" 
+                      ? "bg-purple-700 text-white shadow-md shadow-purple-200" 
+                      : "hover:bg-purple-100/60 text-purple-900 font-extrabold"
+                  }`}
+                  id="admin-nav-courses-btn"
+                >
+                  <BookOpen className="w-4 h-4 shrink-0 text-amber-400" />
+                  <span className="truncate">🎓 AI Course Studio ({coursesList.length})</span>
                 </button>
 
                 <button
@@ -2435,6 +2548,204 @@ export default function AdminPanel({ onClose, categories, setCategories, onLogou
                     </tbody>
                   </table>
                 </div>
+              </div>
+            </div>
+          )}
+
+          {/* TAB: COURSES MANAGER & AI COURSE GENERATOR */}
+          {activeTab === "courses" && (
+            <div className="space-y-6 animate-in fade-in duration-200" id="tab-courses-content">
+              {/* Header */}
+              <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-purple-100 pb-4">
+                <div>
+                  <h3 className="text-sm font-black text-purple-950 uppercase tracking-wider flex items-center gap-2">
+                    <BookOpen className="w-5 h-5 text-purple-600" />
+                    <span>AI Course Studio & Curriculum Manager</span>
+                  </h3>
+                  <p className="text-xs text-gray-500 mt-1">
+                    Generate multi-article step-by-step tech courses with AI. Specify a topic like "How to Learn HTML for Beginners in 2026", and Gemini will create structured, hands-on lesson articles with code blocks and output demonstrations.
+                  </p>
+                </div>
+                <div className="bg-purple-50 border border-purple-100 px-3 py-1.5 rounded-xl text-center">
+                  <span className="text-[10px] text-purple-500 font-bold block uppercase">Total Courses</span>
+                  <span className="text-sm font-black text-purple-950">{coursesList.length}</span>
+                </div>
+              </div>
+
+              {/* Status Notifications */}
+              {aiCourseSuccessMsg && (
+                <div className="p-4 bg-emerald-50 border border-emerald-200 text-emerald-900 text-xs font-bold rounded-2xl flex items-center justify-between">
+                  <span className="flex items-center gap-2">
+                    <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0" />
+                    {aiCourseSuccessMsg}
+                  </span>
+                  <button onClick={() => setAiCourseSuccessMsg("")} className="text-emerald-600 hover:text-emerald-900">
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+              )}
+
+              {aiCourseErrorMsg && (
+                <div className="p-4 bg-rose-50 border border-rose-200 text-rose-900 text-xs font-bold rounded-2xl flex items-center justify-between">
+                  <span className="flex items-center gap-2">
+                    <AlertCircle className="w-5 h-5 text-rose-600 shrink-0" />
+                    {aiCourseErrorMsg}
+                  </span>
+                  <button onClick={() => setAiCourseErrorMsg("")} className="text-rose-600 hover:text-rose-900">
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+              )}
+
+              {/* AI COURSE GENERATOR FORM */}
+              <div className="p-6 bg-white rounded-3xl border border-purple-200/80 shadow-sm space-y-5">
+                <div className="flex items-center justify-between border-b border-purple-50 pb-3">
+                  <div className="space-y-0.5">
+                    <h4 className="text-xs font-black text-purple-950 uppercase tracking-wider flex items-center gap-2">
+                      <Sparkles className="w-4 h-4 text-purple-600" />
+                      <span>Generate Multi-Lesson Course with AI</span>
+                    </h4>
+                    <p className="text-[11px] text-gray-500">
+                      Auto-build a complete course curriculum with step-by-step articles, software setup, code blocks, output demonstrations, and green key term highlights.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-1 md:col-span-2">
+                    <label className="text-[10px] font-bold text-purple-900 uppercase tracking-wider block">
+                      Course Topic / Title Prompt
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      placeholder="e.g. How to Learn HTML for Beginners in 2026"
+                      value={aiCourseTitlePrompt}
+                      onChange={(e) => setAiCourseTitlePrompt(e.target.value)}
+                      className="w-full px-4 py-2.5 rounded-xl border border-purple-200 bg-purple-50/20 text-xs font-semibold focus:outline-none focus:border-purple-600"
+                    />
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-bold text-purple-900 uppercase tracking-wider block">
+                      Course Category
+                    </label>
+                    <select
+                      value={aiCourseCat}
+                      onChange={(e) => setAiCourseCat(e.target.value)}
+                      className="w-full px-3 py-2.5 rounded-xl border border-purple-200 bg-white text-xs font-medium focus:outline-none focus:border-purple-600"
+                    >
+                      {categories.map((c) => (
+                        <option key={c} value={c}>{c}</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-bold text-purple-900 uppercase tracking-wider block">
+                      Number of Lessons / Articles (3 - 12)
+                    </label>
+                    <input
+                      type="number"
+                      min={3}
+                      max={12}
+                      value={aiCourseLessonCount}
+                      onChange={(e) => setAiCourseLessonCount(Number(e.target.value))}
+                      className="w-full px-3 py-2.5 rounded-xl border border-purple-200 bg-white text-xs font-bold text-purple-950 focus:outline-none focus:border-purple-600"
+                    />
+                  </div>
+
+                  <div className="space-y-1 md:col-span-2">
+                    <label className="text-[10px] font-bold text-purple-900 uppercase tracking-wider block">
+                      Custom Curriculum Instructions (Optional)
+                    </label>
+                    <textarea
+                      rows={2}
+                      placeholder="e.g. Include software setup instructions in Lesson 1, HTML tags in Lesson 2, forms/tables in Lesson 3, and a step-by-step mini project in Lesson 4."
+                      value={aiCourseCustomPrompt}
+                      onChange={(e) => setAiCourseCustomPrompt(e.target.value)}
+                      className="w-full px-3 py-2 rounded-xl border border-purple-200 bg-white text-xs focus:outline-none focus:border-purple-600"
+                    />
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={handleRunAiCourseGen}
+                  disabled={aiCourseLoading}
+                  className="w-full py-3 px-6 rounded-2xl bg-purple-700 hover:bg-purple-800 text-white font-extrabold text-xs flex items-center justify-center gap-2 transition-all shadow-md active:scale-95 cursor-pointer disabled:opacity-50"
+                  id="generate-ai-course-btn"
+                >
+                  <Sparkles className="w-4 h-4 text-amber-300 animate-pulse" />
+                  <span>{aiCourseLoading ? "Generating AI Course & Articles..." : "⚡ Generate & Publish AI Course Live"}</span>
+                </button>
+
+                {/* Progress Logs */}
+                {aiCourseLogs.length > 0 && (
+                  <div className="p-4 bg-slate-950 text-slate-200 rounded-2xl border border-slate-800 space-y-2 font-mono text-[11px]">
+                    <div className="flex items-center justify-between border-b border-slate-800 pb-2">
+                      <span className="text-purple-400 font-bold uppercase tracking-wider">AI Generation Terminal Logs</span>
+                      <span className="text-slate-500">{aiCourseLogs.length} Events</span>
+                    </div>
+                    <div className="max-h-40 overflow-y-auto space-y-1 scrollbar-none">
+                      {aiCourseLogs.map((log, idx) => (
+                        <p key={idx} className="text-slate-300">{log}</p>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* EXISTING PUBLISHED COURSES LIST */}
+              <div className="space-y-3">
+                <h4 className="text-xs font-black text-purple-950 uppercase tracking-wider">
+                  Existing Published Courses ({coursesList.length})
+                </h4>
+
+                {coursesList.length > 0 ? (
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {coursesList.map((course) => (
+                      <div
+                        key={course.id || course.slug}
+                        className="p-5 rounded-2xl bg-white border border-purple-100 shadow-sm space-y-3 flex flex-col justify-between"
+                      >
+                        <div className="space-y-2">
+                          <div className="flex items-center justify-between">
+                            <span className="text-[10px] font-black uppercase text-purple-700 bg-purple-50 px-2.5 py-0.5 rounded-full border border-purple-100">
+                              {course.category}
+                            </span>
+                            <span className="text-[10px] font-bold text-gray-500">
+                              {course.lessons ? course.lessons.length : course.articleCount} Articles
+                            </span>
+                          </div>
+                          <h5 className="text-sm font-black text-purple-950 line-clamp-2">
+                            {course.title}
+                          </h5>
+                          <p className="text-xs text-gray-500 line-clamp-2">
+                            {course.description}
+                          </p>
+                        </div>
+
+                        <div className="pt-2 border-t border-purple-50 flex items-center justify-between">
+                          <span className="text-[10px] text-gray-400 font-mono">
+                            {course.createdAt}
+                          </span>
+                          <button
+                            onClick={() => handleDeleteCourse(course.id)}
+                            className="px-3 py-1 rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-700 font-bold text-xs flex items-center gap-1 transition-colors cursor-pointer"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                            <span>Delete</span>
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="p-8 text-center bg-white rounded-2xl border border-purple-100 text-gray-500 text-xs">
+                    No courses published yet. Use the generator above to create your first course.
+                  </div>
+                )}
               </div>
             </div>
           )}

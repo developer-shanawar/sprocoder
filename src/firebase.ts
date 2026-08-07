@@ -24,5 +24,6 @@ export const DB_PATHS = {
   USERS: "users",
   MESSAGES: "messages",
   PAGES: "pages", // about, policy
-  NOTIFICATIONS: "notifications"
+  NOTIFICATIONS: "notifications",
+  COURSES: "courses"
 };

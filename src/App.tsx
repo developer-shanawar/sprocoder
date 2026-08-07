@@ -8,7 +8,7 @@ import { motion, AnimatePresence } from "motion/react";
 import { db, DB_PATHS, auth } from "./firebase";
 import { ref, set, onValue, get, update, push } from "firebase/database";
 import { onAuthStateChanged } from "firebase/auth";
-import { BlogPost, Comment, UserAccount, AdminPages } from "./types";
+import { BlogPost, Comment, UserAccount, AdminPages, Course, CourseLesson } from "./types";
 import { INITIAL_POSTS } from "./data";
 
 // Modular Component Imports
@@ -23,6 +23,7 @@ const ContactForm = React.lazy(() => import("./components/ContactForm"));
 const YouTubeShowcase = React.lazy(() => import("./components/YouTubeShowcase"));
 const AdminAuth = React.lazy(() => import("./components/AdminAuth"));
 const UserProfile = React.lazy(() => import("./components/UserProfile"));
+const CoursesView = React.lazy(() => import("./components/CoursesView"));
 import AdRenderer from "./components/AdRenderer";
 
 const LoadingSpinner = () => (
@@ -92,9 +93,10 @@ const SplashScreen = () => {
 
 export default function App() {
   // Navigation tabs initialized from window.location.pathname dynamically
-  const [currentTab, setCurrentTab] = useState<"home" | "articles" | "about" | "privacy" | "terms" | "contact" | "admin-auth" | "admin" | "profile" | "disclaimer">(() => {
+  const [currentTab, setCurrentTab] = useState<"home" | "articles" | "about" | "privacy" | "terms" | "contact" | "admin-auth" | "admin" | "profile" | "disclaimer" | "courses">(() => {
     if (typeof window === "undefined") return "home";
     const path = window.location.pathname;
+    if (path === "/courses" || path.startsWith("/courses/")) return "courses";
     if (path === "/blog" || path === "/articles") return "articles";
     if (path === "/about-us" || path === "/about") return "about";
     if (path === "/privacy-policy" || path === "/privacy") return "privacy";
@@ -205,6 +207,17 @@ export default function App() {
       }
     }
     return ["Technology", "Artificial Intelligence", "AI Tools", "Games", "Coding"];
+  });
+
+  const [courses, setCourses] = useState<Course[]>([]);
+  const [selectedCourseSlug, setSelectedCourseSlug] = useState<string | null>(() => {
+    if (typeof window !== "undefined") {
+      const path = window.location.pathname;
+      if (path.startsWith("/courses/")) {
+        return path.replace("/courses/", "").trim();
+      }
+    }
+    return null;
   });
   
   // Page contents with local storage caching
@@ -379,6 +392,14 @@ export default function App() {
     } else if (path === "/games") {
       setCurrentTab("home");
       setSelectedCategory("Games");
+      setSelectedPost(null);
+    } else if (path === "/courses") {
+      setCurrentTab("courses");
+      setSelectedCourseSlug(null);
+      setSelectedPost(null);
+    } else if (path.startsWith("/courses/")) {
+      setCurrentTab("courses");
+      setSelectedCourseSlug(path.replace("/courses/", "").trim());
       setSelectedPost(null);
     } else if (path === "/blog" || path === "/articles") {
       setCurrentTab("articles");
@@ -1194,10 +1215,22 @@ export default function App() {
       }
     });
 
+    // Sync Courses
+    const coursesRef = ref(db, DB_PATHS.COURSES);
+    const unsubCourses = onValue(coursesRef, (snapshot) => {
+      if (snapshot.exists()) {
+        const data = snapshot.val();
+        setCourses(Object.values(data));
+      } else {
+        setCourses([]);
+      }
+    });
+
     return () => {
       unsubPosts();
       unsubCat();
       unsubPages();
+      unsubCourses();
       unsubIcon();
       unsubShowIcon();
       unsubFeatured();
@@ -2455,6 +2488,26 @@ export default function App() {
                 {disclaimerContent || "The information provided on S pro coder (AspCoder.online) is for general educational and informational purposes only. All tutorials, code snippets, and software recommendations are provided as-is with no representations or warranties of any kind."}
               </div>
             </div>
+          </div>
+        )}
+
+        {/* VIEW 3.4: COURSES HUB */}
+        {currentTab === "courses" && (
+          <div className="max-w-6xl mx-auto animate-in fade-in duration-300" id="courses-view-container">
+            <React.Suspense fallback={<LoadingSpinner />}>
+              <CoursesView
+                courses={courses}
+                allArticles={allPosts}
+                selectedCourseSlug={selectedCourseSlug}
+                onSelectCourse={(slug) => {
+                  setSelectedCourseSlug(slug);
+                  window.history.pushState(null, "", slug ? `/courses/${slug}` : "/courses");
+                }}
+                onSelectArticle={(article) => {
+                  handleSelectPost(article);
+                }}
+              />
+            </React.Suspense>
           </div>
         )}
 

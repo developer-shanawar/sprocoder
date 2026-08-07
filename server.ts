@@ -1329,6 +1329,220 @@ STRICT CREATIVE & TECHNICAL DIRECTIVES:
 app.post("/api/blog/generate-ai", handleAiArticleGeneration);
 app.post("/api/generate-ai-article", handleAiArticleGeneration);
 
+// New AI Course Generation Schema & Endpoint
+const aiCourseSchema = {
+  type: Type.OBJECT,
+  properties: {
+    courseTitle: { type: Type.STRING, description: "Catchy course title e.g. How to Learn HTML for Beginners in 2026" },
+    courseDescription: { type: Type.STRING, description: "Comprehensive 2-3 sentence overview of course goals and outcomes." },
+    category: { type: Type.STRING, description: "Category e.g. Web Development or Artificial Intelligence" },
+    level: { type: Type.STRING, description: "Beginner, Intermediate, or Advanced" },
+    estimatedHours: { type: Type.STRING, description: "Estimated completion time e.g. '2 Hours' or '4 Hours'" },
+    lessons: {
+      type: Type.ARRAY,
+      description: "Step by step list of lessons/articles forming the full course curriculum",
+      items: {
+        type: Type.OBJECT,
+        properties: {
+          lessonNumber: { type: Type.INTEGER, description: "1-based order index of lesson" },
+          title: { type: Type.STRING, description: "Lesson title e.g. Lesson 1: Introduction to HTML & Software Setup" },
+          tagline: { type: Type.STRING, description: "Short 1-sentence goal" },
+          excerpt: { type: Type.STRING, description: "1-2 sentence preview" },
+          readTime: { type: Type.STRING, description: "e.g. '8 min read'" },
+          content: { 
+            type: Type.STRING, 
+            description: "Deep, 1200+ word step-by-step instructional guide in clean Markdown/HTML. Include clear headings, software setup instructions, simplified step-by-step guides, clean source code blocks with output demonstrations, green key term highlights <mark>[keyword]</mark>, and 3-5 FAQs." 
+          },
+          tags: {
+            type: Type.ARRAY,
+            items: { type: Type.STRING }
+          }
+        },
+        required: ["lessonNumber", "title", "tagline", "excerpt", "readTime", "content"]
+      }
+    }
+  },
+  required: ["courseTitle", "courseDescription", "category", "level", "estimatedHours", "lessons"]
+};
+
+app.post("/api/ai-generate-course", async (req, res) => {
+  try {
+    const { courseName, category, targetCount, promptInstructions, apiKey, apiKeys } = req.body;
+
+    const targetCategory = category || "Web Development";
+    const requestedCount = Math.max(3, Math.min(12, Number(targetCount) || 5));
+    const titlePrompt = courseName || "How to Learn HTML for Beginners in 2026";
+
+    // Resolve API Keys
+    let keyPool: string[] = [];
+    if (Array.isArray(apiKeys) && apiKeys.length > 0) {
+      keyPool = apiKeys.filter((k: any) => typeof k === "string" && k.trim().length > 10).map((k: string) => k.trim());
+    }
+    if (keyPool.length === 0 && apiKey && typeof apiKey === "string" && apiKey.trim().length > 10) {
+      keyPool = [apiKey.trim()];
+    }
+
+    const clientsToTry: { name: string; client: GoogleGenAI }[] = [];
+    if (keyPool.length > 0) {
+      for (let i = 0; i < keyPool.length; i++) {
+        clientsToTry.push({ name: `Key Pool #${i + 1}`, client: new GoogleGenAI({ apiKey: keyPool[i] }) });
+      }
+    } else if (process.env.GEMINI_API_KEY) {
+      clientsToTry.push({ name: "Environment Key", client: new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY }) });
+    }
+    if (clientsToTry.length === 0 && ai) {
+      clientsToTry.push({ name: "Default Gemini Client", client: ai });
+    }
+
+    if (clientsToTry.length === 0) {
+      return res.status(503).json({
+        error: "Gemini client is not configured. Please enter at least one valid Gemini API key in the AI Engine settings."
+      });
+    }
+
+    const coursePrompt = `Create a complete, multi-part step-by-step tech course curriculum titled "${titlePrompt}" in category "${targetCategory}" containing exactly ${requestedCount} detailed, instructional articles/lessons.
+
+SPECIFIC INSTRUCTIONS & EXAMPLE CURRICULUM:
+If the course is "How to Learn HTML for Beginners in 2026":
+- Lesson 1: Required software setup (VS Code, web browsers) and introduction to HTML structure.
+- Lesson 2: Basic HTML tags and structural layout tags like <div>, <section>, <header>, <nav>, and <footer>.
+- Lesson 3: Working with HTML Text, Headings, Paragraphs, Lists, and Links.
+- Lesson 4: HTML Forms, Input Elements, Buttons, and Tables.
+- Lesson 5: Building a Complete Step-by-Step Sample HTML Web Page Project.
+
+STRICT INSTRUCTIONAL DIRECTIVES FOR EACH LESSON:
+1. Provide simplified, beginner-friendly step-by-step instructions.
+2. For coding sections: provide clean code blocks AND explain/demonstrate the visual output.
+3. Use green key term highlights in each lesson: <mark>[keyword]</mark>.
+4. Include an explicit 3-5 question Frequently Asked Questions (FAQs) section at the end of every lesson.
+5. Additional custom instructions from instructor: ${promptInstructions || "Focus on practical, hands-on 2026 standards."}`;
+
+    console.log(`Generating AI course "${titlePrompt}" with ${requestedCount} lessons via Gemini...`);
+
+    let courseResult: any = null;
+    const modelsToTry = ["gemini-3.5-flash", "gemini-2.5-flash"];
+
+    for (const clientObj of clientsToTry) {
+      for (const modelName of modelsToTry) {
+        try {
+          const response = await clientObj.client.models.generateContent({
+            model: modelName,
+            contents: coursePrompt,
+            config: {
+              systemInstruction: "You are a senior computer science professor and master educator crafting step-by-step programming and tech courses. You generate structured, multi-part curricula with code blocks, output demonstrations, green key term highlights <mark>[keyword]</mark>, and FAQs.",
+              responseMimeType: "application/json",
+              responseSchema: aiCourseSchema
+            }
+          });
+
+          const jsonStr = response.text;
+          if (jsonStr) {
+            courseResult = safeJsonParse(jsonStr);
+            if (courseResult && courseResult.courseTitle && Array.isArray(courseResult.lessons) && courseResult.lessons.length > 0) {
+              break;
+            }
+          }
+        } catch (err: any) {
+          console.warn(`Course generation attempt failed with ${modelName}:`, err?.message);
+        }
+      }
+      if (courseResult) break;
+    }
+
+    if (!courseResult) {
+      return res.status(503).json({ error: "Failed to generate AI course curriculum. Please check your API key or try again." });
+    }
+
+    // Format Course Object & Attached Articles
+    const courseId = "course-" + Date.now();
+    const courseSlug = slugify(courseResult.courseTitle || titlePrompt);
+    const nowFormatted = new Date().toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" });
+
+    // Generate 16:9 Thumbnail SVG for Course
+    const courseThumbnailSvg = generateArticleThumbnailSvg({
+      category: courseResult.category || targetCategory,
+      title: courseResult.courseTitle,
+      websiteName: "sprocoder.online/courses",
+      variantIndex: Math.floor(Math.random() * THUMBNAIL_VARIANTS.length)
+    });
+
+    const generatedArticles: any[] = [];
+    const formattedLessons: any[] = [];
+
+    courseResult.lessons.forEach((lesson: any, idx: number) => {
+      const lessonNum = lesson.lessonNumber || idx + 1;
+      const articleId = `post-course-${Date.now()}-${lessonNum}`;
+      const articleTitle = lesson.title || `Lesson ${lessonNum}: ${courseResult.courseTitle}`;
+      const artSlug = slugify(articleTitle);
+
+      const lessonThumbnailSvg = generateArticleThumbnailSvg({
+        category: courseResult.category || targetCategory,
+        title: articleTitle,
+        websiteName: "sprocoder.online",
+        variantIndex: (idx + 1) % THUMBNAIL_VARIANTS.length
+      });
+
+      const articleObj = {
+        id: articleId,
+        title: articleTitle,
+        tagline: lesson.tagline || `Lesson ${lessonNum} of ${courseResult.courseTitle}`,
+        category: courseResult.category || targetCategory,
+        content: lesson.content,
+        readTime: lesson.readTime || "8 min read",
+        tags: lesson.tags || ["Course", targetCategory, "Tutorial"],
+        excerpt: lesson.excerpt || lesson.tagline,
+        author: "Shanawar Ali",
+        date: nowFormatted,
+        likes: Math.floor(Math.random() * 15) + 5,
+        savesCount: Math.floor(Math.random() * 10) + 1,
+        thumbnailUrl: lessonThumbnailSvg,
+        isAiGenerated: true,
+        metaDescription: lesson.excerpt || lesson.tagline,
+        visibility: "public"
+      };
+
+      generatedArticles.push(articleObj);
+
+      formattedLessons.push({
+        id: `lesson-${courseId}-${lessonNum}`,
+        lessonNumber: lessonNum,
+        title: articleTitle,
+        tagline: lesson.tagline,
+        excerpt: lesson.excerpt,
+        readTime: lesson.readTime || "8 min read",
+        articleId: articleId,
+        articleSlug: artSlug,
+        content: lesson.content,
+        tags: lesson.tags
+      });
+    });
+
+    const finalCourse = {
+      id: courseId,
+      title: courseResult.courseTitle || titlePrompt,
+      slug: courseSlug,
+      description: courseResult.courseDescription,
+      category: courseResult.category || targetCategory,
+      thumbnailUrl: courseThumbnailSvg,
+      level: courseResult.level || "Beginner 2026",
+      estimatedHours: courseResult.estimatedHours || "2 Hours",
+      articleCount: formattedLessons.length,
+      lessons: formattedLessons,
+      createdAt: nowFormatted,
+      author: "Shanawar Ali",
+      isAiGenerated: true
+    };
+
+    return res.json({
+      course: finalCourse,
+      articles: generatedArticles
+    });
+  } catch (error: any) {
+    console.error("Error generating AI course:", error);
+    return res.status(500).json({ error: error.message || "Internal server error during course generation" });
+  }
+});
+
 // Dynamic helper to inject AdSense, verification codes, and custom meta tags into HTML template
 async function injectCustomCode(template: string): Promise<string> {
   try {
@@ -1564,6 +1778,19 @@ async function generateSitemapXml(): Promise<string> {
     console.warn("Sitemap: failed to fetch dynamic articles from Firebase:", err);
   }
 
+  let courses: any[] = [];
+  try {
+    const cRes = await fetch("https://fir-pro-coder-default-rtdb.firebaseio.com/courses.json");
+    if (cRes.ok) {
+      const cData = await cRes.json();
+      if (cData && typeof cData === "object") {
+        courses = Object.values(cData);
+      }
+    }
+  } catch (err) {
+    console.warn("Sitemap: failed to fetch dynamic courses from Firebase:", err);
+  }
+
   if (!articles || articles.length === 0) {
     articles = INITIAL_POSTS;
   }
@@ -1581,6 +1808,7 @@ async function generateSitemapXml(): Promise<string> {
 
   const staticPages = [
     { path: "", priority: "1.0", changefreq: "daily" },
+    { path: "courses", priority: "0.9", changefreq: "daily" },
     { path: "about", priority: "0.8", changefreq: "monthly" },
     { path: "contact", priority: "0.8", changefreq: "monthly" },
     { path: "privacy-policy", priority: "0.5", changefreq: "monthly" },
@@ -1614,6 +1842,24 @@ async function generateSitemapXml(): Promise<string> {
     xml += `  </url>\n`;
   }
 
+  // Dynamic Courses
+  for (const course of courses) {
+    if (!course || !course.title) continue;
+    const cSlug = course.slug || slugify(course.title);
+    xml += `  <url>\n`;
+    xml += `    <loc>${baseUrl}/courses/${cSlug}</loc>\n`;
+    xml += `    <lastmod>${nowStr}</lastmod>\n`;
+    xml += `    <changefreq>daily</changefreq>\n`;
+    xml += `    <priority>0.9</priority>\n`;
+    if (course.thumbnailUrl && typeof course.thumbnailUrl === "string" && !course.thumbnailUrl.startsWith("data:")) {
+      xml += `    <image:image>\n`;
+      xml += `      <image:loc>${escapeXml(course.thumbnailUrl)}</image:loc>\n`;
+      xml += `      <image:title>${escapeXml(course.title)}</image:title>\n`;
+      xml += `    </image:image>\n`;
+    }
+    xml += `  </url>\n`;
+  }
+
   // Dynamic articles
   for (const article of articles) {
     if (!article || !article.title) continue;
@@ -1638,6 +1884,22 @@ async function generateSitemapXml(): Promise<string> {
   xml += `</urlset>`;
   return xml;
 }
+
+// llms.txt Endpoint
+app.get(["/llms.txt", "/api/llms.txt"], async (req, res) => {
+  res.setHeader("Content-Type", "text/plain; charset=utf-8");
+  res.setHeader("Cache-Control", "public, max-age=3600");
+  try {
+    const fs = await import("fs");
+    const llmsPath = path.resolve(process.cwd(), "public", "llms.txt");
+    if (fs.existsSync(llmsPath)) {
+      return res.status(200).send(fs.readFileSync(llmsPath, "utf-8"));
+    }
+  } catch (err) {
+    console.error("Error serving llms.txt:", err);
+  }
+  return res.status(200).send("S Pro Coder LLMs Index Policy\n\nYou can fetch content from our website (https://www.sprocoder.online) and use it.\n");
+});
 
 // Sitemap XML Endpoint
 app.get(["/sitemap.xml", "/api/sitemap.xml"], async (req, res) => {

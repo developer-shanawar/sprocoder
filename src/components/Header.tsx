@@ -11,8 +11,8 @@ import RegistrationWizardModal from "./RegistrationWizardModal";
 import { motion, AnimatePresence } from "motion/react";
 
 interface HeaderProps {
-  currentTab: "home" | "articles" | "about" | "privacy" | "terms" | "contact" | "admin-auth" | "admin" | "profile" | "disclaimer";
-  setCurrentTab: (tab: "home" | "articles" | "about" | "privacy" | "terms" | "contact" | "admin-auth" | "admin" | "profile" | "disclaimer") => void;
+  currentTab: "home" | "articles" | "courses" | "about" | "privacy" | "terms" | "contact" | "admin-auth" | "admin" | "profile" | "disclaimer";
+  setCurrentTab: (tab: "home" | "articles" | "courses" | "about" | "privacy" | "terms" | "contact" | "admin-auth" | "admin" | "profile" | "disclaimer") => void;
   currentUser: UserAccount | null;
   setCurrentUser: (user: UserAccount | null) => void;
   onOpenAdmin: () => void;
@@ -311,12 +311,13 @@ export default function Header({
 
         {/* Desktop Links */}
         <div className="hidden md:flex items-center gap-1.5" id="nav-links-desktop">
-          {(["home", "articles", "about", "contact"] as const).map((tab) => (
+          {(["home", "articles", "courses", "about", "contact"] as const).map((tab) => (
             <a
               key={tab}
               href={
                 tab === "home" ? "/" : 
                 tab === "articles" ? "/blog" : 
+                tab === "courses" ? "/courses" : 
                 tab === "about" ? "/about-us" : 
                 tab === "contact" ? "/contact-us" : "/"
               }
@@ -332,7 +333,7 @@ export default function Header({
               }`}
               id={`nav-link-${tab}`}
             >
-              {tab === "home" ? "Home" : tab === "articles" ? "Latest Articles" : tab}
+              {tab === "home" ? "Home" : tab === "articles" ? "Latest Articles" : tab === "courses" ? "Courses" : tab}
             </a>
           ))}
           {isAdminUser && (
@@ -631,12 +632,13 @@ export default function Header({
 
                 {/* Mobile Links */}
                 <div className="flex flex-col gap-2" id="nav-links-mobile">
-                  {(["home", "articles", "about", "contact"] as const).map((tab) => (
+                  {(["home", "articles", "courses", "about", "contact"] as const).map((tab) => (
                     <a
                       key={tab}
                       href={
                         tab === "home" ? "/" : 
                         tab === "articles" ? "/blog" : 
+                        tab === "courses" ? "/courses" : 
                         tab === "about" ? "/about-us" : 
                         tab === "contact" ? "/contact-us" : "/"
                       }
@@ -651,7 +653,7 @@ export default function Header({
                           : "text-purple-950 hover:bg-purple-50"
                       }`}
                     >
-                      {tab === "home" ? "Home Portal" : tab === "articles" ? "Latest Articles" : tab}
+                      {tab === "home" ? "Home Portal" : tab === "articles" ? "Latest Articles" : tab === "courses" ? "Courses" : tab}
                     </a>
                   ))}
                   {isAdminUser && (
