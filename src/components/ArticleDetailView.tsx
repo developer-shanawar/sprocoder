@@ -12,15 +12,20 @@ import {
   X, 
   CornerDownRight,
   MessageCircle,
-  Tag
+  Tag,
+  BookOpen,
+  ChevronRight,
+  ChevronLeft,
+  CheckCircle2
 } from "lucide-react";
-import { BlogPost, Comment } from "../types";
+import { BlogPost, Comment, Course } from "../types";
 import { motion, AnimatePresence } from "motion/react";
 import Markdown from "react-markdown";
 import rehypeRaw from "rehype-raw";
 import AdRenderer from "./AdRenderer";
 import { slugify } from "../utils/slugify";
 import { updateDocumentSeo } from "../utils/seo";
+import { getRecommendedArticles, recordUserInterest } from "../utils/recommendations";
 
 interface ArticleDetailViewProps {
   post: BlogPost;
@@ -36,6 +41,9 @@ interface ArticleDetailViewProps {
   currentUser: any;
   adsConfig?: any;
   onSearchKeyword?: (keyword: string) => void;
+  activeCourseContext?: { course: Course; lessonIndex: number } | null;
+  onNavigateCourseLesson?: (direction: "next" | "prev") => void;
+  onReturnToCourse?: () => void;
 }
 
 function decodeHtmlEntities(str: string): string {
@@ -123,7 +131,10 @@ export default function ArticleDetailView({
   onAddReply,
   currentUser,
   adsConfig = null,
-  onSearchKeyword
+  onSearchKeyword,
+  activeCourseContext = null,
+  onNavigateCourseLesson,
+  onReturnToCourse
 }: ArticleDetailViewProps) {
   const [newComment, setNewComment] = useState("");
   const [activeReplyCommentId, setActiveReplyCommentId] = useState<string | null>(null);
@@ -152,9 +163,10 @@ export default function ArticleDetailView({
     return Array.from(set);
   }, [post]);
 
-  // Dynamic SEO Update on Article Mount / Change
+  // Dynamic SEO Update and User Interest Tracking on Article Mount / Change
   useEffect(() => {
     if (post) {
+      recordUserInterest(post);
       updateDocumentSeo({
         title: post.title,
         description: post.metaDescription || post.excerpt || post.tagline,
@@ -169,22 +181,10 @@ export default function ArticleDetailView({
     }
   }, [post]);
 
-  // Related articles calculation (max 5) based on shared categories and tags
+  // Related / Recommended articles calculation (max 5)
   const relatedArticles = React.useMemo(() => {
     if (!allPosts || allPosts.length === 0) return [];
-    return allPosts
-      .filter((p) => p.id !== post.id)
-      .map((p) => {
-        let score = 0;
-        if (p.category === post.category) score += 5;
-        // Tag overlap score
-        const sharedTags = (p.tags || []).filter(t => (post.tags || []).includes(t));
-        score += sharedTags.length * 2;
-        return { post: p, score };
-      })
-      .sort((a, b) => b.score - a.score || (b.post.views || 0) - (a.post.views || 0))
-      .slice(0, 5)
-      .map(item => item.post);
+    return getRecommendedArticles(allPosts, post, 5);
   }, [allPosts, post]);
 
   const handleCommentSubmit = (e: React.FormEvent) => {
@@ -247,15 +247,32 @@ export default function ArticleDetailView({
         )}
       </AnimatePresence>
 
-      {/* Back navigation button */}
-      <button
-        onClick={onClose}
-        className="flex items-center gap-2 px-4 py-2 rounded-2xl bg-white/50 backdrop-blur-md border border-purple-100 text-purple-950 font-bold hover:bg-purple-600 hover:text-white transition-all cursor-pointer text-xs"
-        id="reader-back-btn"
-      >
-        <ArrowLeft className="w-4 h-4" />
-        <span>Back to Stream</span>
-      </button>
+      {/* Back navigation & Course Sequence Banner */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <button
+          onClick={() => {
+            if (activeCourseContext && onReturnToCourse) {
+              onReturnToCourse();
+            } else {
+              onClose();
+            }
+          }}
+          className="flex items-center gap-2 px-4 py-2 rounded-2xl bg-white/80 backdrop-blur-md border border-purple-200 text-purple-950 font-extrabold hover:bg-purple-700 hover:text-white transition-all cursor-pointer text-xs shadow-xs shrink-0 self-start sm:self-auto"
+          id="reader-back-btn"
+        >
+          <ArrowLeft className="w-4 h-4 text-purple-600 group-hover:text-white" />
+          <span>{activeCourseContext ? `Back to Course Curriculum (${activeCourseContext.course.title})` : "Back to All Articles"}</span>
+        </button>
+
+        {activeCourseContext && (
+          <div className="flex items-center gap-2 bg-purple-100/90 text-purple-950 px-3.5 py-1.5 rounded-2xl border border-purple-200 text-xs font-black">
+            <BookOpen className="w-4 h-4 text-purple-700 shrink-0" />
+            <span className="truncate">
+              Lesson #{activeCourseContext.lessonIndex + 1} of {activeCourseContext.course.lessons?.length || 1}: {activeCourseContext.course.title}
+            </span>
+          </div>
+        )}
+      </div>
 
       {/* Main card containing content & actions */}
       <div className="bg-white/40 backdrop-blur-lg border border-white/60 rounded-3xl sm:rounded-[36px] p-4 sm:p-10 shadow-xl space-y-6 sm:space-y-8">
@@ -397,6 +414,57 @@ export default function ArticleDetailView({
                 })()}
               </div>
             </article>
+
+            {/* Course Next Article Sequence Navigation */}
+            {activeCourseContext && (
+              <div className="p-6 rounded-3xl bg-slate-950 text-white space-y-4 shadow-2xl border border-slate-800 my-8 animate-in fade-in" id="course-sequence-nav-box">
+                <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-800/80 pb-3">
+                  <div className="flex items-center gap-2">
+                    <BookOpen className="w-4.5 h-4.5 text-purple-400" />
+                    <span className="text-xs font-black uppercase tracking-wider text-purple-300">
+                      Course Curriculum • Lesson {activeCourseContext.lessonIndex + 1} of {activeCourseContext.course.lessons?.length || 1}
+                    </span>
+                  </div>
+                  <button
+                    onClick={onReturnToCourse || onClose}
+                    className="text-xs font-bold text-slate-300 hover:text-white bg-slate-800 hover:bg-slate-700 px-3 py-1 rounded-full transition-colors cursor-pointer border border-slate-700"
+                  >
+                    Back to Course
+                  </button>
+                </div>
+
+                <p className="text-xs text-slate-300 leading-relaxed font-medium">
+                  {activeCourseContext.course.title}: Continuous Step-by-Step Learning
+                </p>
+
+                <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-2">
+                  {activeCourseContext.lessonIndex > 0 ? (
+                    <button
+                      onClick={() => onNavigateCourseLesson?.("prev")}
+                      className="w-full sm:w-auto px-4 py-3 rounded-2xl bg-slate-800 hover:bg-slate-700 text-white text-xs font-bold flex items-center justify-center gap-2 transition-all cursor-pointer border border-slate-700 active:scale-95 shadow-sm"
+                    >
+                      <ChevronLeft className="w-4 h-4 text-purple-400" />
+                      <span>Previous Lesson</span>
+                    </button>
+                  ) : <div />}
+
+                  {activeCourseContext.course.lessons && activeCourseContext.lessonIndex < activeCourseContext.course.lessons.length - 1 ? (
+                    <button
+                      onClick={() => onNavigateCourseLesson?.("next")}
+                      className="w-full sm:w-auto px-6 py-3 rounded-2xl bg-purple-600 hover:bg-purple-500 text-white text-xs font-black flex items-center justify-center gap-2 transition-all cursor-pointer shadow-lg active:scale-95 ml-auto"
+                    >
+                      <span>Next Article in Sequence</span>
+                      <ChevronRight className="w-4 h-4 text-amber-300" />
+                    </button>
+                  ) : (
+                    <div className="text-xs font-bold text-emerald-400 flex items-center gap-1.5 bg-emerald-950/80 px-4 py-2.5 rounded-2xl border border-emerald-800/80 shadow-sm ml-auto">
+                      <CheckCircle2 className="w-4 h-4" />
+                      <span>Course Sequence Complete!</span>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Right Column: Actions & Live Discussions (4 cols on desktop, naturally flows below on mobile) */}

@@ -4,12 +4,12 @@ import {
   Plus, Edit, Trash2, Heart, Bookmark, Eye, FileText, Upload, Save, Check, RefreshCw, Lock,
   Youtube, Star, Bold, Italic, Underline, Link, Heading1, Heading2, List, Quote, Globe,
   TrendingUp, BarChart2, Send, Instagram, Facebook, Mail, Sparkles, MessageCircle, AlertCircle,
-  ShieldAlert, ShieldCheck, UserCheck, UserX, Search, Filter, Clock, Calendar, User, Ban, X, CheckCircle2, UserPlus
+  ShieldAlert, ShieldCheck, UserCheck, UserX, Search, Filter, Clock, Calendar, User, Ban, X, CheckCircle2, UserPlus, Bot, Loader2
 } from "lucide-react";
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, PieChart, Pie, Cell, Legend } from "recharts";
 import { db, DB_PATHS } from "../firebase";
 import { ref, set, push, remove, get, update, onValue } from "firebase/database";
-import { BlogPost, UserAccount, ContactMessage, Course } from "../types";
+import { BlogPost, UserAccount, ContactMessage, Course, CourseLesson } from "../types";
 import WriteArticleEditor from "./WriteArticleEditor";
 
 function slugify(text: any): string {
@@ -95,6 +95,14 @@ export default function AdminPanel({ onClose, categories, setCategories, onLogou
   const [aiCourseSuccessMsg, setAiCourseSuccessMsg] = useState("");
   const [aiCourseErrorMsg, setAiCourseErrorMsg] = useState("");
   const [aiCourseLogs, setAiCourseLogs] = useState<string[]>([]);
+
+  // Course Manager & Lesson Editor States
+  const [editingCourseModal, setEditingCourseModal] = useState<Course | null>(null);
+  const [editingLessonIdx, setEditingLessonIdx] = useState<number | null>(null);
+  const [editingLessonObj, setEditingLessonObj] = useState<CourseLesson | null>(null);
+  const [newLessonTopicPrompt, setNewLessonTopicPrompt] = useState("");
+  const [isAiLessonGenerating, setIsAiLessonGenerating] = useState(false);
+  const [aiLessonSuccessMsg, setAiLessonSuccessMsg] = useState("");
 
   // Ad Management States
   const [headerBannerAd, setHeaderBannerAd] = useState("");
@@ -1421,6 +1429,159 @@ export default function AdminPanel({ onClose, categories, setCategories, onLogou
     }
   };
 
+  // Save overall course metadata changes
+  const handleSaveCourseMetadata = async () => {
+    if (!editingCourseModal) return;
+    try {
+      const sanitized = sanitizeForFirebase({
+        ...editingCourseModal,
+        articleCount: editingCourseModal.lessons ? editingCourseModal.lessons.length : 0
+      });
+      await set(ref(db, `${DB_PATHS.COURSES}/${editingCourseModal.id}`), sanitized);
+      alert("Course metadata updated successfully!");
+    } catch (err: any) {
+      console.error(err);
+      alert("Failed to update course: " + err.message);
+    }
+  };
+
+  // Delete individual lesson from course
+  const handleDeleteLessonFromCourse = async (lessonIdx: number) => {
+    if (!editingCourseModal || !editingCourseModal.lessons) return;
+    if (!confirm("Are you sure you want to delete this lesson article from the course?")) return;
+
+    const targetLesson = editingCourseModal.lessons[lessonIdx];
+    const updatedLessons = editingCourseModal.lessons.filter((_, idx) => idx !== lessonIdx).map((l, idx) => ({
+      ...l,
+      lessonNumber: idx + 1
+    }));
+
+    const updatedCourse = {
+      ...editingCourseModal,
+      lessons: updatedLessons,
+      articleCount: updatedLessons.length
+    };
+
+    try {
+      // 1. Update Course in DB
+      await set(ref(db, `${DB_PATHS.COURSES}/${updatedCourse.id}`), sanitizeForFirebase(updatedCourse));
+      
+      // 2. Remove article if articleId exists
+      if (targetLesson?.articleId) {
+        await remove(ref(db, `${DB_PATHS.ARTICLES}/${targetLesson.articleId}`));
+      }
+
+      setEditingCourseModal(updatedCourse);
+      alert("Lesson article removed successfully!");
+    } catch (err: any) {
+      console.error(err);
+      alert("Failed to delete lesson: " + err.message);
+    }
+  };
+
+  // Generate and append new article/lesson to course via AI
+  const handleGenerateAiLessonForCourse = async () => {
+    if (!editingCourseModal) return;
+    if (!newLessonTopicPrompt.trim()) {
+      alert("Please enter a lesson topic for the AI to generate.");
+      return;
+    }
+
+    setIsAiLessonGenerating(true);
+    setAiLessonSuccessMsg("");
+
+    try {
+      const cleanedKeys = geminiApiKeys.map((k) => k.trim()).filter(Boolean);
+      const activeApiKey = cleanedKeys[0] || geminiApiKey || openRouterKey || "";
+      const currentLessons = editingCourseModal.lessons || [];
+      const nextLessonNum = currentLessons.length + 1;
+
+      const res = await fetch("/api/ai-generate-lesson", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          courseTitle: editingCourseModal.title,
+          category: editingCourseModal.category,
+          lessonTopic: newLessonTopicPrompt,
+          lessonNumber: nextLessonNum,
+          apiKey: activeApiKey,
+          apiKeys: cleanedKeys
+        })
+      });
+
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        throw new Error(errData.error || "Failed to generate AI lesson.");
+      }
+
+      const { article, lesson } = await res.json();
+
+      // 1. Save Article to DB
+      await set(ref(db, `${DB_PATHS.ARTICLES}/${article.id}`), sanitizeForFirebase(article));
+
+      // 2. Append Lesson to Course
+      const updatedLessons = [...currentLessons, lesson];
+      const updatedCourse = {
+        ...editingCourseModal,
+        lessons: updatedLessons,
+        articleCount: updatedLessons.length
+      };
+
+      await set(ref(db, `${DB_PATHS.COURSES}/${updatedCourse.id}`), sanitizeForFirebase(updatedCourse));
+      setEditingCourseModal(updatedCourse);
+      setNewLessonTopicPrompt("");
+      setAiLessonSuccessMsg(`🎉 Lesson "${lesson.title}" generated & appended live to course!`);
+    } catch (err: any) {
+      console.error(err);
+      alert("Error generating lesson: " + err.message);
+    } finally {
+      setIsAiLessonGenerating(false);
+    }
+  };
+
+  // Save edits to a single lesson
+  const handleSaveSingleLessonEdit = async () => {
+    if (!editingCourseModal || editingLessonIdx === null || !editingLessonObj) return;
+
+    const currentLessons = [...(editingCourseModal.lessons || [])];
+    currentLessons[editingLessonIdx] = editingLessonObj;
+
+    const updatedCourse = {
+      ...editingCourseModal,
+      lessons: currentLessons
+    };
+
+    try {
+      // 1. Update Course in DB
+      await set(ref(db, `${DB_PATHS.COURSES}/${updatedCourse.id}`), sanitizeForFirebase(updatedCourse));
+
+      // 2. If corresponding article exists, update article content too
+      if (editingLessonObj.articleId) {
+        const artRef = ref(db, `${DB_PATHS.ARTICLES}/${editingLessonObj.articleId}`);
+        const snapshot = await get(artRef);
+        if (snapshot.exists()) {
+          const existingArt = snapshot.val();
+          await set(artRef, sanitizeForFirebase({
+            ...existingArt,
+            title: editingLessonObj.title,
+            tagline: editingLessonObj.tagline || existingArt.tagline,
+            content: editingLessonObj.content || existingArt.content,
+            readTime: editingLessonObj.readTime || existingArt.readTime,
+            excerpt: editingLessonObj.excerpt || existingArt.excerpt
+          }));
+        }
+      }
+
+      setEditingCourseModal(updatedCourse);
+      setEditingLessonIdx(null);
+      setEditingLessonObj(null);
+      alert("Lesson article updated successfully!");
+    } catch (err: any) {
+      console.error(err);
+      alert("Failed to save lesson edit: " + err.message);
+    }
+  };
+
   // Add Category (Limit to 10)
   const handleAddCategory = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -2726,17 +2887,32 @@ export default function AdminPanel({ onClose, categories, setCategories, onLogou
                           </p>
                         </div>
 
-                        <div className="pt-2 border-t border-purple-50 flex items-center justify-between">
+                        <div className="pt-2 border-t border-purple-50 flex items-center justify-between gap-2">
                           <span className="text-[10px] text-gray-400 font-mono">
                             {course.createdAt}
                           </span>
-                          <button
-                            onClick={() => handleDeleteCourse(course.id)}
-                            className="px-3 py-1 rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-700 font-bold text-xs flex items-center gap-1 transition-colors cursor-pointer"
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                            <span>Delete</span>
-                          </button>
+                          <div className="flex items-center gap-1.5">
+                            <button
+                              onClick={() => {
+                                setEditingCourseModal(course);
+                                setEditingLessonIdx(null);
+                                setEditingLessonObj(null);
+                              }}
+                              className="px-2.5 py-1 rounded-lg bg-purple-100 hover:bg-purple-200 text-purple-900 font-extrabold text-xs flex items-center gap-1 transition-colors cursor-pointer"
+                              title="Edit course metadata, change image, or manage articles"
+                            >
+                              <Edit className="w-3.5 h-3.5 text-purple-700" />
+                              <span>Edit Course</span>
+                            </button>
+                            <button
+                              onClick={() => handleDeleteCourse(course.id)}
+                              className="px-2.5 py-1 rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-700 font-bold text-xs flex items-center gap-1 transition-colors cursor-pointer"
+                              title="Delete Course"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                              <span>Delete</span>
+                            </button>
+                          </div>
                         </div>
                       </div>
                     ))}
@@ -2747,6 +2923,312 @@ export default function AdminPanel({ onClose, categories, setCategories, onLogou
                   </div>
                 )}
               </div>
+
+              {/* COURSE & LESSON EDIT MODAL */}
+              {editingCourseModal && (
+                <div className="fixed inset-0 z-50 bg-slate-950/70 backdrop-blur-md flex items-center justify-center p-4 overflow-y-auto">
+                  <div className="bg-white rounded-3xl max-w-4xl w-full p-6 space-y-6 shadow-2xl text-purple-950 border border-purple-100 max-h-[90vh] overflow-y-auto">
+                    
+                    {/* Header */}
+                    <div className="flex items-center justify-between border-b border-purple-100 pb-4">
+                      <div>
+                        <span className="text-[10px] font-black uppercase tracking-wider text-purple-600">Admin Curriculum Studio</span>
+                        <h3 className="text-base font-black text-purple-950 flex items-center gap-2">
+                          <BookOpen className="w-5 h-5 text-purple-600" />
+                          <span>Managing: {editingCourseModal.title}</span>
+                        </h3>
+                      </div>
+                      <button
+                        onClick={() => {
+                          setEditingCourseModal(null);
+                          setEditingLessonIdx(null);
+                          setEditingLessonObj(null);
+                        }}
+                        className="p-1.5 rounded-full hover:bg-purple-100 text-purple-900 transition-colors cursor-pointer"
+                      >
+                        <X className="w-5 h-5" />
+                      </button>
+                    </div>
+
+                    {/* Section 1: Course Metadata Fields */}
+                    <div className="p-4 bg-purple-50/60 rounded-2xl border border-purple-100/80 space-y-4">
+                      <div className="flex items-center justify-between">
+                        <h4 className="text-xs font-black uppercase text-purple-900 tracking-wider">
+                          Course Information & Image Settings
+                        </h4>
+                        <button
+                          onClick={handleSaveCourseMetadata}
+                          className="px-3 py-1 bg-purple-700 hover:bg-purple-800 text-white rounded-xl text-xs font-bold transition-all shadow-sm cursor-pointer"
+                        >
+                          Save Metadata
+                        </button>
+                      </div>
+
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
+                        <div>
+                          <label className="block text-[10px] font-bold text-purple-900 uppercase mb-1">Course Title</label>
+                          <input
+                            type="text"
+                            value={editingCourseModal.title}
+                            onChange={(e) => setEditingCourseModal({ ...editingCourseModal, title: e.target.value })}
+                            className="w-full px-3 py-2 rounded-xl bg-white border border-purple-200 font-bold text-xs focus:ring-2 focus:ring-purple-500 outline-none"
+                          />
+                        </div>
+
+                        <div>
+                          <label className="block text-[10px] font-bold text-purple-900 uppercase mb-1">Category</label>
+                          <select
+                            value={editingCourseModal.category}
+                            onChange={(e) => setEditingCourseModal({ ...editingCourseModal, category: e.target.value })}
+                            className="w-full px-3 py-2 rounded-xl bg-white border border-purple-200 font-bold text-xs focus:ring-2 focus:ring-purple-500 outline-none"
+                          >
+                            {categories.map((cat) => (
+                              <option key={cat} value={cat}>{cat}</option>
+                            ))}
+                          </select>
+                        </div>
+
+                        <div>
+                          <label className="block text-[10px] font-bold text-purple-900 uppercase mb-1">Difficulty Level</label>
+                          <input
+                            type="text"
+                            value={editingCourseModal.level || "Beginner"}
+                            onChange={(e) => setEditingCourseModal({ ...editingCourseModal, level: e.target.value as any })}
+                            className="w-full px-3 py-2 rounded-xl bg-white border border-purple-200 font-bold text-xs focus:ring-2 focus:ring-purple-500 outline-none"
+                          />
+                        </div>
+
+                        <div>
+                          <label className="block text-[10px] font-bold text-purple-900 uppercase mb-1">Estimated Hours</label>
+                          <input
+                            type="text"
+                            value={editingCourseModal.estimatedHours || "2 Hours"}
+                            onChange={(e) => setEditingCourseModal({ ...editingCourseModal, estimatedHours: e.target.value })}
+                            className="w-full px-3 py-2 rounded-xl bg-white border border-purple-200 font-bold text-xs focus:ring-2 focus:ring-purple-500 outline-none"
+                          />
+                        </div>
+
+                        <div>
+                          <label className="block text-[10px] font-bold text-purple-900 uppercase mb-1">Thumbnail Image URL / SVG</label>
+                          <input
+                            type="text"
+                            value={editingCourseModal.thumbnailUrl || ""}
+                            onChange={(e) => setEditingCourseModal({ ...editingCourseModal, thumbnailUrl: e.target.value })}
+                            className="w-full px-3 py-2 rounded-xl bg-white border border-purple-200 font-mono text-[11px] focus:ring-2 focus:ring-purple-500 outline-none"
+                            placeholder="https://... or SVG Data URL"
+                          />
+                        </div>
+
+                        <div>
+                          <label className="block text-[10px] font-bold text-purple-900 uppercase mb-1">Instructor / Author</label>
+                          <input
+                            type="text"
+                            value={editingCourseModal.author || "Shanawar Ali"}
+                            onChange={(e) => setEditingCourseModal({ ...editingCourseModal, author: e.target.value })}
+                            className="w-full px-3 py-2 rounded-xl bg-white border border-purple-200 font-bold text-xs focus:ring-2 focus:ring-purple-500 outline-none"
+                          />
+                        </div>
+
+                        <div className="md:col-span-2">
+                          <label className="block text-[10px] font-bold text-purple-900 uppercase mb-1">Course Description</label>
+                          <textarea
+                            rows={2}
+                            value={editingCourseModal.description || ""}
+                            onChange={(e) => setEditingCourseModal({ ...editingCourseModal, description: e.target.value })}
+                            className="w-full px-3 py-2 rounded-xl bg-white border border-purple-200 text-xs focus:ring-2 focus:ring-purple-500 outline-none"
+                          />
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Section 2: AI Lesson Generator for this Course */}
+                    <div className="p-4 bg-emerald-50/70 rounded-2xl border border-emerald-200 space-y-3">
+                      <div className="flex items-center justify-between">
+                        <h4 className="text-xs font-black uppercase text-emerald-950 tracking-wider flex items-center gap-1.5">
+                          <Sparkles className="w-4 h-4 text-emerald-600" />
+                          <span>Generate & Append New Article via AI</span>
+                        </h4>
+                        <span className="text-[10px] font-bold text-emerald-700 bg-emerald-100 px-2.5 py-0.5 rounded-full border border-emerald-200">
+                          Auto-publishes to Course
+                        </span>
+                      </div>
+
+                      {aiLessonSuccessMsg && (
+                        <p className="text-xs font-bold text-emerald-800 bg-emerald-100 p-2 rounded-xl">
+                          {aiLessonSuccessMsg}
+                        </p>
+                      )}
+
+                      <div className="flex flex-col sm:flex-row items-center gap-2">
+                        <input
+                          type="text"
+                          value={newLessonTopicPrompt}
+                          onChange={(e) => setNewLessonTopicPrompt(e.target.value)}
+                          placeholder="e.g. Master Flexbox Layouts & CSS Grid Systems"
+                          className="flex-1 w-full px-3 py-2 rounded-xl bg-white border border-emerald-200 text-xs font-medium focus:ring-2 focus:ring-emerald-500 outline-none"
+                        />
+                        <button
+                          onClick={handleGenerateAiLessonForCourse}
+                          disabled={isAiLessonGenerating}
+                          className="w-full sm:w-auto px-4 py-2 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white rounded-xl text-xs font-extrabold flex items-center justify-center gap-1.5 transition-all shadow-sm cursor-pointer shrink-0"
+                        >
+                          {isAiLessonGenerating ? (
+                            <>
+                              <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                              <span>Generating Article...</span>
+                            </>
+                          ) : (
+                            <>
+                              <Bot className="w-3.5 h-3.5 text-amber-300" />
+                              <span>Generate Article</span>
+                            </>
+                          )}
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Section 3: Course Lessons / Articles List */}
+                    <div className="space-y-3">
+                      <div className="flex items-center justify-between border-b border-purple-100 pb-2">
+                        <h4 className="text-xs font-black uppercase text-purple-950 tracking-wider flex items-center gap-1.5">
+                          <FileText className="w-4 h-4 text-purple-600" />
+                          <span>Lessons & Articles ({editingCourseModal.lessons ? editingCourseModal.lessons.length : 0})</span>
+                        </h4>
+                      </div>
+
+                      {editingCourseModal.lessons && editingCourseModal.lessons.length > 0 ? (
+                        <div className="space-y-2.5 max-h-80 overflow-y-auto pr-1">
+                          {editingCourseModal.lessons.map((lesson, idx) => (
+                            <div key={lesson.id || idx} className="p-3 bg-purple-50/40 rounded-xl border border-purple-100/80 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                              <div className="min-w-0 flex-1 space-y-1">
+                                <div className="flex items-center gap-2">
+                                  <span className="px-2 py-0.5 rounded-md bg-purple-200/80 text-purple-900 text-[10px] font-mono font-black">
+                                    Lesson #{lesson.lessonNumber || idx + 1}
+                                  </span>
+                                  <h5 className="text-xs font-extrabold text-purple-950 truncate">
+                                    {lesson.title}
+                                  </h5>
+                                </div>
+                                <p className="text-[11px] text-gray-500 line-clamp-1">
+                                  {lesson.tagline || lesson.excerpt}
+                                </p>
+                              </div>
+
+                              <div className="flex items-center gap-1.5 shrink-0 self-end sm:self-center">
+                                <button
+                                  onClick={() => {
+                                    setEditingLessonIdx(idx);
+                                    setEditingLessonObj({ ...lesson });
+                                  }}
+                                  className="px-2.5 py-1 rounded-lg bg-purple-100 hover:bg-purple-200 text-purple-900 font-bold text-xs flex items-center gap-1 cursor-pointer transition-colors"
+                                  title="Edit lesson content"
+                                >
+                                  <Edit className="w-3.5 h-3.5" />
+                                  <span>Edit</span>
+                                </button>
+                                <button
+                                  onClick={() => handleDeleteLessonFromCourse(idx)}
+                                  className="p-1.5 rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-700 font-bold text-xs cursor-pointer transition-colors"
+                                  title="Delete lesson article"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </button>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <p className="text-center p-6 text-xs text-gray-400 bg-purple-50/30 rounded-xl">
+                          No lessons attached yet. Use the AI generator above to add articles to this course.
+                        </p>
+                      )}
+                    </div>
+
+                    {/* Section 4: Inline Single Lesson Article Editor (When editing a specific lesson) */}
+                    {editingLessonIdx !== null && editingLessonObj && (
+                      <div className="p-4 bg-purple-100/60 rounded-2xl border border-purple-200 space-y-3 animate-in fade-in">
+                        <div className="flex items-center justify-between border-b border-purple-200 pb-2">
+                          <h4 className="text-xs font-black uppercase text-purple-950 tracking-wider flex items-center gap-2">
+                            <Edit className="w-4 h-4 text-purple-700" />
+                            <span>Editing Lesson #{editingLessonObj.lessonNumber}: {editingLessonObj.title}</span>
+                          </h4>
+                          <button
+                            onClick={() => {
+                              setEditingLessonIdx(null);
+                              setEditingLessonObj(null);
+                            }}
+                            className="p-1 text-purple-700 hover:text-purple-950 font-bold text-xs cursor-pointer"
+                          >
+                            Cancel
+                          </button>
+                        </div>
+
+                        <div className="space-y-3 text-xs">
+                          <div>
+                            <label className="block text-[10px] font-bold text-purple-900 uppercase mb-1">Article Title</label>
+                            <input
+                              type="text"
+                              value={editingLessonObj.title}
+                              onChange={(e) => setEditingLessonObj({ ...editingLessonObj, title: e.target.value })}
+                              className="w-full px-3 py-2 rounded-xl bg-white border border-purple-200 font-bold text-xs outline-none"
+                            />
+                          </div>
+
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                            <div>
+                              <label className="block text-[10px] font-bold text-purple-900 uppercase mb-1">Tagline / Excerpt</label>
+                              <input
+                                type="text"
+                                value={editingLessonObj.tagline || ""}
+                                onChange={(e) => setEditingLessonObj({ ...editingLessonObj, tagline: e.target.value })}
+                                className="w-full px-3 py-2 rounded-xl bg-white border border-purple-200 text-xs outline-none"
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-[10px] font-bold text-purple-900 uppercase mb-1">Read Time</label>
+                              <input
+                                type="text"
+                                value={editingLessonObj.readTime || "8 min read"}
+                                onChange={(e) => setEditingLessonObj({ ...editingLessonObj, readTime: e.target.value })}
+                                className="w-full px-3 py-2 rounded-xl bg-white border border-purple-200 text-xs outline-none"
+                              />
+                            </div>
+                          </div>
+
+                          <div>
+                            <label className="block text-[10px] font-bold text-purple-900 uppercase mb-1">Article Full Content (Markdown / HTML)</label>
+                            <textarea
+                              rows={8}
+                              value={editingLessonObj.content || ""}
+                              onChange={(e) => setEditingLessonObj({ ...editingLessonObj, content: e.target.value })}
+                              className="w-full px-3 py-2 rounded-xl bg-white border border-purple-200 font-mono text-xs outline-none leading-relaxed"
+                            />
+                          </div>
+
+                          <div className="flex justify-end gap-2 pt-2">
+                            <button
+                              onClick={() => {
+                                setEditingLessonIdx(null);
+                                setEditingLessonObj(null);
+                              }}
+                              className="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl text-xs font-bold cursor-pointer"
+                            >
+                              Discard
+                            </button>
+                            <button
+                              onClick={handleSaveSingleLessonEdit}
+                              className="px-4 py-2 bg-purple-700 hover:bg-purple-800 text-white rounded-xl text-xs font-bold shadow-sm cursor-pointer"
+                            >
+                              Save Lesson Article
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                  </div>
+                </div>
+              )}
             </div>
           )}
 

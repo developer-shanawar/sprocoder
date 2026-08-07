@@ -1543,6 +1543,138 @@ STRICT INSTRUCTIONAL DIRECTIVES FOR EACH LESSON:
   }
 });
 
+app.post("/api/ai-generate-lesson", async (req, res) => {
+  try {
+    const { courseTitle, category, lessonTopic, lessonNumber, apiKey, apiKeys } = req.body;
+    const targetCategory = category || "Web Development";
+    const num = Number(lessonNumber) || 1;
+    const topic = lessonTopic || "Specialized Lesson Topic";
+
+    let keyPool: string[] = [];
+    if (Array.isArray(apiKeys) && apiKeys.length > 0) {
+      keyPool = apiKeys.filter((k: any) => typeof k === "string" && k.trim().length > 10).map((k: string) => k.trim());
+    }
+    if (keyPool.length === 0 && apiKey && typeof apiKey === "string" && apiKey.trim().length > 10) {
+      keyPool = [apiKey.trim()];
+    }
+
+    const clientsToTry: { name: string; client: GoogleGenAI }[] = [];
+    if (keyPool.length > 0) {
+      for (let i = 0; i < keyPool.length; i++) {
+        clientsToTry.push({ name: `Key Pool #${i + 1}`, client: new GoogleGenAI({ apiKey: keyPool[i] }) });
+      }
+    } else if (process.env.GEMINI_API_KEY) {
+      clientsToTry.push({ name: "Environment Key", client: new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY }) });
+    }
+    if (clientsToTry.length === 0 && ai) {
+      clientsToTry.push({ name: "Default Gemini Client", client: ai });
+    }
+
+    if (clientsToTry.length === 0) {
+      return res.status(503).json({ error: "Gemini client is not configured. Please enter a valid API key." });
+    }
+
+    const lessonPrompt = `Generate a complete, high-quality, step-by-step lesson article titled "Lesson ${num}: ${topic}" for the course "${courseTitle || "Tech Course"}" in category "${targetCategory}".
+Include:
+1. Clear beginner-friendly instructional steps.
+2. Code blocks with practical examples and visual output demonstrations.
+3. Green key term highlights: <mark>[keyword]</mark>.
+4. 3-5 Frequently Asked Questions (FAQs) at the end.
+Return JSON with fields: title, tagline, excerpt, readTime, content, tags.`;
+
+    const singleLessonSchema = {
+      type: Type.OBJECT,
+      properties: {
+        title: { type: Type.STRING },
+        tagline: { type: Type.STRING },
+        excerpt: { type: Type.STRING },
+        readTime: { type: Type.STRING },
+        content: { type: Type.STRING },
+        tags: { type: Type.ARRAY, items: { type: Type.STRING } }
+      },
+      required: ["title", "tagline", "excerpt", "readTime", "content"]
+    };
+
+    let result: any = null;
+    const modelsToTry = ["gemini-3.5-flash", "gemini-2.5-flash"];
+
+    for (const clientObj of clientsToTry) {
+      for (const modelName of modelsToTry) {
+        try {
+          const response = await clientObj.client.models.generateContent({
+            model: modelName,
+            contents: lessonPrompt,
+            config: {
+              systemInstruction: "You are a master CS educator writing hands-on lesson articles.",
+              responseMimeType: "application/json",
+              responseSchema: singleLessonSchema
+            }
+          });
+          const jsonStr = response.text;
+          if (jsonStr) {
+            result = safeJsonParse(jsonStr);
+            if (result && result.title && result.content) break;
+          }
+        } catch (e) {
+          console.warn("Lesson generation attempt failed:", e);
+        }
+      }
+      if (result) break;
+    }
+
+    if (!result) {
+      return res.status(503).json({ error: "Failed to generate AI lesson article." });
+    }
+
+    const nowFormatted = new Date().toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" });
+    const articleId = `post-lesson-${Date.now()}`;
+    const articleTitle = result.title || `Lesson ${num}: ${topic}`;
+    const thumbnail = generateArticleThumbnailSvg({
+      category: targetCategory,
+      title: articleTitle,
+      websiteName: "sprocoder.online",
+      variantIndex: Math.floor(Math.random() * THUMBNAIL_VARIANTS.length)
+    });
+
+    const articleObj = {
+      id: articleId,
+      title: articleTitle,
+      tagline: result.tagline || `Lesson ${num} of ${courseTitle}`,
+      category: targetCategory,
+      content: result.content,
+      readTime: result.readTime || "7 min read",
+      tags: result.tags || ["Course", targetCategory, "Tutorial"],
+      excerpt: result.excerpt || result.tagline,
+      author: "Shanawar Ali",
+      date: nowFormatted,
+      likes: 10,
+      savesCount: 3,
+      thumbnailUrl: thumbnail,
+      isAiGenerated: true,
+      metaDescription: result.excerpt || result.tagline,
+      visibility: "public"
+    };
+
+    const lessonObj = {
+      id: `lesson-${Date.now()}-${num}`,
+      lessonNumber: num,
+      title: articleTitle,
+      tagline: result.tagline,
+      excerpt: result.excerpt,
+      readTime: result.readTime || "7 min read",
+      articleId: articleId,
+      articleSlug: slugify(articleTitle),
+      content: result.content,
+      tags: result.tags
+    };
+
+    return res.json({ article: articleObj, lesson: lessonObj });
+  } catch (error: any) {
+    console.error("Error generating AI lesson:", error);
+    return res.status(500).json({ error: error.message || "Failed to generate lesson." });
+  }
+});
+
 // Dynamic helper to inject AdSense, verification codes, and custom meta tags into HTML template
 async function injectCustomCode(template: string): Promise<string> {
   try {

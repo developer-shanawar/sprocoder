@@ -568,25 +568,15 @@ export default function Header({
               </AnimatePresence>
             </div>
           ) : (
-            <div className="flex items-center gap-2">
-              <button
-                onClick={() => {
-                  setAuthMode("login");
-                  setIsAuthModalOpen(true);
-                }}
-                className="px-3.5 py-1.5 rounded-full bg-purple-100 hover:bg-purple-200 text-purple-950 text-xs font-bold flex items-center gap-1 cursor-pointer transition-all active:scale-95"
-                id="auth-login-trigger-btn"
-              >
-                <LogIn className="w-3.5 h-3.5 text-purple-700" />
-                <span>Sign In</span>
-              </button>
+            <div className="flex items-center gap-1.5">
               <button
                 onClick={() => setIsRegisterWizardOpen(true)}
-                className="px-4 py-1.5 rounded-full bg-purple-600 hover:bg-purple-700 text-white text-xs font-bold flex items-center gap-1 cursor-pointer transition-all active:scale-95 shadow-sm"
-                id="auth-register-wizard-btn"
+                className="px-3 py-1.5 rounded-full bg-purple-700 hover:bg-purple-800 text-white text-[11px] font-extrabold flex items-center gap-1 cursor-pointer transition-all active:scale-95 shadow-sm"
+                id="auth-register-signin-combined-btn"
+                title="Register a new account or Sign In"
               >
-                <Sparkles className="w-3.5 h-3.5 text-purple-300" />
-                <span>Register</span>
+                <Sparkles className="w-3.5 h-3.5 text-amber-300" />
+                <span>Register & Sign In</span>
               </button>
             </div>
           )}
@@ -594,10 +584,11 @@ export default function Header({
           {/* Mobile Hamburguer Menu Button */}
           <button
             onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-            className="p-2.5 rounded-full hover:bg-purple-100 text-purple-950 md:hidden cursor-pointer"
+            className="p-2 rounded-full hover:bg-purple-100 text-purple-950 md:hidden cursor-pointer shrink-0"
             id="mobile-menu-trigger"
+            aria-label="Toggle Navigation Menu"
           >
-            {isMobileMenuOpen ? <X className="w-4 h-4" /> : <Menu className="w-4 h-4" />}
+            {isMobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
           </button>
         </div>
       </nav>
@@ -619,19 +610,53 @@ export default function Header({
               initial={{ x: "100%" }}
               animate={{ x: 0 }}
               exit={{ x: "100%" }}
-              className="relative w-72 h-full bg-[#f4f0ff] border-l border-purple-200 p-6 flex flex-col justify-between text-purple-950 shadow-2xl"
+              className="relative w-80 max-w-[85vw] h-full bg-[#f4f0ff] border-l border-purple-200 p-5 flex flex-col justify-between text-purple-950 shadow-2xl overflow-y-auto"
               id="mobile-drawer-container"
             >
-              <div className="space-y-6">
-                <div className="flex items-center justify-between border-b border-purple-100 pb-4">
-                  <h3 className="font-sans font-black text-purple-950 text-sm">Navigation</h3>
-                  <button onClick={() => setIsMobileMenuOpen(false)} className="p-1 rounded-full hover:bg-purple-50">
-                    <X className="w-5 h-5 text-purple-900" />
+              <div className="space-y-5">
+                <div className="flex items-center justify-between border-b border-purple-100 pb-3">
+                  <div className="flex items-center gap-2">
+                    <Sparkles className="w-4 h-4 text-purple-600" />
+                    <h3 className="font-sans font-black text-purple-950 text-xs uppercase tracking-wider">Navigation</h3>
+                  </div>
+                  <button onClick={() => setIsMobileMenuOpen(false)} className="p-1 rounded-full hover:bg-purple-100 text-purple-950">
+                    <X className="w-5 h-5" />
                   </button>
                 </div>
 
+                {!currentUser && (
+                  <div className="p-3 bg-white rounded-2xl border border-purple-100 shadow-xs space-y-2">
+                    <p className="text-[10px] font-bold text-purple-900 uppercase tracking-wider">Account Access</p>
+                    <div className="grid grid-cols-2 gap-2">
+                      <button
+                        onClick={() => {
+                          setAuthMode("login");
+                          setIsAuthModalOpen(true);
+                          setIsMobileMenuOpen(false);
+                        }}
+                        className="w-full py-2 px-2 rounded-xl bg-purple-50 hover:bg-purple-100 text-purple-900 text-xs font-bold flex items-center justify-center gap-1 cursor-pointer transition-all border border-purple-100"
+                        id="mobile-drawer-signin-btn"
+                      >
+                        <LogIn className="w-3.5 h-3.5 text-purple-700" />
+                        <span>Sign In</span>
+                      </button>
+                      <button
+                        onClick={() => {
+                          setIsRegisterWizardOpen(true);
+                          setIsMobileMenuOpen(false);
+                        }}
+                        className="w-full py-2 px-2 rounded-xl bg-purple-600 hover:bg-purple-700 text-white text-xs font-bold flex items-center justify-center gap-1 cursor-pointer transition-all shadow-sm"
+                        id="mobile-drawer-register-btn"
+                      >
+                        <Sparkles className="w-3.5 h-3.5 text-amber-300" />
+                        <span>Register</span>
+                      </button>
+                    </div>
+                  </div>
+                )}
+
                 {/* Mobile Links */}
-                <div className="flex flex-col gap-2" id="nav-links-mobile">
+                <div className="flex flex-col gap-1.5" id="nav-links-mobile">
                   {(["home", "articles", "courses", "about", "contact"] as const).map((tab) => (
                     <a
                       key={tab}
@@ -647,10 +672,10 @@ export default function Header({
                         setCurrentTab(tab);
                         setIsMobileMenuOpen(false);
                       }}
-                      className={`w-full text-left px-4 py-3 rounded-xl text-xs font-bold capitalize transition-all cursor-pointer block ${
+                      className={`w-full text-left px-3.5 py-2.5 rounded-xl text-xs font-bold capitalize transition-all cursor-pointer block ${
                         currentTab === tab 
                           ? "bg-purple-700 text-white shadow-none" 
-                          : "text-purple-950 hover:bg-purple-50"
+                          : "text-purple-950 hover:bg-purple-100/60"
                       }`}
                     >
                       {tab === "home" ? "Home Portal" : tab === "articles" ? "Latest Articles" : tab === "courses" ? "Courses" : tab}

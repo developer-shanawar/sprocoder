@@ -275,13 +275,64 @@ export default function App() {
     setHomePaginationIndex(0);
   };
 
-  // Active reading article
+  // Active reading article and course context
   const [selectedPost, setSelectedPost] = useState<BlogPost | null>(() => {
     if (typeof window !== "undefined" && (window as any).__INITIAL_POST__) {
       return (window as any).__INITIAL_POST__;
     }
     return null;
   });
+  const [activeCourseContext, setActiveCourseContext] = useState<{ course: Course; lessonIndex: number } | null>(null);
+
+  const handleReturnToCourse = () => {
+    setSelectedPost(null);
+    setCurrentTab("courses");
+    if (activeCourseContext?.course?.slug) {
+      setSelectedCourseSlug(activeCourseContext.course.slug);
+      window.history.pushState(null, "", `/courses/${activeCourseContext.course.slug}`);
+    } else {
+      window.history.pushState(null, "", "/courses");
+    }
+  };
+
+  const handleNavigateCourseLesson = (direction: "next" | "prev") => {
+    if (!activeCourseContext || !activeCourseContext.course || !activeCourseContext.course.lessons) return;
+    const { course, lessonIndex } = activeCourseContext;
+    const targetIndex = direction === "next" ? lessonIndex + 1 : lessonIndex - 1;
+    if (targetIndex < 0 || targetIndex >= course.lessons.length) return;
+
+    const targetLesson = course.lessons[targetIndex];
+    if (!targetLesson) return;
+
+    // Find matched post in allPosts if exists
+    const matchedPost = allPosts.find(
+      (p) => p.id === targetLesson.articleId || p.title.toLowerCase() === targetLesson.title.toLowerCase()
+    );
+
+    const nextPostToOpen: BlogPost = matchedPost ? {
+      ...matchedPost,
+      content: matchedPost.content && matchedPost.content.length > 50 ? matchedPost.content : (targetLesson.content || matchedPost.content)
+    } : {
+      id: targetLesson.articleId || `lesson-${targetLesson.id || Date.now()}`,
+      title: targetLesson.title,
+      tagline: targetLesson.tagline || targetLesson.excerpt || "",
+      category: course.category || "Web Development",
+      content: targetLesson.content || `<h2>${targetLesson.title}</h2><p>${targetLesson.excerpt || targetLesson.tagline || ""}</p>`,
+      readTime: targetLesson.readTime || "7 min read",
+      tags: targetLesson.tags || ["Course", course.category],
+      excerpt: targetLesson.excerpt || "",
+      author: course.author || "Shanawar Ali",
+      date: course.createdAt || new Date().toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" }),
+      likes: 12,
+      savesCount: 5,
+      thumbnailUrl: course.thumbnailUrl,
+      isAiGenerated: true
+    };
+
+    setActiveCourseContext({ course, lessonIndex: targetIndex });
+    setSelectedPost(nextPostToOpen);
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
 
   // Path Routing State driven by state machine to solve navigation loading issues
   const [currentPath, setCurrentPath] = useState<string>(() => {
@@ -1936,6 +1987,9 @@ export default function App() {
             currentUser={currentUser}
             adsConfig={adsConfig}
             onSearchKeyword={handleSearchKeyword}
+            activeCourseContext={activeCourseContext}
+            onNavigateCourseLesson={(direction) => handleNavigateCourseLesson(direction)}
+            onReturnToCourse={() => handleReturnToCourse()}
           />
         ) : (
           <>
@@ -2507,6 +2561,13 @@ export default function App() {
                   window.history.pushState(null, "", slug ? `/courses/${slug}` : "/courses");
                 }}
                 onSelectCourseLesson={(course, lesson, matchedPost) => {
+                  const lessonIdx = (course.lessons || []).findIndex((l: any) => l.id === lesson.id || l.title === lesson.title);
+                  setActiveCourseContext({
+                    course,
+                    lessonIndex: lessonIdx >= 0 ? lessonIdx : 0
+                  });
+                  setSelectedCourseSlug(course.slug);
+                  setCurrentTab("courses");
                   const postToOpen: BlogPost = matchedPost ? {
                     ...matchedPost,
                     content: matchedPost.content && matchedPost.content.length > 50 ? matchedPost.content : (lesson.content || matchedPost.content)
