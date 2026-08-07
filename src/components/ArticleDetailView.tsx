@@ -49,6 +49,67 @@ function decodeHtmlEntities(str: string): string {
     .replace(/&nbsp;/g, " ");
 }
 
+function preprocessArticleContent(rawContent: string): string {
+  if (!rawContent) return "";
+  let text = decodeHtmlEntities(rawContent);
+  text = text.replace(/\\"/g, '"').replace(/\\'/g, "'");
+  text = text.replace(/<mark\s+style="[^"]*">/gi, "<mark>");
+  text = text.replace(/<mark\s+style='[^']*'>/gi, "<mark>");
+  return text;
+}
+
+const CodeBlock: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const [copied, setCopied] = useState(false);
+
+  const extractText = (node: any): string => {
+    if (typeof node === "string") return node;
+    if (Array.isArray(node)) return node.map(extractText).join("");
+    if (node?.props?.children) return extractText(node.props.children);
+    return "";
+  };
+
+  const handleCopy = () => {
+    const text = extractText(children);
+    if (text) {
+      navigator.clipboard.writeText(text);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    }
+  };
+
+  return (
+    <div className="my-6 max-w-full rounded-2xl bg-[#090d16] border border-slate-700/80 shadow-xl overflow-hidden group">
+      <div className="flex items-center justify-between px-4 py-2 bg-slate-900 border-b border-slate-800 text-slate-300 text-xs font-mono select-none">
+        <div className="flex items-center gap-2">
+          <div className="flex gap-1.5">
+            <span className="w-2.5 h-2.5 rounded-full bg-rose-500/90 inline-block"></span>
+            <span className="w-2.5 h-2.5 rounded-full bg-amber-500/90 inline-block"></span>
+            <span className="w-2.5 h-2.5 rounded-full bg-emerald-500/90 inline-block"></span>
+          </div>
+          <span className="text-[11px] font-extrabold text-slate-200 ml-2 tracking-wider uppercase">Source Code</span>
+        </div>
+        <button
+          onClick={handleCopy}
+          type="button"
+          className="flex items-center gap-1 px-3 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-[11px] font-bold transition-all cursor-pointer border border-slate-700 active:scale-95"
+        >
+          {copied ? (
+            <span className="text-emerald-400 font-extrabold">✓ Copied</span>
+          ) : (
+            <span className="text-slate-300 font-bold">Copy Code</span>
+          )}
+        </button>
+      </div>
+
+      <div className="p-4 sm:p-5 overflow-x-auto bg-[#070b12]">
+        <pre className="font-mono text-xs sm:text-sm text-emerald-300 leading-relaxed whitespace-pre break-words max-w-full">
+          {children}
+        </pre>
+      </div>
+    </div>
+  );
+};
+
 export default function ArticleDetailView({
   post,
   allPosts,
@@ -297,23 +358,22 @@ export default function ArticleDetailView({
                                 {children}
                               </blockquote>
                             ),
-                            pre: ({ children }) => (
-                              <div className="my-4 max-w-full overflow-x-auto rounded-2xl bg-slate-950 p-4 border border-slate-800 shadow-lg">
-                                <pre className="font-mono text-xs sm:text-sm text-emerald-400 whitespace-pre-wrap break-words leading-relaxed max-w-full">
-                                  {children}
-                                </pre>
-                              </div>
+                            pre: ({ children }: any) => <CodeBlock>{children}</CodeBlock>,
+                            mark: ({ children }: any) => (
+                              <mark className="bg-emerald-100 text-emerald-950 font-extrabold px-1.5 py-0.5 rounded-md border border-emerald-300/80 shadow-xs mx-0.5 inline-block">
+                                {children}
+                              </mark>
                             ),
                             code: ({ inline, className, children, ...props }: any) => {
                               if (inline) {
                                 return (
-                                  <code className="px-1.5 py-0.5 rounded-md bg-purple-100 text-purple-900 font-mono text-xs font-semibold break-words" {...props}>
+                                  <code className="px-1.5 py-0.5 rounded-md bg-purple-100/90 text-purple-950 font-mono text-xs font-bold border border-purple-200/80 break-words mx-0.5 inline-block" {...props}>
                                     {children}
                                   </code>
                                 );
                               }
                               return (
-                                <code className="font-mono text-xs sm:text-sm text-emerald-300 whitespace-pre-wrap break-words block max-w-full" {...props}>
+                                <code className="font-mono text-xs sm:text-sm text-emerald-300 whitespace-pre break-words block max-w-full" {...props}>
                                   {children}
                                 </code>
                               );
@@ -327,7 +387,7 @@ export default function ArticleDetailView({
                             )
                           }}
                         >
-                          {decodeHtmlEntities(part)}
+                          {preprocessArticleContent(part)}
                         </Markdown>
                       );
                     } else {

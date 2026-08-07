@@ -1020,7 +1020,7 @@ const aiBlogPostSchema = {
     category: { type: Type.STRING, description: "Target category matching the user selection." },
     content: { 
       type: Type.STRING, 
-      description: "A detailed, comprehensive 1500-word article body formatted in clean HTML. MUST be completely distinct from the title. Write in simple, clear, direct, human-like English with NO meaningless symbols or robotic AI boilerplate. Use H2/H3 headings and short readable paragraphs. Include code snippets where appropriate. Highlight key terms and main words in green using: <mark style=\"background-color: #dcfce7; color: #166534; font-weight: bold; padding: 2px 6px; border-radius: 4px;\">[main word]</mark>. Conclude with an explicit FAQ section using <h2>Frequently Asked Questions (FAQs)</h2> containing 3-5 clear Q&As." 
+      description: "A detailed, comprehensive 1500-word article body formatted in clean HTML/Markdown. MUST be completely distinct from the title. Write in simple, clear, direct, human-like English with NO meaningless symbols or robotic AI boilerplate. Use H2/H3 headings and short readable paragraphs. Include code snippets where appropriate. Highlight key terms and main words in green using: <mark>[keyword]</mark>. Conclude with an explicit FAQ section using <h2>Frequently Asked Questions (FAQs)</h2> containing 3-5 clear Q&As." 
     },
     readTime: { type: Type.STRING, description: "Estimated read time, e.g., '7 min read'." },
     tags: {
