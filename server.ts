@@ -1,6 +1,7 @@
 import express from "express";
 import path from "path";
 import crypto from "crypto";
+import zlib from "zlib";
 import { createServer as createViteServer } from "vite";
 import { GoogleGenAI, Type } from "@google/genai";
 import dotenv from "dotenv";
@@ -781,7 +782,127 @@ function wrapTextLines(text: string, maxCharsPerLine: number = 28): string[] {
 }
 
 // Dynamic 16:9 SVG Thumbnail Generator with Multiple Color & Shape Variants
-export function generateArticleThumbnailSvg({
+export // 12 Modern Visual Themes for Thumbnails
+const THUMBNAIL_VARIANTS = [
+  // 0: Emerald Cyberspace
+  {
+    bgGrad: `<stop offset="0%" stop-color="#051016"/><stop offset="50%" stop-color="#022c22"/><stop offset="100%" stop-color="#064e3b"/>`,
+    accentGrad: `<stop offset="0%" stop-color="#10b981"/><stop offset="100%" stop-color="#06b6d4"/>`,
+    stroke: "#34d399", webColor: "#10b981", webSub: "#6ee7b7", badgeText: "#ffffff",
+    shapes: `<circle cx="160" cy="140" r="280" fill="#10b981" opacity="0.18" filter="blur(70px)"/>
+             <circle cx="1120" cy="580" r="280" fill="#06b6d4" opacity="0.18" filter="blur(70px)"/>
+             <path d="M 0 120 L 1280 120 M 0 240 L 1280 240 M 0 360 L 1280 360 M 0 480 L 1280 480 M 0 600 L 1280 600" stroke="#ffffff" stroke-opacity="0.04" stroke-width="1"/>
+             <path d="M 213 0 L 213 720 M 426 0 L 426 720 M 640 0 L 640 720 M 853 0 L 853 720 M 1066 0 L 1066 720" stroke="#ffffff" stroke-opacity="0.04" stroke-width="1"/>`
+  },
+  // 1: Cyber Violet & Electric Neon
+  {
+    bgGrad: `<stop offset="0%" stop-color="#0d0722"/><stop offset="50%" stop-color="#2e1065"/><stop offset="100%" stop-color="#4c1d95"/>`,
+    accentGrad: `<stop offset="0%" stop-color="#a855f7"/><stop offset="100%" stop-color="#ec4899"/>`,
+    stroke: "#c084fc", webColor: "#a855f7", webSub: "#e9d5ff", badgeText: "#ffffff",
+    shapes: `<circle cx="200" cy="520" r="300" fill="#a855f7" opacity="0.22" filter="blur(80px)"/>
+             <circle cx="1080" cy="160" r="260" fill="#ec4899" opacity="0.2" filter="blur(80px)"/>
+             <rect x="100" y="480" width="120" height="120" rx="20" fill="none" stroke="#a855f7" stroke-opacity="0.15" stroke-width="2" transform="rotate(25 100 480)"/>
+             <rect x="1000" y="100" width="160" height="160" rx="30" fill="none" stroke="#ec4899" stroke-opacity="0.15" stroke-width="2" transform="rotate(-15 1000 100)"/>`
+  },
+  // 2: Sunset Crimson & Amber Gold
+  {
+    bgGrad: `<stop offset="0%" stop-color="#180309"/><stop offset="50%" stop-color="#450a0a"/><stop offset="100%" stop-color="#7f1d1d"/>`,
+    accentGrad: `<stop offset="0%" stop-color="#f43f5e"/><stop offset="100%" stop-color="#f59e0b"/>`,
+    stroke: "#fb7185", webColor: "#f43f5e", webSub: "#fecdd3", badgeText: "#ffffff",
+    shapes: `<circle cx="150" cy="150" r="280" fill="#f43f5e" opacity="0.2" filter="blur(75px)"/>
+             <circle cx="1100" cy="550" r="300" fill="#f59e0b" opacity="0.18" filter="blur(75px)"/>
+             <line x1="-100" y1="200" x2="1380" y2="500" stroke="#f59e0b" stroke-opacity="0.08" stroke-width="3"/>
+             <line x1="-100" y1="240" x2="1380" y2="540" stroke="#f43f5e" stroke-opacity="0.08" stroke-width="2"/>`
+  },
+  // 3: Oceanic Azure & Sapphire
+  {
+    bgGrad: `<stop offset="0%" stop-color="#030712"/><stop offset="50%" stop-color="#0f172a"/><stop offset="100%" stop-color="#1e3a8a"/>`,
+    accentGrad: `<stop offset="0%" stop-color="#0284c7"/><stop offset="100%" stop-color="#38bdf8"/>`,
+    stroke: "#38bdf8", webColor: "#38bdf8", webSub: "#bae6fd", badgeText: "#ffffff",
+    shapes: `<circle cx="1100" cy="180" r="320" fill="#0284c7" opacity="0.22" filter="blur(80px)"/>
+             <circle cx="180" cy="580" r="260" fill="#38bdf8" opacity="0.18" filter="blur(80px)"/>
+             <polygon points="1100,50 1200,200 1000,180" fill="#0284c7" opacity="0.06"/>
+             <polygon points="100,500 250,650 50,600" fill="#38bdf8" opacity="0.06"/>`
+  },
+  // 4: Obsidian Gold & Emerald Luxe
+  {
+    bgGrad: `<stop offset="0%" stop-color="#080b10"/><stop offset="50%" stop-color="#111827"/><stop offset="100%" stop-color="#1f2937"/>`,
+    accentGrad: `<stop offset="0%" stop-color="#eab308"/><stop offset="100%" stop-color="#10b981"/>`,
+    stroke: "#fde047", webColor: "#eab308", webSub: "#fef08a", badgeText: "#000000",
+    shapes: `<circle cx="200" cy="160" r="280" fill="#eab308" opacity="0.16" filter="blur(75px)"/>
+             <circle cx="1080" cy="560" r="280" fill="#10b981" opacity="0.18" filter="blur(75px)"/>
+             <rect x="80" y="80" width="1120" height="560" rx="20" fill="none" stroke="#eab308" stroke-opacity="0.1" stroke-width="1.5"/>`
+  },
+  // 5: Matrix Cyan & Neon Mint
+  {
+    bgGrad: `<stop offset="0%" stop-color="#021013"/><stop offset="50%" stop-color="#042f2e"/><stop offset="100%" stop-color="#115e59"/>`,
+    accentGrad: `<stop offset="0%" stop-color="#14b8a6"/><stop offset="100%" stop-color="#0ea5e9"/>`,
+    stroke: "#2dd4bf", webColor: "#2dd4bf", webSub: "#99f6e4", badgeText: "#ffffff",
+    shapes: `<circle cx="160" cy="540" r="300" fill="#14b8a6" opacity="0.2" filter="blur(80px)"/>
+             <circle cx="1100" cy="140" r="280" fill="#0ea5e9" opacity="0.2" filter="blur(80px)"/>
+             <pattern id="dotPattern" x="0" y="0" width="30" height="30" patternUnits="userSpaceOnUse">
+               <circle cx="15" cy="15" r="1.5" fill="#ffffff" opacity="0.08"/>
+             </pattern>
+             <rect width="1280" height="720" fill="url(#dotPattern)"/>`
+  },
+  // 6: Solar Plasma & Fire Amber
+  {
+    bgGrad: `<stop offset="0%" stop-color="#1a0200"/><stop offset="50%" stop-color="#450d00"/><stop offset="100%" stop-color="#7c2d12"/>`,
+    accentGrad: `<stop offset="0%" stop-color="#ff5722"/><stop offset="100%" stop-color="#ffb300"/>`,
+    stroke: "#ff8f00", webColor: "#ff8f00", webSub: "#ffe082", badgeText: "#ffffff",
+    shapes: `<circle cx="640" cy="360" r="450" fill="#ff5722" opacity="0.12" filter="blur(100px)"/>
+             <circle cx="1150" cy="120" r="220" fill="#ffb300" opacity="0.2" filter="blur(60px)"/>
+             <path d="M 100 600 Q 640 100 1180 600" stroke="#ff8f00" stroke-opacity="0.15" stroke-width="3" fill="none"/>`
+  },
+  // 7: Quantum Indigo & Ultra Magenta
+  {
+    bgGrad: `<stop offset="0%" stop-color="#090314"/><stop offset="50%" stop-color="#1e1035"/><stop offset="100%" stop-color="#3b0764"/>`,
+    accentGrad: `<stop offset="0%" stop-color="#8b5cf6"/><stop offset="100%" stop-color="#d946ef"/>`,
+    stroke: "#e879f9", webColor: "#d946ef", webSub: "#f5d0fe", badgeText: "#ffffff",
+    shapes: `<circle cx="1100" cy="500" r="320" fill="#d946ef" opacity="0.22" filter="blur(80px)"/>
+             <circle cx="200" cy="200" r="280" fill="#8b5cf6" opacity="0.2" filter="blur(75px)"/>
+             <polygon points="640,100 700,220 580,220" fill="#d946ef" opacity="0.08"/>
+             <polygon points="200,450 280,580 120,580" fill="#8b5cf6" opacity="0.08"/>`
+  },
+  // 8: Deep Space Aurora & Ice Blue
+  {
+    bgGrad: `<stop offset="0%" stop-color="#020617"/><stop offset="50%" stop-color="#0f172a"/><stop offset="100%" stop-color="#1e293b"/>`,
+    accentGrad: `<stop offset="0%" stop-color="#38bdf8"/><stop offset="100%" stop-color="#818cf8"/>`,
+    stroke: "#a5f3fc", webColor: "#38bdf8", webSub: "#c7d2fe", badgeText: "#000000",
+    shapes: `<circle cx="150" cy="580" r="300" fill="#38bdf8" opacity="0.2" filter="blur(80px)"/>
+             <circle cx="1100" cy="180" r="300" fill="#818cf8" opacity="0.2" filter="blur(80px)"/>
+             <line x1="0" y1="0" x2="1280" y2="720" stroke="#38bdf8" stroke-opacity="0.06" stroke-width="2"/>`
+  },
+  // 9: Midnight Titanium & Neon Lime
+  {
+    bgGrad: `<stop offset="0%" stop-color="#05080a"/><stop offset="50%" stop-color="#141c22"/><stop offset="100%" stop-color="#1f2d36"/>`,
+    accentGrad: `<stop offset="0%" stop-color="#84cc16"/><stop offset="100%" stop-color="#06b6d4"/>`,
+    stroke: "#a3e635", webColor: "#84cc16", webSub: "#d9f99d", badgeText: "#000000",
+    shapes: `<circle cx="220" cy="180" r="280" fill="#84cc16" opacity="0.18" filter="blur(70px)"/>
+             <circle cx="1060" cy="540" r="280" fill="#06b6d4" opacity="0.18" filter="blur(70px)"/>
+             <rect x="80" y="80" width="1120" height="560" rx="16" fill="none" stroke="#84cc16" stroke-opacity="0.12" stroke-width="2" stroke-dasharray="10 10"/>`
+  },
+  // 10: Cosmic Amethyst & Cobalt
+  {
+    bgGrad: `<stop offset="0%" stop-color="#0a0518"/><stop offset="50%" stop-color="#1e1145"/><stop offset="100%" stop-color="#311b92"/>`,
+    accentGrad: `<stop offset="0%" stop-color="#7c4dff"/><stop offset="100%" stop-color="#00b0ff"/>`,
+    stroke: "#b388ff", webColor: "#00b0ff", webSub: "#80d8ff", badgeText: "#ffffff",
+    shapes: `<circle cx="1080" cy="200" r="310" fill="#7c4dff" opacity="0.25" filter="blur(85px)"/>
+             <circle cx="200" cy="520" r="270" fill="#00b0ff" opacity="0.2" filter="blur(75px)"/>
+             <circle cx="640" cy="360" r="320" fill="none" stroke="#7c4dff" stroke-opacity="0.08" stroke-width="2"/>`
+  },
+  // 11: Dark Prism Ruby & Rose Gold
+  {
+    bgGrad: `<stop offset="0%" stop-color="#120207"/><stop offset="50%" stop-color="#2d0612"/><stop offset="100%" stop-color="#4a0e17"/>`,
+    accentGrad: `<stop offset="0%" stop-color="#fb7185"/><stop offset="100%" stop-color="#f43f5e"/>`,
+    stroke: "#fecdd3", webColor: "#fb7185", webSub: "#ffe4e6", badgeText: "#ffffff",
+    shapes: `<circle cx="180" cy="180" r="290" fill="#fb7185" opacity="0.22" filter="blur(75px)"/>
+             <circle cx="1100" cy="520" r="290" fill="#f43f5e" opacity="0.2" filter="blur(75px)"/>
+             <rect x="120" y="120" width="1040" height="480" rx="24" fill="none" stroke="#fb7185" stroke-opacity="0.1" stroke-width="2"/>`
+  }
+];
+
+function generateArticleThumbnailSvg({
   category,
   title,
   websiteName = "sprocoder.online",
@@ -794,98 +915,15 @@ export function generateArticleThumbnailSvg({
 }): string {
   const safeCat = escapeXml((category || "TECH").toUpperCase());
   const safeWeb = escapeXml(websiteName || "sprocoder.online");
-  const lines = wrapTextLines(title || "Best 10 AI Tools", 26);
+  const lines = wrapTextLines(title || "Latest 2026 Web Tech & AI News", 26);
 
-  // Determine color and shape variant
+  // Determine color and shape variant across 12 themes
   const titleHash = String(title || "article").split("").reduce((acc, char) => acc + char.charCodeAt(0), 0);
   const v = (variantIndex !== undefined && !isNaN(variantIndex)) 
-    ? Math.abs(variantIndex) % 6 
-    : Math.abs(titleHash) % 6;
+    ? Math.abs(variantIndex) % THUMBNAIL_VARIANTS.length 
+    : Math.abs(titleHash) % THUMBNAIL_VARIANTS.length;
 
-  // Variant Color Palettes & Shapes
-  const VARIANTS = [
-    // 0: Emerald Cyberspace
-    {
-      bgGrad: `<stop offset="0%" stop-color="#051016"/><stop offset="50%" stop-color="#022c22"/><stop offset="100%" stop-color="#064e3b"/>`,
-      accentGrad: `<stop offset="0%" stop-color="#10b981"/><stop offset="100%" stop-color="#06b6d4"/>`,
-      orb1: "#10b981", orb2: "#06b6d4",
-      stroke: "#34d399",
-      webColor: "#10b981", webSub: "#6ee7b7",
-      badgeText: "#ffffff",
-      shapes: `<circle cx="160" cy="140" r="280" fill="#10b981" opacity="0.18" filter="blur(70px)"/>
-               <circle cx="1120" cy="580" r="280" fill="#06b6d4" opacity="0.18" filter="blur(70px)"/>
-               <path d="M 0 120 L 1280 120 M 0 240 L 1280 240 M 0 360 L 1280 360 M 0 480 L 1280 480 M 0 600 L 1280 600" stroke="#ffffff" stroke-opacity="0.04" stroke-width="1"/>
-               <path d="M 213 0 L 213 720 M 426 0 L 426 720 M 640 0 L 640 720 M 853 0 L 853 720 M 1066 0 L 1066 720" stroke="#ffffff" stroke-opacity="0.04" stroke-width="1"/>`
-    },
-    // 1: Cyber Violet & Electric Neon
-    {
-      bgGrad: `<stop offset="0%" stop-color="#0d0722"/><stop offset="50%" stop-color="#2e1065"/><stop offset="100%" stop-color="#4c1d95"/>`,
-      accentGrad: `<stop offset="0%" stop-color="#a855f7"/><stop offset="100%" stop-color="#ec4899"/>`,
-      orb1: "#a855f7", orb2: "#ec4899",
-      stroke: "#c084fc",
-      webColor: "#a855f7", webSub: "#e9d5ff",
-      badgeText: "#ffffff",
-      shapes: `<circle cx="200" cy="520" r="300" fill="#a855f7" opacity="0.22" filter="blur(80px)"/>
-               <circle cx="1080" cy="160" r="260" fill="#ec4899" opacity="0.2" filter="blur(80px)"/>
-               <rect x="100" y="480" width="120" height="120" rx="20" fill="none" stroke="#a855f7" stroke-opacity="0.15" stroke-width="2" transform="rotate(25 100 480)"/>
-               <rect x="1000" y="100" width="160" height="160" rx="30" fill="none" stroke="#ec4899" stroke-opacity="0.15" stroke-width="2" transform="rotate(-15 1000 100)"/>`
-    },
-    // 2: Sunset Crimson & Amber Gold
-    {
-      bgGrad: `<stop offset="0%" stop-color="#180309"/><stop offset="50%" stop-color="#450a0a"/><stop offset="100%" stop-color="#7f1d1d"/>`,
-      accentGrad: `<stop offset="0%" stop-color="#f43f5e"/><stop offset="100%" stop-color="#f59e0b"/>`,
-      orb1: "#f43f5e", orb2: "#f59e0b",
-      stroke: "#fb7185",
-      webColor: "#f43f5e", webSub: "#fecdd3",
-      badgeText: "#ffffff",
-      shapes: `<circle cx="150" cy="150" r="280" fill="#f43f5e" opacity="0.2" filter="blur(75px)"/>
-               <circle cx="1100" cy="550" r="300" fill="#f59e0b" opacity="0.18" filter="blur(75px)"/>
-               <line x1="-100" y1="200" x2="1380" y2="500" stroke="#f59e0b" stroke-opacity="0.08" stroke-width="3"/>
-               <line x1="-100" y1="240" x2="1380" y2="540" stroke="#f43f5e" stroke-opacity="0.08" stroke-width="2"/>`
-    },
-    // 3: Oceanic Azure & Sapphire
-    {
-      bgGrad: `<stop offset="0%" stop-color="#030712"/><stop offset="50%" stop-color="#0f172a"/><stop offset="100%" stop-color="#1e3a8a"/>`,
-      accentGrad: `<stop offset="0%" stop-color="#0284c7"/><stop offset="100%" stop-color="#38bdf8"/>`,
-      orb1: "#0284c7", orb2: "#38bdf8",
-      stroke: "#38bdf8",
-      webColor: "#38bdf8", webSub: "#bae6fd",
-      badgeText: "#ffffff",
-      shapes: `<circle cx="1100" cy="180" r="320" fill="#0284c7" opacity="0.22" filter="blur(80px)"/>
-               <circle cx="180" cy="580" r="260" fill="#38bdf8" opacity="0.18" filter="blur(80px)"/>
-               <polygon points="1100,50 1200,200 1000,180" fill="#0284c7" opacity="0.06"/>
-               <polygon points="100,500 250,650 50,600" fill="#38bdf8" opacity="0.06"/>`
-    },
-    // 4: Obsidian Gold & Emerald Luxe
-    {
-      bgGrad: `<stop offset="0%" stop-color="#080b10"/><stop offset="50%" stop-color="#111827"/><stop offset="100%" stop-color="#1f2937"/>`,
-      accentGrad: `<stop offset="0%" stop-color="#eab308"/><stop offset="100%" stop-color="#10b981"/>`,
-      orb1: "#eab308", orb2: "#10b981",
-      stroke: "#fde047",
-      webColor: "#eab308", webSub: "#fef08a",
-      badgeText: "#000000",
-      shapes: `<circle cx="200" cy="160" r="280" fill="#eab308" opacity="0.16" filter="blur(75px)"/>
-               <circle cx="1080" cy="560" r="280" fill="#10b981" opacity="0.18" filter="blur(75px)"/>
-               <rect x="80" y="80" width="1120" height="560" rx="20" fill="none" stroke="#eab308" stroke-opacity="0.1" stroke-width="1.5"/>`
-    },
-    // 5: Matrix Cyan & Neon Mint
-    {
-      bgGrad: `<stop offset="0%" stop-color="#021013"/><stop offset="50%" stop-color="#042f2e"/><stop offset="100%" stop-color="#115e59"/>`,
-      accentGrad: `<stop offset="0%" stop-color="#14b8a6"/><stop offset="100%" stop-color="#0ea5e9"/>`,
-      orb1: "#14b8a6", orb2: "#0ea5e9",
-      stroke: "#2dd4bf",
-      webColor: "#2dd4bf", webSub: "#99f6e4",
-      badgeText: "#ffffff",
-      shapes: `<circle cx="160" cy="540" r="300" fill="#14b8a6" opacity="0.2" filter="blur(80px)"/>
-               <circle cx="1100" cy="140" r="280" fill="#0ea5e9" opacity="0.2" filter="blur(80px)"/>
-               <pattern id="dotPattern" x="0" y="0" width="30" height="30" patternUnits="userSpaceOnUse">
-                 <circle cx="15" cy="15" r="1.5" fill="#ffffff" opacity="0.08"/>
-               </pattern>
-               <rect width="1280" height="720" fill="url(#dotPattern)"/>`
-    }
-  ];
-
-  const theme = VARIANTS[v];
+  const theme = THUMBNAIL_VARIANTS[v];
 
   const tspanLines = lines
     .map(
@@ -915,7 +953,7 @@ export function generateArticleThumbnailSvg({
     ${theme.shapes}
 
     <!-- Modern Framed Glass Card -->
-    <rect x="60" y="60" width="1160" height="600" rx="28" fill="url(#cardGrad_${v})" stroke="${theme.stroke}" stroke-opacity="0.2" stroke-width="2"/>
+    <rect x="60" y="60" width="1160" height="600" rx="28" fill="url(#cardGrad_${v})" stroke="${theme.stroke}" stroke-opacity="0.25" stroke-width="2"/>
 
     <!-- Corner Decorative Mounting Brackets -->
     <path d="M 60 100 L 60 60 L 100 60" stroke="${theme.stroke}" stroke-width="4" fill="none" stroke-linecap="round"/>
@@ -926,7 +964,7 @@ export function generateArticleThumbnailSvg({
     <!-- Category Tag Badge (Top Left) -->
     <g transform="translate(100, 110)">
       <rect width="250" height="52" rx="26" fill="url(#accentGrad_${v})"/>
-      <text x="125" y="33" fill="${theme.badgeText}" font-family="system-ui, -apple-system, Roboto, sans-serif" font-weight="900" font-size="20" text-anchor="middle" letter-spacing="1.5">
+      <text x="125" y="33" fill="${theme.badgeText}" font-family="system-ui, -apple-system, Roboto, sans-serif" font-weight="900" font-size="19" text-anchor="middle" letter-spacing="1.5">
         ${safeCat}
       </text>
     </g>
@@ -955,16 +993,34 @@ export function generateArticleThumbnailSvg({
   return "data:image/svg+xml;utf8," + encodeURIComponent(svg);
 }
 
+// 2026 Modern Tech Trends Seed Topics
+const MODERN_2026_TRENDS = [
+  "React 19 Server Components and Compiler Optimizations in 2026",
+  "Next.js 15+ App Router, Server Actions, and Partial Prerendering At Scale",
+  "Tailwind CSS v4 Engine and CSS-First Theme Architecture",
+  "Vite 6 and Rolldown: Building Lightning-Fast Web Apps in 2026",
+  "GPT-5 and Next-Gen LLM Integrations in Modern Web Applications",
+  "Gemini 3.5 & Multimodal Web Agents: Real-time Voice & Visual AI in JS",
+  "Claude 3.5 Sonnet Workflows and Autonomous AI Developer Agents",
+  "WebGPU and 3D Canvas Hardware Accelerated Rendering in Modern Browsers",
+  "Edge Computing, Serverless Workers, and Distributed Databases in 2026",
+  "WebAssembly (WASM) for High-Performance Browser Data Processing",
+  "AI-Driven Dynamic SEO and Search Engine GEO Strategies for 2026",
+  "Real-Time WebSockets, RTC Data Channels, and Collaborative Web Apps",
+  "Micro-Frontends and Module Federation with Modern Vite & Webpack",
+  "Vector Databases and Local Browser RAG Architectures"
+];
+
 // New AI schema for 1500-word article formatting
 const aiBlogPostSchema = {
   type: Type.OBJECT,
   properties: {
-    title: { type: Type.STRING, description: "Highly engaging, catchy, human-like SEO-optimized article title." },
+    title: { type: Type.STRING, description: "Highly engaging, catchy, human-like SEO-optimized article title (headline only, 8 to 14 words)." },
     tagline: { type: Type.STRING, description: "Compelling tagline highlighting article value and practical insights." },
     category: { type: Type.STRING, description: "Target category matching the user selection." },
     content: { 
       type: Type.STRING, 
-      description: "A detailed, comprehensive 1500-word article formatted in clean HTML. Write in simple, clear, direct, human-like English with NO meaningless symbols, extra words, or robotic AI boilerplate. Use H1/H2 headings and short readable paragraphs. Highlight key terms and main words in green using: <mark style=\"background-color: #dcfce7; color: #166534; font-weight: bold; padding: 2px 6px; border-radius: 4px;\">[main word]</mark>. Conclude with an explicit FAQ section using <h2>Frequently Asked Questions (FAQs)</h2> containing 3-5 clear Q&As." 
+      description: "A detailed, comprehensive 1500-word article body formatted in clean HTML. MUST be completely distinct from the title. Write in simple, clear, direct, human-like English with NO meaningless symbols or robotic AI boilerplate. Use H2/H3 headings and short readable paragraphs. Include code snippets where appropriate. Highlight key terms and main words in green using: <mark style=\"background-color: #dcfce7; color: #166534; font-weight: bold; padding: 2px 6px; border-radius: 4px;\">[main word]</mark>. Conclude with an explicit FAQ section using <h2>Frequently Asked Questions (FAQs)</h2> containing 3-5 clear Q&As." 
     },
     readTime: { type: Type.STRING, description: "Estimated read time, e.g., '7 min read'." },
     tags: {
@@ -1011,6 +1067,7 @@ const handleAiArticleGeneration = async (req: express.Request, res: express.Resp
     let blogPost: any = null;
 
     const targetCategory = category || "Artificial Intelligence";
+    const randomTrendSeed = MODERN_2026_TRENDS[Math.floor(Math.random() * MODERN_2026_TRENDS.length)];
 
     // 1. Resolve API Keys array (up to 5 keys)
     let keyPool: string[] = [];
@@ -1039,16 +1096,17 @@ const handleAiArticleGeneration = async (req: express.Request, res: express.Resp
       });
     }
 
-    const prompt = `Write an exceptionally high quality, 1500-word, human-like, step-by-step guide and experiential technical article for the category: "${targetCategory}".
+    const prompt = `Write a 100% unique, exceptionally high quality, 1500-word SEO-optimized technical article for category: "${targetCategory}".
 
-CRITICAL AUTHORING GUIDELINES (FOR GOOGLE INDEXING & HUMAN LEGIBILITY):
-1. Title: Create an ultra-compelling, SEO-friendly title that sounds like a real expert's step-by-step case study or comprehensive walkthrough (e.g., "Step-by-Step Guide: How I Built and Scaled [Technology] in Production").
-2. Human-Centric Voice: Write from a first-person, experiential perspective ("In my experience...", "When I first configured...", "Here is what worked best in our production testing..."). Avoid AI cliché introductions like "In today's fast-paced digital world" or "In conclusion".
-3. Step-by-Step Structure: Divide the core tutorial into logical, numbered step-by-step sections using clear H2 and H3 HTML headings (e.g., <h2>Step 1: Understanding Core Architecture</h2>, <h2>Step 2: Hands-On Implementation</h2>).
-4. Code Snippets & Technical Examples: Include clear code snippets, configuration blocks, or practical takeaways wherever relevant.
-5. Key Term Green Highlights: Highlight key terms, important tools, and actionable takeaways in green using: <mark style="background-color: #dcfce7; color: #166534; font-weight: bold; padding: 2px 6px; border-radius: 4px;">[keyword]</mark>.
-6. FAQs Section: Conclude with a dedicated <h2>Frequently Asked Questions (FAQs)</h2> section containing 3 to 5 clear, insightful Q&A items.
-7. Length & Depth: High information density, approximately 1500 words of actionable, practical content.`;
+STRICT CREATIVE & TECHNICAL DIRECTIVES:
+1. FOCUS ON 2026 MODERN TECH & TRENDS: Focus exclusively on cutting-edge 2026 web technologies and AI advancements (e.g., React 19, Next.js 15+, Tailwind v4, Vite 6, WebGPU, WASM, GPT-5, Gemini 3.5, Claude 3.5, Edge AI Agents, Server Actions). DO NOT write about older, pre-2022 tech (no legacy jQuery or basic HTML 101).
+2. UNIQUE & SEPARATE TITLE VS CONTENT:
+   - TITLE: Must be a catchy, highly clickable 8 to 14 word headline. Example: "Next-Gen Web Architecture in 2026: Scaling AI Agents with React 19 and Edge Workers".
+   - CONTENT: Must be a deep 1500+ word step-by-step technical guide with code blocks, clear H2/H3 headings, green highlighted key terms using <mark style="background-color: #dcfce7; color: #166534; font-weight: bold; padding: 2px 6px; border-radius: 4px;">[keyword]</mark>, and an explicit FAQ section.
+   - THE TITLE AND CONTENT MUST BE COMPLETELY DIFFERENT. The title is purely the headline, while the content is the full detailed article body.
+3. TREND SEED REF: Explore relevant concepts inspired by: "${randomTrendSeed}".
+4. HUMAN EXPERIENCED VOICE: Write from a principal software engineer's hands-on perspective ("In our production tests...", "Here is how we optimized..."). No generic AI clichés.
+5. FAQS SECTION: Conclude with <h2>Frequently Asked Questions (FAQs)</h2> containing 3 to 5 clear, insightful Q&A items.`;
 
     console.log(`Generating high-quality 1500-word article for category "${targetCategory}" via Gemini SDK (Clients: ${clientsToTry.length})...`);
 
@@ -1064,7 +1122,7 @@ CRITICAL AUTHORING GUIDELINES (FOR GOOGLE INDEXING & HUMAN LEGIBILITY):
             model: modelName,
             contents: prompt,
             config: {
-              systemInstruction: "You are a world-class senior engineer and technical author sharing real-world experiences, step-by-step tutorials, and production insights. You produce 1500-word articles in plain, direct English with step-by-step sections, green highlighted key terms, code examples, and an FAQs section. You never use AI clichés.",
+              systemInstruction: "You are a world-class principal engineer and tech editor sharing real-world experiences and 2026 web/AI trends. You produce unique, 1500-word articles in clear, direct English with distinct titles, step-by-step sections, green highlighted key terms, code examples, and an FAQs section.",
               responseMimeType: "application/json",
               responseSchema: aiBlogPostSchema
             }
@@ -1073,7 +1131,7 @@ CRITICAL AUTHORING GUIDELINES (FOR GOOGLE INDEXING & HUMAN LEGIBILITY):
           const jsonStr = response.text;
           if (jsonStr) {
             blogPost = safeJsonParse(jsonStr);
-            if (blogPost && blogPost.title) {
+            if (blogPost && blogPost.title && blogPost.content) {
               break;
             }
           }
@@ -1111,8 +1169,13 @@ CRITICAL AUTHORING GUIDELINES (FOR GOOGLE INDEXING & HUMAN LEGIBILITY):
       });
     }
 
-    // Generate 16:9 Custom Thumbnail SVG with random color variant (0 to 5)
-    const randomVariant = Math.floor(Math.random() * 6);
+    // Double check title and content are not identical
+    if (blogPost.title && blogPost.content && blogPost.title.trim().toLowerCase() === blogPost.content.trim().toLowerCase()) {
+      blogPost.content = parseMarkdown(blogPost.content) || blogPost.content;
+    }
+
+    // Generate 16:9 Custom Thumbnail SVG with random color variant (0 to 11)
+    const randomVariant = Math.floor(Math.random() * THUMBNAIL_VARIANTS.length);
     const svgThumbnail = generateArticleThumbnailSvg({
       category: blogPost.category || targetCategory,
       title: blogPost.title,
@@ -1381,6 +1444,128 @@ app.get(["/ads.txt", "/add.txt", "/s/add.txt", "/s/ads.txt"], async (req, res) =
   } catch (err) {
     console.error("Error fetching ads.txt:", err);
     return res.status(200).send("google.com, pub-8457467726305206, DIRECT, f08c47fec0942fa0\n");
+  }
+});
+
+// Helper to generate dynamic sitemap XML
+async function generateSitemapXml(): Promise<string> {
+  const baseUrl = "https://www.sprocoder.online";
+  const nowStr = new Date().toISOString().split("T")[0];
+
+  let articles: any[] = [];
+  try {
+    const res = await fetch("https://fir-pro-coder-default-rtdb.firebaseio.com/articles.json");
+    if (res.ok) {
+      const data = await res.json();
+      if (data && typeof data === "object") {
+        articles = Object.values(data);
+      }
+    }
+  } catch (err) {
+    console.warn("Sitemap: failed to fetch dynamic articles from Firebase:", err);
+  }
+
+  if (!articles || articles.length === 0) {
+    articles = INITIAL_POSTS;
+  }
+
+  const categories = [
+    "Artificial Intelligence",
+    "Tech News",
+    "AI Tools",
+    "Web Development",
+    "Games",
+    "Coding Tutorials",
+    "Software Architecture",
+    "Cybersecurity"
+  ];
+
+  const staticPages = [
+    { path: "", priority: "1.0", changefreq: "daily" },
+    { path: "about", priority: "0.8", changefreq: "monthly" },
+    { path: "contact", priority: "0.8", changefreq: "monthly" },
+    { path: "privacy-policy", priority: "0.5", changefreq: "monthly" },
+    { path: "disclaimer", priority: "0.5", changefreq: "monthly" },
+    { path: "terms-and-conditions", priority: "0.5", changefreq: "monthly" },
+    { path: "write-article", priority: "0.6", changefreq: "monthly" },
+  ];
+
+  let xml = `<?xml version="1.0" encoding="UTF-8"?>\n`;
+  xml += `<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:news="http://www.google.com/schemas/sitemap-news/0.9" xmlns:xhtml="http://www.w3.org/1999/xhtml" xmlns:image="http://www.google.com/schemas/sitemap-image/1.1">\n`;
+
+  // Static pages
+  for (const p of staticPages) {
+    const loc = p.path ? `${baseUrl}/${p.path}` : `${baseUrl}/`;
+    xml += `  <url>\n`;
+    xml += `    <loc>${loc}</loc>\n`;
+    xml += `    <lastmod>${nowStr}</lastmod>\n`;
+    xml += `    <changefreq>${p.changefreq}</changefreq>\n`;
+    xml += `    <priority>${p.priority}</priority>\n`;
+    xml += `  </url>\n`;
+  }
+
+  // Category pages
+  for (const cat of categories) {
+    const catSlug = slugify(cat);
+    xml += `  <url>\n`;
+    xml += `    <loc>${baseUrl}/category/${catSlug}</loc>\n`;
+    xml += `    <lastmod>${nowStr}</lastmod>\n`;
+    xml += `    <changefreq>daily</changefreq>\n`;
+    xml += `    <priority>0.8</priority>\n`;
+    xml += `  </url>\n`;
+  }
+
+  // Dynamic articles
+  for (const article of articles) {
+    if (!article || !article.title) continue;
+    const artSlug = slugify(article.title);
+    const artDate = article.date ? new Date(article.date).toISOString().split("T")[0] : nowStr;
+    const validDate = isNaN(Date.parse(artDate)) ? nowStr : artDate;
+
+    xml += `  <url>\n`;
+    xml += `    <loc>${baseUrl}/blog/${artSlug}</loc>\n`;
+    xml += `    <lastmod>${validDate}</lastmod>\n`;
+    xml += `    <changefreq>daily</changefreq>\n`;
+    xml += `    <priority>0.9</priority>\n`;
+    if (article.thumbnailUrl && typeof article.thumbnailUrl === "string" && !article.thumbnailUrl.startsWith("data:")) {
+      xml += `    <image:image>\n`;
+      xml += `      <image:loc>${escapeXml(article.thumbnailUrl)}</image:loc>\n`;
+      xml += `      <image:title>${escapeXml(article.title)}</image:title>\n`;
+      xml += `    </image:image>\n`;
+    }
+    xml += `  </url>\n`;
+  }
+
+  xml += `</urlset>`;
+  return xml;
+}
+
+// Sitemap XML Endpoint
+app.get(["/sitemap.xml", "/api/sitemap.xml"], async (req, res) => {
+  try {
+    const xml = await generateSitemapXml();
+    res.setHeader("Content-Type", "application/xml; charset=utf-8");
+    res.setHeader("Cache-Control", "public, max-age=3600");
+    return res.status(200).send(xml);
+  } catch (err) {
+    console.error("Error serving sitemap.xml:", err);
+    return res.status(500).send("Error generating sitemap");
+  }
+});
+
+// Sitemap GZ Compressed Endpoint (sitemap.xml.gz)
+app.get(["/sitemap.xml.gz", "/api/sitemap.xml.gz"], async (req, res) => {
+  try {
+    const xml = await generateSitemapXml();
+    const gzipped = zlib.gzipSync(Buffer.from(xml, "utf-8"));
+    res.setHeader("Content-Type", "application/gzip");
+    res.setHeader("Content-Encoding", "gzip");
+    res.setHeader("Content-Disposition", 'inline; filename="sitemap.xml.gz"');
+    res.setHeader("Cache-Control", "public, max-age=3600");
+    return res.status(200).send(gzipped);
+  } catch (err) {
+    console.error("Error serving sitemap.xml.gz:", err);
+    return res.status(500).send("Error generating compressed sitemap");
   }
 });
 

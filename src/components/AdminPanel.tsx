@@ -3224,6 +3224,70 @@ export default function AdminPanel({ onClose, categories, setCategories, onLogou
                 </button>
               </div>
 
+              {/* Sitemap XML & GZ Management Card */}
+              <div className="p-5 rounded-2xl bg-emerald-50/80 border border-emerald-200/80 space-y-4 mt-6">
+                <div className="flex items-center justify-between border-b border-emerald-200 pb-2">
+                  <h4 className="text-xs font-black text-emerald-950 uppercase tracking-wider flex items-center gap-1.5">
+                    <Globe className="w-4 h-4 text-emerald-600" />
+                    <span>Dynamic Sitemap Generator (Google Indexing Ready)</span>
+                  </h4>
+                  <span className="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-emerald-600 text-white tracking-wide">
+                    ACTIVE 2026
+                  </span>
+                </div>
+                <p className="text-[10px] text-emerald-900 leading-relaxed">
+                  Your website automatically updates and serves live standard <code className="bg-emerald-100 px-1 py-0.5 rounded text-emerald-950 font-mono">sitemap.xml</code> and compressed <code className="bg-emerald-100 px-1 py-0.5 rounded text-emerald-950 font-mono">sitemap.xml.gz</code> files containing all static pages, categories, and dynamic articles for search engine bots (Google, Bing, Yandex).
+                </p>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+                  <div className="p-3 bg-white rounded-xl border border-emerald-200 flex flex-col justify-between space-y-2">
+                    <div>
+                      <span className="text-[10px] font-bold text-gray-500 uppercase block">Standard Sitemap XML</span>
+                      <a 
+                        href="/sitemap.xml" 
+                        target="_blank" 
+                        rel="noreferrer"
+                        className="text-xs font-extrabold text-emerald-700 hover:underline break-all"
+                      >
+                        https://www.sprocoder.online/sitemap.xml
+                      </a>
+                    </div>
+                    <button
+                      onClick={() => {
+                        navigator.clipboard.writeText("https://www.sprocoder.online/sitemap.xml");
+                        alert("Copied sitemap.xml URL to clipboard!");
+                      }}
+                      className="self-start text-[10px] font-bold text-emerald-700 bg-emerald-100 hover:bg-emerald-200 px-2.5 py-1 rounded-lg cursor-pointer transition-colors"
+                    >
+                      Copy sitemap.xml Link
+                    </button>
+                  </div>
+
+                  <div className="p-3 bg-white rounded-xl border border-emerald-200 flex flex-col justify-between space-y-2">
+                    <div>
+                      <span className="text-[10px] font-bold text-gray-500 uppercase block">Gzip Compressed Sitemap (.gz)</span>
+                      <a 
+                        href="/sitemap.xml.gz" 
+                        target="_blank" 
+                        rel="noreferrer"
+                        className="text-xs font-extrabold text-emerald-700 hover:underline break-all"
+                      >
+                        https://www.sprocoder.online/sitemap.xml.gz
+                      </a>
+                    </div>
+                    <button
+                      onClick={() => {
+                        navigator.clipboard.writeText("https://www.sprocoder.online/sitemap.xml.gz");
+                        alert("Copied sitemap.xml.gz URL to clipboard!");
+                      }}
+                      className="self-start text-[10px] font-bold text-emerald-700 bg-emerald-100 hover:bg-emerald-200 px-2.5 py-1 rounded-lg cursor-pointer transition-colors"
+                    >
+                      Copy sitemap.xml.gz Link
+                    </button>
+                  </div>
+                </div>
+              </div>
+
               {/* Social Media Link Settings */}
               <div className="p-5 rounded-2xl bg-purple-50/70 border border-purple-100 space-y-4 mt-6">
                 <div className="flex items-center justify-between border-b border-purple-100 pb-2">
