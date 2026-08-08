@@ -1,5 +1,32 @@
 import React, { useState } from "react";
-import { User, Mail, Calendar, KeyRound, Save, Bookmark, Heart, History, LogOut, Loader2, CheckCircle2, Camera, Upload, ShieldCheck, AtSign, Globe, MapPin, BookOpen, Award, Sparkles, Layers } from "lucide-react";
+import { 
+  User, 
+  Mail, 
+  Calendar, 
+  KeyRound, 
+  Save, 
+  Bookmark, 
+  Heart, 
+  History, 
+  LogOut, 
+  Loader2, 
+  CheckCircle2, 
+  Camera, 
+  Upload, 
+  ShieldCheck, 
+  AtSign, 
+  Globe, 
+  BookOpen, 
+  Award, 
+  Sparkles, 
+  Layers, 
+  Pencil, 
+  X, 
+  ChevronRight,
+  Eye,
+  FileText,
+  AlertTriangle
+} from "lucide-react";
 import { UserAccount, BlogPost, Course } from "../types";
 import { db, auth } from "../firebase";
 import { ref, update, get } from "firebase/database";
@@ -32,6 +59,11 @@ export default function UserProfile({
   const [isSaving, setIsSaving] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
+
+  // UI Interactive States
+  const [activeTab, setActiveTab] = useState<"courses" | "articles" | "saved">("courses");
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [showSignOutConfirmModal, setShowSignOutConfirmModal] = useState(false);
 
   if (!currentUser) {
     return (
@@ -100,7 +132,6 @@ export default function UserProfile({
       if (!cleanUsername.startsWith("@")) {
         cleanUsername = "@" + cleanUsername;
       }
-      // Check alphanumeric format
       const regex = /^@[a-z0-9_]{3,20}$/;
       if (!regex.test(cleanUsername)) {
         setMessage({ type: "error", text: "Username must be 3-20 characters long and can only contain letters, numbers, and underscores (e.g. @coder_12)" });
@@ -108,7 +139,6 @@ export default function UserProfile({
         return;
       }
 
-      // Check uniqueness in database
       try {
         const snapshot = await get(ref(db, "users"));
         if (snapshot.exists()) {
@@ -126,7 +156,6 @@ export default function UserProfile({
     }
 
     try {
-      // 1. Update Realtime Database profile
       const updates: any = {
         name: name.trim(),
         email: email.trim(),
@@ -136,25 +165,22 @@ export default function UserProfile({
       
       await update(ref(db, `users/${currentUser.id}`), updates);
 
-      // 2. Optional: Try Firebase Auth update for email
       if (auth.currentUser && (email || "").trim().toLowerCase() !== auth.currentUser.email?.toLowerCase()) {
         try {
           await updateEmail(auth.currentUser, email.trim());
         } catch (authErr: any) {
-          console.warn("Firebase Auth email update failed/blocked. Continuing with local profile update...", authErr);
+          console.warn("Firebase Auth email update failed/blocked:", authErr);
         }
       }
 
-      // 3. Optional: Try Firebase Auth update for password
       if (password.trim() && auth.currentUser) {
         try {
           await updatePassword(auth.currentUser, password.trim());
         } catch (authErr: any) {
-          console.warn("Firebase Auth password update failed/blocked. Continuing...", authErr);
+          console.warn("Firebase Auth password update failed/blocked:", authErr);
         }
       }
 
-      // Update local state copy
       const updatedUserCopy = {
         ...currentUser,
         name: name.trim(),
@@ -166,7 +192,8 @@ export default function UserProfile({
       localStorage.setItem("spro_user", JSON.stringify(updatedUserCopy));
 
       setPassword("");
-      setMessage({ type: "success", text: "Your professional coder profile has been updated successfully!" });
+      setMessage({ type: "success", text: "Your profile was updated successfully!" });
+      setIsEditModalOpen(false);
     } catch (err: any) {
       console.error(err);
       setMessage({ type: "error", text: err.message || "Failed to update profile settings." });
@@ -176,72 +203,324 @@ export default function UserProfile({
   };
 
   return (
-    <div className="space-y-8 animate-in fade-in duration-300 pb-16" id="user-profile-view">
+    <div className="max-w-5xl mx-auto space-y-6 animate-in fade-in duration-300 pb-16" id="user-profile-view">
       
-      {/* Upper Cover Banner */}
-      <div className="relative h-44 rounded-[36px] bg-gradient-to-r from-purple-700 via-indigo-600 to-purple-500 overflow-hidden shadow-md">
-        <div className="absolute inset-0 bg-[linear-gradient(to_right,#80808012_1px,transparent_1px),linear-gradient(to_bottom,#80808012_1px,transparent_1px)] bg-[size:24px_24px]" />
-        <div className="absolute -bottom-10 -right-10 w-48 h-48 bg-white/10 rounded-full filter blur-2xl" />
-        <div className="absolute top-6 left-6 flex items-center gap-4 text-white z-10">
-          <div className="relative group">
-            {avatarUrl ? (
-              <img 
-                src={avatarUrl} 
-                alt={currentUser.name || "User"} 
-                className="w-16 h-16 rounded-2xl object-cover border-2 border-white/40 shadow-inner"
-                referrerPolicy="no-referrer"
-                loading="lazy"
-              />
-            ) : (
-              <div className="w-16 h-16 rounded-2xl bg-white/20 backdrop-blur-md border border-white/30 flex items-center justify-center text-2xl font-black shadow-inner">
-                {(currentUser.name || currentUser.username || currentUser.email || "U").slice(0, 2).toUpperCase()}
+      {/* COMPACT TOP PROFILE HEADER BOX */}
+      <div className="relative bg-white/80 backdrop-blur-xl border border-purple-100 rounded-[28px] p-5 shadow-lg shadow-purple-950/5 overflow-hidden">
+        
+        {/* Subtle Decorative Gradient Accent */}
+        <div className="absolute top-0 left-0 right-0 h-1.5 bg-gradient-to-r from-purple-600 via-indigo-600 to-pink-500" />
+
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
+          
+          {/* Profile Avatar + Name + Username */}
+          <div className="flex items-center gap-4 text-purple-950 w-full sm:w-auto">
+            <div className="relative group shrink-0">
+              {avatarUrl ? (
+                <img 
+                  src={avatarUrl} 
+                  alt={currentUser.name || "User"} 
+                  className="w-14 h-14 rounded-2xl object-cover border-2 border-purple-200 shadow-md group-hover:scale-105 transition-transform"
+                  referrerPolicy="no-referrer"
+                  loading="lazy"
+                />
+              ) : (
+                <div className="w-14 h-14 rounded-2xl bg-gradient-to-tr from-purple-600 to-indigo-600 text-white flex items-center justify-center text-xl font-black shadow-md">
+                  {(currentUser.name || currentUser.username || currentUser.email || "U").slice(0, 2).toUpperCase()}
+                </div>
+              )}
+              
+              <button 
+                onClick={() => setIsEditModalOpen(true)}
+                title="Change Avatar"
+                className="absolute -bottom-1 -right-1 p-1 bg-purple-700 text-white rounded-full shadow-md hover:scale-110 transition-transform cursor-pointer border-2 border-white"
+              >
+                <Camera className="w-3 h-3" />
+              </button>
+            </div>
+
+            <div className="min-w-0 flex-1">
+              {/* Name + Inline Edit Icon */}
+              <div className="flex items-center gap-2">
+                <h2 className="text-lg font-black tracking-tight text-purple-950 truncate">
+                  {currentUser.name || currentUser.username || currentUser.email || "User"}
+                </h2>
+                <button
+                  onClick={() => setIsEditModalOpen(true)}
+                  title="Edit Profile Name"
+                  className="p-1 rounded-lg text-purple-600 hover:text-purple-800 hover:bg-purple-100/80 transition-colors cursor-pointer"
+                >
+                  <Pencil className="w-3.5 h-3.5" />
+                </button>
+                <ShieldCheck className="w-4 h-4 text-emerald-500 shrink-0" />
               </div>
-            )}
-            
-            <label className="absolute inset-0 bg-black/40 rounded-2xl opacity-0 group-hover:opacity-100 flex items-center justify-center cursor-pointer transition-opacity">
-              <Camera className="w-5 h-5 text-white" />
-              <input 
-                type="file" 
-                accept="image/*" 
-                onChange={handleAvatarUpload} 
-                className="hidden" 
-              />
-            </label>
+
+              {/* Username Only - USER ID IS HIDDEN FROM USER */}
+              <div className="flex items-center gap-2 mt-0.5">
+                {currentUser.username ? (
+                  <span className="text-xs font-bold text-purple-700 font-mono bg-purple-50 px-2 py-0.5 rounded-md border border-purple-100">
+                    {currentUser.username}
+                  </span>
+                ) : (
+                  <span className="text-xs text-purple-400 font-mono italic">No @username set</span>
+                )}
+                <span className="text-[10px] text-gray-400 font-mono">• {currentUser.email}</span>
+              </div>
+            </div>
           </div>
 
-          <div>
-            <div className="flex items-center gap-1.5">
-              <h2 className="text-xl sm:text-2xl font-black tracking-tight">{currentUser.name || currentUser.username || currentUser.email || "User"}</h2>
-              <ShieldCheck className="w-4 h-4 text-emerald-400" />
-            </div>
-            <div className="flex items-center gap-2">
-              {currentUser.username ? (
-                <p className="text-xs font-bold text-purple-200 font-mono bg-purple-900/30 px-2 py-0.5 rounded-md">{currentUser.username}</p>
-              ) : (
-                <p className="text-xs text-purple-100 font-mono">No username claimed</p>
-              )}
-              <p className="text-[10px] text-purple-200 font-mono">ID: {currentUser.id}</p>
-            </div>
+          {/* Action Buttons: EDIT PROFILE + SIGN OUT BUTTON WITH CROSS ICON */}
+          <div className="flex items-center gap-2.5 w-full sm:w-auto justify-end border-t sm:border-t-0 border-purple-100 pt-3 sm:pt-0">
+            {/* Edit Profile Button */}
+            <button
+              onClick={() => setIsEditModalOpen(true)}
+              className="px-4 py-2 bg-purple-50 hover:bg-purple-100/80 text-purple-900 border border-purple-200/80 rounded-xl text-xs font-bold transition-all shadow-sm flex items-center gap-1.5 cursor-pointer active:scale-95"
+            >
+              <Pencil className="w-3.5 h-3.5 text-purple-600" />
+              <span>Edit Profile</span>
+            </button>
+
+            {/* Sign Out Button with Cross & Logout Icon */}
+            <button
+              onClick={() => setShowSignOutConfirmModal(true)}
+              className="px-4 py-2 bg-rose-50 hover:bg-rose-100/80 text-rose-700 border border-rose-200/80 rounded-xl text-xs font-bold transition-all shadow-sm flex items-center gap-1.5 cursor-pointer active:scale-95"
+            >
+              <LogOut className="w-3.5 h-3.5 text-rose-600" />
+              <span>Sign Out</span>
+              <X className="w-3.5 h-3.5 text-rose-500" />
+            </button>
           </div>
+
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-        
-        {/* Left Column: Settings / Profile Info */}
-        <div className="lg:col-span-5 space-y-6">
-          <div className="bg-white/40 backdrop-blur-lg border border-white/60 rounded-[32px] p-6 shadow-sm space-y-6">
-            <div className="border-b border-purple-100/50 pb-3 flex items-center justify-between">
-              <h3 className="text-sm font-black text-purple-950 uppercase tracking-wider flex items-center gap-2">
-                <User className="w-4 h-4 text-purple-600" />
-                <span>Profile Settings</span>
+      {/* SOCIAL MEDIA STYLE TABBED NAVIGATION BAR */}
+      <div className="flex items-center justify-center sm:justify-start gap-2 border-b border-purple-100/80 pb-1">
+        <button
+          onClick={() => setActiveTab("courses")}
+          className={`px-5 py-2.5 rounded-2xl text-xs font-black transition-all flex items-center gap-2 cursor-pointer border ${
+            activeTab === "courses"
+              ? "bg-purple-600 text-white border-purple-500 shadow-md shadow-purple-200 scale-105"
+              : "bg-white/60 text-purple-950 border-purple-100/60 hover:bg-white"
+          }`}
+        >
+          <BookOpen className="w-4 h-4" />
+          <span>Courses ({viewedCoursesList.length + likedCoursesList.length})</span>
+        </button>
+
+        <button
+          onClick={() => setActiveTab("articles")}
+          className={`px-5 py-2.5 rounded-2xl text-xs font-black transition-all flex items-center gap-2 cursor-pointer border ${
+            activeTab === "articles"
+              ? "bg-purple-600 text-white border-purple-500 shadow-md shadow-purple-200 scale-105"
+              : "bg-white/60 text-purple-950 border-purple-100/60 hover:bg-white"
+          }`}
+        >
+          <FileText className="w-4 h-4" />
+          <span>History & Articles ({readingHistory.length})</span>
+        </button>
+
+        <button
+          onClick={() => setActiveTab("saved")}
+          className={`px-5 py-2.5 rounded-2xl text-xs font-black transition-all flex items-center gap-2 cursor-pointer border ${
+            activeTab === "saved"
+              ? "bg-purple-600 text-white border-purple-500 shadow-md shadow-purple-200 scale-105"
+              : "bg-white/60 text-purple-950 border-purple-100/60 hover:bg-white"
+          }`}
+        >
+          <Bookmark className="w-4 h-4" />
+          <span>Saved Articles ({savedArticles.length})</span>
+        </button>
+      </div>
+
+      {/* TAB CONTENT 1: COURSES SECTION */}
+      {activeTab === "courses" && (
+        <div className="space-y-6 animate-in fade-in duration-300">
+          
+          {/* Viewed & Active Courses Grid */}
+          <div className="bg-white/60 backdrop-blur-lg border border-purple-100 rounded-[28px] p-6 shadow-sm space-y-4">
+            <h3 className="text-xs font-black text-purple-950 uppercase tracking-wider flex items-center justify-between border-b border-purple-100 pb-3">
+              <span className="flex items-center gap-2">
+                <BookOpen className="w-4 h-4 text-purple-600" />
+                <span>My Courses Activity ({viewedCoursesList.length})</span>
+              </span>
+              <span className="text-[10px] font-mono text-purple-600 font-bold bg-purple-50 px-2.5 py-0.5 rounded-full border border-purple-100">
+                Active Learning
+              </span>
+            </h3>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {viewedCoursesList.map(course => (
+                <div
+                  key={course.id}
+                  onClick={() => onSelectCourse && onSelectCourse(course)}
+                  className="p-4 bg-white hover:bg-purple-50/50 rounded-2xl border border-purple-100/80 flex gap-3.5 items-center cursor-pointer transition-all hover:-translate-y-0.5 shadow-sm group"
+                >
+                  <div className="w-12 h-12 rounded-2xl bg-slate-900 overflow-hidden shrink-0 relative shadow-sm">
+                    {course.thumbnailUrl ? (
+                      <img src={course.thumbnailUrl} alt={course.title} className="w-full h-full object-cover" />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center text-purple-400">
+                        <BookOpen className="w-6 h-6" />
+                      </div>
+                    )}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-[9px] font-mono font-bold text-purple-600 uppercase">{course.category}</p>
+                    <h4 className="text-xs font-extrabold text-purple-950 line-clamp-2 leading-tight group-hover:text-purple-700 transition-colors">{course.title}</h4>
+                    <span className="text-[10px] text-gray-400 font-medium">{course.lessons?.length || 0} Lessons • {course.level || "Beginner"}</span>
+                  </div>
+                  <ChevronRight className="w-5 h-5 text-gray-400 group-hover:text-purple-600 group-hover:translate-x-0.5 transition-all shrink-0" />
+                </div>
+              ))}
+
+              {viewedCoursesList.length === 0 && (
+                <div className="col-span-2 text-center py-8 bg-purple-50/40 rounded-2xl border border-dashed border-purple-200 space-y-2">
+                  <BookOpen className="w-8 h-8 text-purple-400 mx-auto" />
+                  <p className="text-xs font-bold text-purple-900">No viewed courses recorded yet.</p>
+                  <p className="text-[11px] text-gray-500">Explore our interactive courses catalog to start learning!</p>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Liked Courses Section */}
+          <div className="bg-white/60 backdrop-blur-lg border border-purple-100 rounded-[28px] p-6 shadow-sm space-y-4">
+            <h3 className="text-xs font-black text-rose-950 uppercase tracking-wider flex items-center gap-2 border-b border-rose-100/60 pb-3">
+              <Heart className="w-4 h-4 text-rose-500 fill-rose-500" />
+              <span>Liked Courses ({likedCoursesList.length})</span>
+            </h3>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {likedCoursesList.map(course => (
+                <div
+                  key={course.id}
+                  onClick={() => onSelectCourse && onSelectCourse(course)}
+                  className="p-4 bg-white hover:bg-rose-50/30 rounded-2xl border border-rose-100/60 flex gap-3.5 items-center cursor-pointer transition-all hover:-translate-y-0.5 shadow-sm group"
+                >
+                  <div className="w-12 h-12 rounded-2xl bg-rose-500 text-white font-extrabold flex items-center justify-center shrink-0 shadow-sm">
+                    <Heart className="w-6 h-6 fill-white" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-[9px] font-mono font-bold text-rose-500 uppercase">{course.category}</p>
+                    <h4 className="text-xs font-extrabold text-purple-950 line-clamp-2 leading-tight group-hover:text-rose-600 transition-colors">{course.title}</h4>
+                  </div>
+                  <ChevronRight className="w-5 h-5 text-gray-400 group-hover:text-rose-600 transition-all shrink-0" />
+                </div>
+              ))}
+
+              {likedCoursesList.length === 0 && (
+                <p className="text-xs text-gray-400 py-4 text-center col-span-2">You haven't liked any courses yet.</p>
+              )}
+            </div>
+          </div>
+
+          {/* Completed Courses Achievement Badges */}
+          {completedCoursesList.length > 0 && (
+            <div className="bg-emerald-50/80 backdrop-blur-lg border border-emerald-200 rounded-[28px] p-6 shadow-sm space-y-3">
+              <h3 className="text-xs font-black text-emerald-950 uppercase tracking-wider flex items-center gap-2 border-b border-emerald-200 pb-3">
+                <Award className="w-4 h-4 text-emerald-600" />
+                <span>Completed Courses ({completedCoursesList.length})</span>
               </h3>
-              <button
-                onClick={onLogout}
-                className="text-[10px] bg-red-50 hover:bg-red-100 text-red-600 font-bold px-3 py-1.5 rounded-xl transition-colors cursor-pointer flex items-center gap-1 shrink-0"
+              <div className="flex flex-wrap gap-2.5 pt-1">
+                {completedCoursesList.map(course => (
+                  <span key={course.id} className="inline-flex items-center gap-2 px-3.5 py-1.5 bg-white text-emerald-900 border border-emerald-200 rounded-2xl text-xs font-bold shadow-sm">
+                    <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                    <span>{course.title}</span>
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
+
+        </div>
+      )}
+
+      {/* TAB CONTENT 2: ARTICLES & HISTORY */}
+      {activeTab === "articles" && (
+        <div className="bg-white/60 backdrop-blur-lg border border-purple-100 rounded-[28px] p-6 shadow-sm space-y-4 animate-in fade-in duration-300">
+          <h3 className="text-xs font-black text-purple-950 uppercase tracking-wider flex items-center gap-2 border-b border-purple-100 pb-3">
+            <History className="w-4 h-4 text-purple-600" />
+            <span>Reading History ({readingHistory.length})</span>
+          </h3>
+
+          <div className="space-y-2.5 max-h-[420px] overflow-y-auto pr-1">
+            {readingHistory.map((item: any, idx: number) => {
+              const matchedPost = allPosts.find(p => p.id === item.articleId);
+              return (
+                <div
+                  key={idx}
+                  onClick={() => matchedPost && onSelectPost(matchedPost)}
+                  className="p-3.5 bg-white hover:bg-purple-50/60 rounded-2xl border border-purple-100/60 flex items-center justify-between gap-3 cursor-pointer transition-all group"
+                >
+                  <div className="flex items-center gap-3 min-w-0">
+                    <div className="w-8 h-8 rounded-xl bg-purple-100 text-purple-700 flex items-center justify-center shrink-0 font-bold text-xs">
+                      <Eye className="w-4 h-4" />
+                    </div>
+                    <div className="min-w-0">
+                      <h4 className="text-xs font-bold text-purple-950 group-hover:text-purple-700 transition-colors line-clamp-1">{item.title}</h4>
+                      <p className="text-[10px] text-gray-400 font-mono">{item.date} {item.time && `• ${item.time}`}</p>
+                    </div>
+                  </div>
+                  <ChevronRight className="w-4 h-4 text-gray-300 group-hover:text-purple-600 transition-colors shrink-0" />
+                </div>
+              );
+            })}
+
+            {readingHistory.length === 0 && (
+              <p className="text-xs text-gray-400 py-8 text-center bg-purple-50/30 rounded-2xl border border-dashed border-purple-100">No reading history logged yet.</p>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* TAB CONTENT 3: SAVED ARTICLES */}
+      {activeTab === "saved" && (
+        <div className="bg-white/60 backdrop-blur-lg border border-purple-100 rounded-[28px] p-6 shadow-sm space-y-4 animate-in fade-in duration-300">
+          <h3 className="text-xs font-black text-purple-950 uppercase tracking-wider flex items-center gap-2 border-b border-purple-100 pb-3">
+            <Bookmark className="w-4 h-4 text-purple-600" />
+            <span>Saved & Bookmarked Articles ({savedArticles.length})</span>
+          </h3>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {savedArticles.map(post => (
+              <div
+                key={post.id}
+                onClick={() => onSelectPost(post)}
+                className="p-4 bg-white hover:bg-purple-50/50 rounded-2xl border border-purple-100/80 flex gap-3.5 items-center cursor-pointer transition-all hover:-translate-y-0.5 shadow-sm group"
               >
-                <LogOut className="w-3 h-3" />
-                <span>Sign Out</span>
+                <img src={post.thumbnailUrl} alt={post.title} className="w-12 h-12 rounded-xl object-cover shrink-0" />
+                <div className="flex-1 min-w-0">
+                  <span className="text-[9px] font-mono text-purple-600 font-bold uppercase">{post.category}</span>
+                  <h4 className="text-xs font-bold text-purple-950 line-clamp-2 leading-tight group-hover:text-purple-700 transition-colors">{post.title}</h4>
+                </div>
+                <ChevronRight className="w-4 h-4 text-gray-400 group-hover:text-purple-600 transition-colors shrink-0" />
+              </div>
+            ))}
+
+            {savedArticles.length === 0 && (
+              <p className="text-xs text-gray-400 py-8 text-center col-span-2 bg-purple-50/30 rounded-2xl border border-dashed border-purple-100">No saved articles yet.</p>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* EDIT PROFILE MODAL / DRAWER */}
+      {isEditModalOpen && (
+        <div className="fixed inset-0 z-[10000] bg-slate-950/70 backdrop-blur-md flex items-center justify-center p-4 overflow-y-auto">
+          <div className="bg-white rounded-[32px] max-w-md w-full p-6 space-y-6 shadow-2xl border border-purple-100 text-purple-950 animate-in zoom-in duration-200">
+            
+            {/* Header */}
+            <div className="flex items-center justify-between border-b border-purple-100 pb-4">
+              <div className="flex items-center gap-2">
+                <Pencil className="w-5 h-5 text-purple-600" />
+                <h3 className="text-base font-black text-purple-950">Edit Profile</h3>
+              </div>
+              <button
+                onClick={() => setIsEditModalOpen(false)}
+                className="p-1.5 rounded-full hover:bg-purple-100 text-purple-900 transition-colors cursor-pointer"
+              >
+                <X className="w-5 h-5" />
               </button>
             </div>
 
@@ -256,320 +535,146 @@ export default function UserProfile({
               </div>
             )}
 
-            <form onSubmit={handleUpdateProfile} className="space-y-4">
-              {/* Profile Avatar Loader */}
+            <form onSubmit={handleUpdateProfile} className="space-y-4 text-xs">
+              
+              {/* Avatar Upload */}
               <div className="space-y-1.5">
-                <label className="text-[10px] font-black text-purple-900 uppercase tracking-wider block">Avatar Profile Picture</label>
-                <div className="flex gap-3 items-center">
-                  <div className="w-12 h-12 rounded-xl bg-purple-50 border border-purple-100 overflow-hidden flex items-center justify-center shrink-0">
+                <label className="text-[10px] font-black uppercase text-purple-900 tracking-wider">Avatar Photo</label>
+                <div className="flex items-center gap-3">
+                  <div className="w-12 h-12 rounded-2xl bg-purple-50 border border-purple-200 overflow-hidden shrink-0 flex items-center justify-center">
                     {isUploading ? (
                       <Loader2 className="w-5 h-5 text-purple-600 animate-spin" />
                     ) : avatarUrl ? (
-                      <img src={avatarUrl} alt="Avatar" className="w-full h-full object-cover" referrerPolicy="no-referrer" loading="lazy" />
+                      <img src={avatarUrl} alt="Avatar" className="w-full h-full object-cover" />
                     ) : (
-                      <User className="w-5 h-5 text-purple-400" />
+                      <User className="w-6 h-6 text-purple-400" />
                     )}
                   </div>
-                  <div className="flex-1">
-                    <label className="inline-flex items-center gap-1 px-3 py-1.5 bg-white border border-purple-100 text-purple-700 hover:bg-purple-50 rounded-xl text-[11px] font-bold cursor-pointer transition-colors">
-                      <Upload className="w-3.5 h-3.5" />
-                      <span>{isUploading ? "Uploading..." : "Upload Photo"}</span>
-                      <input 
-                        type="file" 
-                        accept="image/*" 
-                        onChange={handleAvatarUpload} 
-                        className="hidden" 
-                        disabled={isUploading}
-                      />
-                    </label>
-                    <p className="text-[9px] text-gray-400 mt-1">Directly hosts to cloud storage.</p>
-                  </div>
+                  <label className="inline-flex items-center gap-1.5 px-3 py-2 bg-purple-50 hover:bg-purple-100 text-purple-700 font-bold rounded-xl text-xs cursor-pointer border border-purple-200 transition-colors">
+                    <Upload className="w-3.5 h-3.5" />
+                    <span>{isUploading ? "Uploading..." : "Upload New Photo"}</span>
+                    <input type="file" accept="image/*" onChange={handleAvatarUpload} className="hidden" disabled={isUploading} />
+                  </label>
                 </div>
               </div>
 
-              <div className="space-y-1.5">
-                <label className="text-[10px] font-black text-purple-900 uppercase tracking-wider block">Full Name</label>
-                <div className="relative">
-                  <User className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-purple-400" />
-                  <input
-                    type="text"
-                    required
-                    value={name}
-                    onChange={(e) => setName(e.target.value)}
-                    className="w-full pl-10 pr-4 py-2.5 rounded-2xl border border-purple-100 bg-white text-xs text-purple-950 font-bold focus:outline-none focus:border-purple-300"
-                  />
-                </div>
+              {/* Full Name */}
+              <div className="space-y-1">
+                <label className="text-[10px] font-black uppercase text-purple-900">Full Name</label>
+                <input
+                  type="text"
+                  required
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  className="w-full px-3.5 py-2.5 rounded-2xl border border-purple-200 bg-white font-bold text-xs focus:ring-2 focus:ring-purple-500 outline-none"
+                />
               </div>
 
-              <div className="space-y-1.5">
-                <label className="text-[10px] font-black text-purple-900 uppercase tracking-wider block">Unique Username</label>
-                <div className="relative">
-                  <AtSign className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-purple-400" />
-                  <input
-                    type="text"
-                    required
-                    placeholder="e.g. @shanawar"
-                    value={username}
-                    onChange={(e) => setUsername(e.target.value)}
-                    className="w-full pl-10 pr-4 py-2.5 rounded-2xl border border-purple-100 bg-white text-xs text-purple-950 font-bold focus:outline-none focus:border-purple-300 font-mono"
-                  />
-                </div>
+              {/* Username */}
+              <div className="space-y-1">
+                <label className="text-[10px] font-black uppercase text-purple-900">Username (@)</label>
+                <input
+                  type="text"
+                  required
+                  value={username}
+                  onChange={(e) => setUsername(e.target.value)}
+                  className="w-full px-3.5 py-2.5 rounded-2xl border border-purple-200 bg-white font-mono font-bold text-xs focus:ring-2 focus:ring-purple-500 outline-none"
+                  placeholder="@username"
+                />
               </div>
 
-              <div className="space-y-1.5">
-                <label className="text-[10px] font-black text-purple-900 uppercase tracking-wider block">Email Address</label>
-                <div className="relative">
-                  <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-purple-400" />
-                  <input
-                    type="email"
-                    required
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    className="w-full pl-10 pr-4 py-2.5 rounded-2xl border border-purple-100 bg-white text-xs text-purple-950 font-bold focus:outline-none focus:border-purple-300"
-                  />
-                </div>
+              {/* Email */}
+              <div className="space-y-1">
+                <label className="text-[10px] font-black uppercase text-purple-900">Email Address</label>
+                <input
+                  type="email"
+                  required
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  className="w-full px-3.5 py-2.5 rounded-2xl border border-purple-200 bg-white font-bold text-xs focus:ring-2 focus:ring-purple-500 outline-none"
+                />
               </div>
 
-              <div className="space-y-1.5">
-                <div className="flex justify-between items-center">
-                  <label className="text-[10px] font-black text-purple-900 uppercase tracking-wider block">New Password</label>
-                  <span className="text-[9px] text-gray-400 italic">Leave empty to keep current</span>
-                </div>
-                <div className="relative">
-                  <KeyRound className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-purple-400" />
-                  <input
-                    type="password"
-                    placeholder="••••••••"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    className="w-full pl-10 pr-4 py-2.5 rounded-2xl border border-purple-100 bg-white text-xs text-purple-950 font-bold focus:outline-none focus:border-purple-300"
-                  />
-                </div>
+              {/* Password */}
+              <div className="space-y-1">
+                <label className="text-[10px] font-black uppercase text-purple-900 flex justify-between">
+                  <span>New Password</span>
+                  <span className="text-[9px] text-gray-400 font-normal">Optional</span>
+                </label>
+                <input
+                  type="password"
+                  placeholder="••••••••"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  className="w-full px-3.5 py-2.5 rounded-2xl border border-purple-200 bg-white font-bold text-xs focus:ring-2 focus:ring-purple-500 outline-none"
+                />
               </div>
 
-              <div className="pt-2">
+              {/* Actions */}
+              <div className="pt-2 flex items-center justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => setIsEditModalOpen(false)}
+                  className="px-4 py-2.5 rounded-2xl bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold text-xs cursor-pointer"
+                >
+                  Cancel
+                </button>
                 <button
                   type="submit"
                   disabled={isSaving || isUploading}
-                  className="w-full bg-purple-600 hover:bg-purple-700 text-white font-bold py-2.5 rounded-2xl text-xs shadow-md shadow-purple-100 flex items-center justify-center gap-2 cursor-pointer active:scale-[0.98] transition-all disabled:opacity-55"
+                  className="px-5 py-2.5 rounded-2xl bg-purple-600 hover:bg-purple-700 text-white font-bold text-xs shadow-md shadow-purple-200 flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
                 >
-                  {isSaving ? (
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                  ) : (
-                    <Save className="w-4 h-4" />
-                  )}
-                  <span>{isSaving ? "Updating Profile..." : "Save Profile Changes"}</span>
+                  {isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+                  <span>{isSaving ? "Saving..." : "Save Profile Changes"}</span>
                 </button>
               </div>
+
             </form>
 
-            {/* Location & IP Details Box */}
-            <div className="pt-3 border-t border-purple-100/60 space-y-2">
-              <span className="text-[10px] font-black text-purple-900 uppercase tracking-wider flex items-center gap-1">
-                <Globe className="w-3.5 h-3.5 text-purple-600" />
-                <span>Saved Registration IP & Location</span>
-              </span>
-              <div className="grid grid-cols-2 gap-2 text-[10px] font-mono">
-                <div className="bg-purple-50/60 p-2 rounded-xl border border-purple-100/60">
-                  <span className="text-gray-400 block font-sans text-[9px] uppercase font-bold">IP Address</span>
-                  <span className="font-bold text-purple-950">{currentUser.ipAddress || "182.180.142.12"}</span>
-                </div>
-                <div className="bg-purple-50/60 p-2 rounded-xl border border-purple-100/60">
-                  <span className="text-gray-400 block font-sans text-[9px] uppercase font-bold">Location</span>
-                  <span className="font-bold text-purple-950">{currentUser.city || "Lahore"}, {currentUser.country || "Pakistan"}</span>
-                </div>
-              </div>
-            </div>
-
-            {/* Joining metadata */}
-            <div className="pt-3 border-t border-purple-50/50 flex justify-between text-[10px] text-gray-400 font-mono">
-              <span className="flex items-center gap-1">
-                <Calendar className="w-3.5 h-3.5 text-purple-400" />
-                <span>Registered: {currentUser.registeredAt}</span>
-              </span>
-              <span>Last login: {currentUser.lastLogin?.split(",")[0] || "Today"}</span>
-            </div>
           </div>
         </div>
+      )}
 
-        {/* Right Column: Dynamic Lists (Bookmarks, Likes, Courses, History) */}
-        <div className="lg:col-span-7 space-y-6">
-          
-          {/* Courses Section */}
-          <div className="bg-white/40 backdrop-blur-lg border border-white/60 rounded-[32px] p-6 shadow-sm space-y-4">
-            <h3 className="text-xs font-black text-purple-950 uppercase tracking-wider flex items-center justify-between border-b border-purple-100/50 pb-2">
-              <span className="flex items-center gap-2">
-                <BookOpen className="w-4 h-4 text-purple-600" />
-                <span>My Courses Activity</span>
-              </span>
-              <span className="text-[10px] font-mono text-purple-600 font-bold bg-purple-50 px-2.5 py-0.5 rounded-full border border-purple-100">
-                {viewedCoursesList.length} Viewed • {likedCoursesList.length} Liked
-              </span>
-            </h3>
+      {/* CONFIRM SIGN OUT POP-UP MODAL */}
+      {showSignOutConfirmModal && (
+        <div className="fixed inset-0 z-[10000] bg-slate-950/70 backdrop-blur-md flex items-center justify-center p-4">
+          <div className="bg-white rounded-[32px] max-w-sm w-full p-6 text-center space-y-5 shadow-2xl border border-rose-100 animate-in zoom-in duration-200">
+            
+            <div className="w-12 h-12 mx-auto rounded-2xl bg-rose-50 border border-rose-100 text-rose-600 flex items-center justify-center shadow-sm">
+              <AlertTriangle className="w-6 h-6 text-rose-600" />
+            </div>
 
-            {/* Viewed Courses */}
             <div className="space-y-2">
-              <p className="text-[10px] font-black text-purple-900 uppercase tracking-wider flex items-center gap-1.5">
-                <Layers className="w-3.5 h-3.5 text-purple-500" />
-                <span>Viewed Courses ({viewedCoursesList.length})</span>
+              <h3 className="text-base font-black text-purple-950">
+                Confirm Sign Out
+              </h3>
+              <p className="text-xs text-gray-500 leading-relaxed font-medium">
+                Are you sure you want to sign out? Any unsaved profile edits will be discarded upon logout.
               </p>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-h-[220px] overflow-y-auto pr-1">
-                {viewedCoursesList.map(course => (
-                  <div
-                    key={course.id}
-                    onClick={() => onSelectCourse && onSelectCourse(course)}
-                    className="p-3 bg-white hover:bg-purple-50/40 rounded-2xl border border-purple-100/40 flex gap-2.5 items-center cursor-pointer transition-all hover:-translate-y-0.5 group"
-                  >
-                    <div className="w-10 h-10 rounded-xl bg-purple-600 text-white font-extrabold text-xs flex items-center justify-center shrink-0 shadow-sm">
-                      <BookOpen className="w-5 h-5" />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-[9px] font-bold text-purple-600 uppercase tracking-wider">{course.category}</p>
-                      <h4 className="text-[11px] font-bold text-purple-950 line-clamp-2 leading-tight group-hover:text-purple-700 transition-colors">{course.title}</h4>
-                    </div>
-                  </div>
-                ))}
-                {viewedCoursesList.length === 0 && (
-                  <p className="text-[10px] text-gray-400 py-3 text-center col-span-2 bg-white/50 rounded-xl border border-dashed border-purple-100">No viewed courses recorded yet. Explore our courses catalog to start learning!</p>
-                )}
-              </div>
             </div>
 
-            {/* Liked Courses */}
-            <div className="space-y-2 pt-2 border-t border-purple-100/40">
-              <p className="text-[10px] font-black text-rose-900 uppercase tracking-wider flex items-center gap-1.5">
-                <Heart className="w-3.5 h-3.5 text-rose-500 fill-rose-500" />
-                <span>Liked Courses ({likedCoursesList.length})</span>
-              </p>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-h-[220px] overflow-y-auto pr-1">
-                {likedCoursesList.map(course => (
-                  <div
-                    key={course.id}
-                    onClick={() => onSelectCourse && onSelectCourse(course)}
-                    className="p-3 bg-white hover:bg-rose-50/20 rounded-2xl border border-rose-100/30 flex gap-2.5 items-center cursor-pointer transition-all hover:-translate-y-0.5 group"
-                  >
-                    <div className="w-10 h-10 rounded-xl bg-rose-500 text-white font-extrabold text-xs flex items-center justify-center shrink-0 shadow-sm">
-                      <Heart className="w-5 h-5 fill-white" />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-[9px] font-bold text-rose-500 uppercase tracking-wider">{course.category}</p>
-                      <h4 className="text-[11px] font-bold text-purple-950 line-clamp-2 leading-tight group-hover:text-rose-600 transition-colors">{course.title}</h4>
-                    </div>
-                  </div>
-                ))}
-                {likedCoursesList.length === 0 && (
-                  <p className="text-[10px] text-gray-400 py-3 text-center col-span-2 bg-white/50 rounded-xl border border-dashed border-rose-100">You haven't liked any courses yet.</p>
-                )}
-              </div>
+            <div className="grid grid-cols-2 gap-3 pt-2">
+              <button
+                onClick={() => setShowSignOutConfirmModal(false)}
+                className="py-2.5 rounded-2xl bg-purple-50 hover:bg-purple-100 text-purple-900 text-xs font-bold transition-all cursor-pointer border border-purple-100"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => {
+                  setShowSignOutConfirmModal(false);
+                  onLogout();
+                }}
+                className="py-2.5 rounded-2xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-black transition-all cursor-pointer shadow-md shadow-rose-200 flex items-center justify-center gap-1.5"
+              >
+                <LogOut className="w-3.5 h-3.5" />
+                <span>Confirm Sign Out</span>
+              </button>
             </div>
 
-            {/* Completed Courses Celebration Badges */}
-            {completedCoursesList.length > 0 && (
-              <div className="space-y-2 pt-2 border-t border-purple-100/40">
-                <p className="text-[10px] font-black text-emerald-900 uppercase tracking-wider flex items-center gap-1.5">
-                  <Award className="w-3.5 h-3.5 text-emerald-600" />
-                  <span>Completed Courses ({completedCoursesList.length})</span>
-                </p>
-                <div className="flex flex-wrap gap-2">
-                  {completedCoursesList.map(course => (
-                    <span key={course.id} className="inline-flex items-center gap-1.5 px-3 py-1 bg-emerald-50 text-emerald-800 border border-emerald-200 rounded-full text-[11px] font-bold">
-                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
-                      <span>{course.title}</span>
-                    </span>
-                  ))}
-                </div>
-              </div>
-            )}
           </div>
-
-          {/* Saved Articles */}
-          <div className="bg-white/40 backdrop-blur-lg border border-white/60 rounded-[32px] p-6 shadow-sm space-y-4">
-            <h3 className="text-xs font-black text-purple-950 uppercase tracking-wider flex items-center gap-2 border-b border-purple-100/50 pb-2">
-              <Bookmark className="w-4 h-4 text-purple-600" />
-              <span>Saved Articles ({savedArticles.length})</span>
-            </h3>
-            
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-h-[300px] overflow-y-auto pr-1">
-              {savedArticles.map(post => (
-                <div
-                  key={post.id}
-                  onClick={() => onSelectPost(post)}
-                  className="p-3 bg-white hover:bg-purple-50/40 rounded-2xl border border-purple-100/40 flex gap-2.5 items-center cursor-pointer transition-all hover:-translate-y-0.5 group"
-                >
-                  <img src={post.thumbnailUrl} alt={post.title} className="w-12 h-12 rounded-xl object-cover shrink-0 border border-purple-50" referrerPolicy="no-referrer" />
-                  <div className="flex-1 min-w-0">
-                    <p className="text-[9px] font-bold text-purple-600 uppercase tracking-wider">{post.category}</p>
-                    <h4 className="text-[11px] font-bold text-purple-950 line-clamp-2 leading-tight group-hover:text-purple-700 transition-colors">{post.title}</h4>
-                  </div>
-                </div>
-              ))}
-              {savedArticles.length === 0 && (
-                <p className="text-[11px] text-gray-400 py-6 text-center col-span-2">No saved articles yet. Bookmark publications to read them here.</p>
-              )}
-            </div>
-          </div>
-
-          {/* Liked Publications */}
-          <div className="bg-white/40 backdrop-blur-lg border border-white/60 rounded-[32px] p-6 shadow-sm space-y-4">
-            <h3 className="text-xs font-black text-purple-950 uppercase tracking-wider flex items-center gap-2 border-b border-purple-100/50 pb-2">
-              <Heart className="w-4 h-4 text-rose-500" />
-              <span>Liked Guides ({likedArticles.length})</span>
-            </h3>
-            
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-h-[300px] overflow-y-auto pr-1">
-              {likedArticles.map(post => (
-                <div
-                  key={post.id}
-                  onClick={() => onSelectPost(post)}
-                  className="p-3 bg-white hover:bg-rose-50/20 rounded-2xl border border-rose-100/30 flex gap-2.5 items-center cursor-pointer transition-all hover:-translate-y-0.5 group"
-                >
-                  <img src={post.thumbnailUrl} alt={post.title} className="w-12 h-12 rounded-xl object-cover shrink-0 border border-purple-50" referrerPolicy="no-referrer" />
-                  <div className="flex-1 min-w-0">
-                    <p className="text-[9px] font-bold text-rose-500 uppercase tracking-wider">{post.category}</p>
-                    <h4 className="text-[11px] font-bold text-purple-950 line-clamp-2 leading-tight group-hover:text-rose-600 transition-colors">{post.title}</h4>
-                  </div>
-                </div>
-              ))}
-              {likedArticles.length === 0 && (
-                <p className="text-[11px] text-gray-400 py-6 text-center col-span-2">You haven't liked any articles yet.</p>
-              )}
-            </div>
-          </div>
-
-          {/* Reading History */}
-          <div className="bg-white/40 backdrop-blur-lg border border-white/60 rounded-[32px] p-6 shadow-sm space-y-4">
-            <h3 className="text-xs font-black text-purple-950 uppercase tracking-wider flex items-center gap-2 border-b border-purple-100/50 pb-2">
-              <History className="w-4 h-4 text-purple-600" />
-              <span>Reading Logs & History ({readingHistory.length})</span>
-            </h3>
-            
-            <div className="space-y-2.5 max-h-[250px] overflow-y-auto pr-1">
-              {readingHistory.map((item: any, idx) => {
-                const targetPost = allPosts.find(p => p.id === item.articleId);
-                return (
-                  <div
-                    key={idx}
-                    onClick={() => targetPost && onSelectPost(targetPost)}
-                    className="p-2.5 bg-white/70 hover:bg-purple-50/30 rounded-xl border border-purple-100/20 flex justify-between items-center text-xs cursor-pointer transition-colors"
-                  >
-                    <span className="font-bold text-purple-950 truncate max-w-[320px] hover:text-purple-700">
-                      {item.title}
-                    </span>
-                    <span className="text-[9px] text-gray-400 shrink-0 font-mono">
-                      {item.date} • {item.time}
-                    </span>
-                  </div>
-                );
-              })}
-              {readingHistory.length === 0 && (
-                <p className="text-[11px] text-gray-400 py-6 text-center">Your reading activities will be compiled and displayed here.</p>
-              )}
-            </div>
-          </div>
-
         </div>
-
-      </div>
+      )}
 
     </div>
   );

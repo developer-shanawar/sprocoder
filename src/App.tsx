@@ -1464,8 +1464,7 @@ export default function App() {
     }
   }, [allPosts, selectedPost?.id, isAdminAuthenticated]);
 
-  // Filter out posts that are scheduled to be published in the future or marked private
-  // Filter out posts that are scheduled to be published in the future, marked private, or missing title/id (blank articles)
+  // Filter out posts that are scheduled to be published in the future, marked private, missing title/id, or marked as course articles (visible only within courses)
   const visiblePosts = React.useMemo(() => {
     return allPosts.filter((post) => {
       if (!post || typeof post !== "object") return false;
@@ -1473,6 +1472,14 @@ export default function App() {
         return false;
       }
       if (post.visibility === "private") {
+        return false;
+      }
+      // Course articles should NOT be visible on the homepage or in the latest articles feed
+      if (
+        (post as any).isCourseArticle === true ||
+        (post as any).isCourseLesson === true ||
+        (post.tags && (post.tags.includes("Course Lesson") || post.tags.includes("Course Module")))
+      ) {
         return false;
       }
       if (post.publishStatus === "scheduled" && post.scheduledDate) {

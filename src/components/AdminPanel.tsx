@@ -3008,15 +3008,89 @@ export default function AdminPanel({ onClose, categories, setCategories, onLogou
                           />
                         </div>
 
-                        <div>
-                          <label className="block text-[10px] font-bold text-purple-900 uppercase mb-1">Thumbnail Image URL / SVG</label>
-                          <input
-                            type="text"
-                            value={editingCourseModal.thumbnailUrl || ""}
-                            onChange={(e) => setEditingCourseModal({ ...editingCourseModal, thumbnailUrl: e.target.value })}
-                            className="w-full px-3 py-2 rounded-xl bg-white border border-purple-200 font-mono text-[11px] focus:ring-2 focus:ring-purple-500 outline-none"
-                            placeholder="https://... or SVG Data URL"
-                          />
+                        <div className="md:col-span-2 p-3 bg-white rounded-2xl border border-purple-200 space-y-3">
+                          <label className="block text-[10px] font-black text-purple-900 uppercase tracking-wider flex items-center justify-between">
+                            <span className="flex items-center gap-1.5">
+                              <Upload className="w-3.5 h-3.5 text-purple-600" />
+                              <span>Course Thumbnail Image</span>
+                            </span>
+                            <span className="text-[9px] text-purple-600 font-normal">Drag & drop file, browse image, or enter image URL</span>
+                          </label>
+
+                          <div className="grid grid-cols-1 sm:grid-cols-12 gap-3 items-center">
+                            {/* Drag and Drop Zone */}
+                            <div 
+                              onDragOver={(e) => e.preventDefault()}
+                              onDrop={(e) => {
+                                e.preventDefault();
+                                const file = e.dataTransfer.files?.[0];
+                                if (file && file.type.startsWith("image/")) {
+                                  const reader = new FileReader();
+                                  reader.onload = (uploadEvent) => {
+                                    if (uploadEvent.target?.result) {
+                                      setEditingCourseModal({ ...editingCourseModal, thumbnailUrl: uploadEvent.target.result as string });
+                                    }
+                                  };
+                                  reader.readAsDataURL(file);
+                                }
+                              }}
+                              className="sm:col-span-8 p-3 border-2 border-dashed border-purple-300 hover:border-purple-500 bg-purple-50/40 hover:bg-purple-50 rounded-2xl transition-all text-center flex flex-col items-center justify-center gap-1.5 cursor-pointer relative group"
+                            >
+                              <Upload className="w-5 h-5 text-purple-600 group-hover:scale-110 transition-transform" />
+                              <p className="text-[10px] font-bold text-purple-900">
+                                Drag & Drop Course Thumbnail Here or <span className="text-purple-600 underline">Browse Local Files</span>
+                              </p>
+                              <p className="text-[9px] text-gray-500 font-mono">PNG, JPG, WEBP, GIF, or SVG supported</p>
+                              <input 
+                                type="file" 
+                                accept="image/*" 
+                                onChange={(e) => {
+                                  const file = e.target.files?.[0];
+                                  if (file) {
+                                    const reader = new FileReader();
+                                    reader.onload = (uploadEvent) => {
+                                      if (uploadEvent.target?.result) {
+                                        setEditingCourseModal({ ...editingCourseModal, thumbnailUrl: uploadEvent.target.result as string });
+                                      }
+                                    };
+                                    reader.readAsDataURL(file);
+                                  }
+                                }}
+                                className="absolute inset-0 opacity-0 cursor-pointer w-full h-full" 
+                              />
+                            </div>
+
+                            {/* Live Thumbnail Preview */}
+                            <div className="sm:col-span-4 flex flex-col items-center justify-center p-2 bg-slate-900 rounded-2xl border border-purple-200 aspect-video overflow-hidden relative shadow-inner">
+                              {editingCourseModal.thumbnailUrl ? (
+                                <img 
+                                  src={editingCourseModal.thumbnailUrl} 
+                                  alt="Course Thumbnail Preview" 
+                                  className="w-full h-full object-cover rounded-xl"
+                                  onError={(e) => {
+                                    (e.target as any).style.display = 'none';
+                                  }}
+                                />
+                              ) : (
+                                <div className="text-center p-2">
+                                  <BookOpen className="w-6 h-6 text-purple-400 mx-auto mb-1 opacity-60" />
+                                  <span className="text-[9px] text-purple-300 font-mono">No image uploaded</span>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+
+                          {/* Direct URL Input fallback */}
+                          <div className="pt-1 border-t border-purple-100">
+                            <label className="block text-[9px] font-bold text-purple-800 uppercase mb-0.5">Or Paste Direct Image URL</label>
+                            <input
+                              type="text"
+                              value={editingCourseModal.thumbnailUrl || ""}
+                              onChange={(e) => setEditingCourseModal({ ...editingCourseModal, thumbnailUrl: e.target.value })}
+                              className="w-full px-3 py-1.5 rounded-xl bg-purple-50/50 border border-purple-200 font-mono text-[10px] focus:ring-2 focus:ring-purple-500 outline-none"
+                              placeholder="https://images.unsplash.com/photo-1620712943543... or SVG Data URL"
+                            />
+                          </div>
                         </div>
 
                         <div>
