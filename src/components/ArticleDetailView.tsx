@@ -16,7 +16,11 @@ import {
   BookOpen,
   ChevronRight,
   ChevronLeft,
-  CheckCircle2
+  CheckCircle2,
+  Award,
+  Sparkles,
+  Layers,
+  Play
 } from "lucide-react";
 import { BlogPost, Comment, Course } from "../types";
 import { motion, AnimatePresence } from "motion/react";
@@ -415,54 +419,151 @@ export default function ArticleDetailView({
               </div>
             </article>
 
-            {/* Course Next Article Sequence Navigation */}
+            {/* Course Next Article Sequence & Larger Lesson Exchange Box */}
             {activeCourseContext && (
-              <div className="p-6 rounded-3xl bg-slate-950 text-white space-y-4 shadow-2xl border border-slate-800 my-8 animate-in fade-in" id="course-sequence-nav-box">
-                <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-800/80 pb-3">
+              <div className="p-8 rounded-[32px] bg-slate-950 text-white space-y-6 shadow-2xl border border-purple-900/60 my-10 animate-in fade-in relative overflow-hidden" id="course-sequence-nav-box">
+                {/* Visual Background Glow */}
+                <div className="absolute top-0 right-0 w-64 h-64 bg-purple-600/20 rounded-full blur-3xl pointer-events-none" />
+                
+                <div className="relative z-10 flex flex-wrap items-center justify-between gap-3 border-b border-slate-800 pb-4">
                   <div className="flex items-center gap-2">
-                    <BookOpen className="w-4.5 h-4.5 text-purple-400" />
-                    <span className="text-xs font-black uppercase tracking-wider text-purple-300">
-                      Course Curriculum • Lesson {activeCourseContext.lessonIndex + 1} of {activeCourseContext.course.lessons?.length || 1}
+                    <span className="p-2 rounded-xl bg-purple-600/30 text-purple-300 border border-purple-500/40">
+                      <BookOpen className="w-5 h-5 text-purple-400" />
                     </span>
+                    <div>
+                      <h4 className="text-sm font-black uppercase tracking-wider text-purple-200">
+                        Course Curriculum • Lesson {activeCourseContext.lessonIndex + 1} of {activeCourseContext.course.lessons?.length || 1}
+                      </h4>
+                      <p className="text-[11px] text-slate-400 font-medium">{activeCourseContext.course.title}</p>
+                    </div>
                   </div>
                   <button
                     onClick={onReturnToCourse || onClose}
-                    className="text-xs font-bold text-slate-300 hover:text-white bg-slate-800 hover:bg-slate-700 px-3 py-1 rounded-full transition-colors cursor-pointer border border-slate-700"
+                    className="text-xs font-bold text-purple-300 hover:text-white bg-purple-950/80 hover:bg-purple-900 px-4 py-2 rounded-full transition-colors cursor-pointer border border-purple-800 shadow-sm"
                   >
-                    Back to Course
+                    Back to Full Course
                   </button>
                 </div>
 
-                <p className="text-xs text-slate-300 leading-relaxed font-medium">
-                  {activeCourseContext.course.title}: Continuous Step-by-Step Learning
-                </p>
-
-                <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-2">
+                {/* Lesson Navigation Buttons */}
+                <div className="relative z-10 flex flex-col sm:flex-row items-center justify-between gap-4 pt-1">
                   {activeCourseContext.lessonIndex > 0 ? (
                     <button
                       onClick={() => onNavigateCourseLesson?.("prev")}
-                      className="w-full sm:w-auto px-4 py-3 rounded-2xl bg-slate-800 hover:bg-slate-700 text-white text-xs font-bold flex items-center justify-center gap-2 transition-all cursor-pointer border border-slate-700 active:scale-95 shadow-sm"
+                      className="w-full sm:w-auto px-5 py-3 rounded-2xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold flex items-center justify-center gap-2 transition-all cursor-pointer border border-slate-700 active:scale-95 shadow-md"
                     >
                       <ChevronLeft className="w-4 h-4 text-purple-400" />
-                      <span>Previous Lesson</span>
+                      <span>Previous Article Lesson</span>
                     </button>
                   ) : <div />}
 
                   {activeCourseContext.course.lessons && activeCourseContext.lessonIndex < activeCourseContext.course.lessons.length - 1 ? (
                     <button
                       onClick={() => onNavigateCourseLesson?.("next")}
-                      className="w-full sm:w-auto px-6 py-3 rounded-2xl bg-purple-600 hover:bg-purple-500 text-white text-xs font-black flex items-center justify-center gap-2 transition-all cursor-pointer shadow-lg active:scale-95 ml-auto"
+                      className="w-full sm:w-auto px-7 py-3.5 rounded-2xl bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white text-xs font-black flex items-center justify-center gap-2 transition-all cursor-pointer shadow-xl shadow-purple-950 active:scale-95 ml-auto"
                     >
-                      <span>Next Article in Sequence</span>
-                      <ChevronRight className="w-4 h-4 text-amber-300" />
+                      <span>Next Lesson in Course Sequence</span>
+                      <ChevronRight className="w-4.5 h-4.5 text-amber-300" />
                     </button>
                   ) : (
-                    <div className="text-xs font-bold text-emerald-400 flex items-center gap-1.5 bg-emerald-950/80 px-4 py-2.5 rounded-2xl border border-emerald-800/80 shadow-sm ml-auto">
-                      <CheckCircle2 className="w-4 h-4" />
-                      <span>Course Sequence Complete!</span>
+                    <div className="text-xs font-black text-emerald-300 flex items-center gap-2 bg-emerald-950/90 px-5 py-3 rounded-2xl border border-emerald-700/80 shadow-lg ml-auto">
+                      <CheckCircle2 className="w-5 h-5 text-emerald-400" />
+                      <span>All Lessons Completed!</span>
                     </div>
                   )}
                 </div>
+
+                {/* Larger Course Lesson Exchange & Replacement Boxes */}
+                {activeCourseContext.course.lessons && activeCourseContext.course.lessons.length > 0 && (
+                  <div className="relative z-10 pt-4 border-t border-slate-800 space-y-3">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-extrabold uppercase tracking-wider text-slate-300 flex items-center gap-2">
+                        <Layers className="w-4 h-4 text-purple-400" />
+                        <span>All Lessons in this Course (Click to Exchange / View)</span>
+                      </span>
+                      <span className="text-[10px] font-mono text-purple-400 font-bold bg-slate-900 px-2.5 py-1 rounded-full border border-slate-800">
+                        {activeCourseContext.course.lessons.length} Modules
+                      </span>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3 max-h-[360px] overflow-y-auto pr-1">
+                      {activeCourseContext.course.lessons.map((lesson: any, idx: number) => {
+                        const isCurrent = idx === activeCourseContext.lessonIndex;
+                        const isDone = idx < activeCourseContext.lessonIndex;
+                        return (
+                          <div
+                            key={lesson.id || idx}
+                            onClick={() => {
+                              if (idx !== activeCourseContext.lessonIndex) {
+                                if (idx > activeCourseContext.lessonIndex) {
+                                  onNavigateCourseLesson?.("next");
+                                } else {
+                                  onNavigateCourseLesson?.("prev");
+                                }
+                              }
+                            }}
+                            className={`p-4 rounded-2xl border transition-all cursor-pointer flex items-center gap-3.5 ${
+                              isCurrent
+                                ? "bg-purple-900/60 border-purple-500 text-white shadow-lg shadow-purple-950/50 scale-[1.01]"
+                                : isDone
+                                ? "bg-slate-900/80 border-slate-800/80 text-slate-300 hover:border-slate-700"
+                                : "bg-slate-900/40 border-slate-800/60 text-slate-400 hover:border-purple-800 hover:text-white"
+                            }`}
+                          >
+                            <div className={`w-9 h-9 rounded-xl font-black text-xs flex items-center justify-center shrink-0 ${
+                              isCurrent ? "bg-purple-500 text-white" : isDone ? "bg-emerald-950 text-emerald-400 border border-emerald-800" : "bg-slate-800 text-slate-400"
+                            }`}>
+                              {isDone ? <CheckCircle2 className="w-4 h-4" /> : idx + 1}
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <p className="text-[10px] font-mono uppercase text-purple-300 font-bold">
+                                {isCurrent ? "Currently Reading" : isDone ? "Completed" : `Module #${idx + 1}`}
+                              </p>
+                              <h5 className="text-xs font-bold truncate">{lesson.title}</h5>
+                            </div>
+                            {isCurrent ? (
+                              <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse shrink-0" />
+                            ) : (
+                              <ChevronRight className="w-4 h-4 text-slate-600 shrink-0" />
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+
+                {/* Sprinkle Congratulatory Site Banner when Course is Completed */}
+                {activeCourseContext.lessonIndex === (activeCourseContext.course.lessons?.length || 1) - 1 && (
+                  <div className="relative z-10 p-6 rounded-3xl bg-gradient-to-r from-purple-900 via-indigo-900 to-emerald-900 border-2 border-amber-400/80 shadow-2xl space-y-3 mt-4 text-center animate-in zoom-in duration-300">
+                    <div className="flex items-center justify-center gap-2">
+                      <Sparkles className="w-6 h-6 text-amber-300 animate-spin" />
+                      <span className="px-3 py-1 rounded-full bg-amber-400 text-slate-950 font-black text-xs uppercase tracking-widest">
+                        Sprinkle Celebration
+                      </span>
+                      <Sparkles className="w-6 h-6 text-amber-300 animate-spin" />
+                    </div>
+
+                    <h3 className="text-xl sm:text-2xl font-black text-white tracking-tight">
+                      🎉 Congratulations! You have completed the course!
+                    </h3>
+
+                    <p className="text-xs sm:text-sm text-purple-100 font-medium max-w-lg mx-auto leading-relaxed">
+                      You have successfully completed <strong>{activeCourseContext.course.title}</strong> on the Sprinkle platform of <strong>sprocoder.online</strong>!
+                    </p>
+
+                    <div className="pt-2 flex justify-center gap-3">
+                      <button
+                        onClick={onReturnToCourse || onClose}
+                        className="px-6 py-2.5 rounded-xl bg-amber-400 hover:bg-amber-300 text-slate-950 font-black text-xs flex items-center gap-2 transition-all cursor-pointer shadow-lg active:scale-95"
+                      >
+                        <Award className="w-4 h-4" />
+                        <span>View My Completed Courses</span>
+                      </button>
+                    </div>
+                  </div>
+                )}
+
               </div>
             )}
           </div>

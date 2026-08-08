@@ -70,6 +70,9 @@ export interface UserAccount {
   region?: string; // User State / Region
   savedArticles?: string[]; // list of post ids
   likedArticles?: string[]; // list of liked post ids
+  viewedCourses?: string[]; // list of viewed course ids
+  likedCourses?: string[]; // list of liked course ids
+  completedCourses?: string[]; // list of completed course ids
   history?: HistoryEntry[]; // list of reading logs
   role?: "admin" | "author" | "reader" | "marketer" | "guest";
   isBanned?: boolean;

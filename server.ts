@@ -1351,7 +1351,7 @@ const aiCourseSchema = {
           readTime: { type: Type.STRING, description: "e.g. '8 min read'" },
           content: { 
             type: Type.STRING, 
-            description: "Deep, 1200+ word step-by-step instructional guide in clean Markdown/HTML. Include clear headings, software setup instructions, simplified step-by-step guides, clean source code blocks with output demonstrations, green key term highlights <mark>[keyword]</mark>, and 3-5 FAQs." 
+            description: "Deep, 1200+ word step-by-step instructional guide in clean Markdown/HTML. Include clear headings, organized bullet points, software setup instructions, simplified step-by-step guides, clean source code blocks with output demonstrations, green key term highlights <mark>[keyword]</mark>, 2-3 authentic external links to official documentation or resources (e.g., [MDN Web Docs](https://developer.mozilla.org), [W3C Standards](https://www.w3.org), or official technology docs) to increase authority, and 3-5 FAQs." 
           },
           tags: {
             type: Type.ARRAY,
@@ -1576,10 +1576,11 @@ app.post("/api/ai-generate-lesson", async (req, res) => {
 
     const lessonPrompt = `Generate a complete, high-quality, step-by-step lesson article titled "Lesson ${num}: ${topic}" for the course "${courseTitle || "Tech Course"}" in category "${targetCategory}".
 Include:
-1. Clear beginner-friendly instructional steps.
+1. Clear beginner-friendly instructional steps with bullet points.
 2. Code blocks with practical examples and visual output demonstrations.
 3. Green key term highlights: <mark>[keyword]</mark>.
-4. 3-5 Frequently Asked Questions (FAQs) at the end.
+4. At least 2-3 authentic external links to official documentation (e.g. [MDN Web Docs](https://developer.mozilla.org), [W3C Specifications](https://www.w3.org), or official library guides) to boost content quality and authority.
+5. 3-5 Frequently Asked Questions (FAQs) at the end.
 Return JSON with fields: title, tagline, excerpt, readTime, content, tags.`;
 
     const singleLessonSchema = {

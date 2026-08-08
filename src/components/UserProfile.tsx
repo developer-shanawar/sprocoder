@@ -1,6 +1,6 @@
 import React, { useState } from "react";
-import { User, Mail, Calendar, KeyRound, Save, Bookmark, Heart, History, LogOut, Loader2, CheckCircle2, Camera, Upload, ShieldCheck, AtSign, Globe, MapPin } from "lucide-react";
-import { UserAccount, BlogPost } from "../types";
+import { User, Mail, Calendar, KeyRound, Save, Bookmark, Heart, History, LogOut, Loader2, CheckCircle2, Camera, Upload, ShieldCheck, AtSign, Globe, MapPin, BookOpen, Award, Sparkles, Layers } from "lucide-react";
+import { UserAccount, BlogPost, Course } from "../types";
 import { db, auth } from "../firebase";
 import { ref, update, get } from "firebase/database";
 import { updateEmail, updatePassword } from "firebase/auth";
@@ -9,7 +9,9 @@ interface UserProfileProps {
   currentUser: UserAccount | null;
   setCurrentUser: (user: UserAccount | null) => void;
   allPosts: BlogPost[];
+  courses?: Course[];
   onSelectPost: (post: BlogPost) => void;
+  onSelectCourse?: (course: Course) => void;
   onLogout: () => void;
 }
 
@@ -17,7 +19,9 @@ export default function UserProfile({
   currentUser,
   setCurrentUser,
   allPosts,
+  courses = [],
   onSelectPost,
+  onSelectCourse,
   onLogout
 }: UserProfileProps) {
   const [name, setName] = useState(currentUser?.name || "");
@@ -44,6 +48,11 @@ export default function UserProfile({
   // Filter saved & liked posts
   const savedArticles = allPosts.filter(post => currentUser.savedArticles?.includes(post.id));
   const likedArticles = allPosts.filter(post => currentUser.likedArticles?.includes(post.id));
+
+  // Filter viewed & liked courses
+  const viewedCoursesList = (courses || []).filter(c => currentUser.viewedCourses?.includes(c.id) || currentUser.viewedCourses?.includes(c.slug));
+  const likedCoursesList = (courses || []).filter(c => currentUser.likedCourses?.includes(c.id) || currentUser.likedCourses?.includes(c.slug));
+  const completedCoursesList = (courses || []).filter(c => currentUser.completedCourses?.includes(c.id) || currentUser.completedCourses?.includes(c.slug));
 
   // Get reading history in descending order
   const rawHistory = currentUser.history ? Object.values(currentUser.history) : [];
@@ -383,9 +392,96 @@ export default function UserProfile({
           </div>
         </div>
 
-        {/* Right Column: Dynamic Lists (Bookmarks, Likes, History) */}
+        {/* Right Column: Dynamic Lists (Bookmarks, Likes, Courses, History) */}
         <div className="lg:col-span-7 space-y-6">
           
+          {/* Courses Section */}
+          <div className="bg-white/40 backdrop-blur-lg border border-white/60 rounded-[32px] p-6 shadow-sm space-y-4">
+            <h3 className="text-xs font-black text-purple-950 uppercase tracking-wider flex items-center justify-between border-b border-purple-100/50 pb-2">
+              <span className="flex items-center gap-2">
+                <BookOpen className="w-4 h-4 text-purple-600" />
+                <span>My Courses Activity</span>
+              </span>
+              <span className="text-[10px] font-mono text-purple-600 font-bold bg-purple-50 px-2.5 py-0.5 rounded-full border border-purple-100">
+                {viewedCoursesList.length} Viewed • {likedCoursesList.length} Liked
+              </span>
+            </h3>
+
+            {/* Viewed Courses */}
+            <div className="space-y-2">
+              <p className="text-[10px] font-black text-purple-900 uppercase tracking-wider flex items-center gap-1.5">
+                <Layers className="w-3.5 h-3.5 text-purple-500" />
+                <span>Viewed Courses ({viewedCoursesList.length})</span>
+              </p>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-h-[220px] overflow-y-auto pr-1">
+                {viewedCoursesList.map(course => (
+                  <div
+                    key={course.id}
+                    onClick={() => onSelectCourse && onSelectCourse(course)}
+                    className="p-3 bg-white hover:bg-purple-50/40 rounded-2xl border border-purple-100/40 flex gap-2.5 items-center cursor-pointer transition-all hover:-translate-y-0.5 group"
+                  >
+                    <div className="w-10 h-10 rounded-xl bg-purple-600 text-white font-extrabold text-xs flex items-center justify-center shrink-0 shadow-sm">
+                      <BookOpen className="w-5 h-5" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-[9px] font-bold text-purple-600 uppercase tracking-wider">{course.category}</p>
+                      <h4 className="text-[11px] font-bold text-purple-950 line-clamp-2 leading-tight group-hover:text-purple-700 transition-colors">{course.title}</h4>
+                    </div>
+                  </div>
+                ))}
+                {viewedCoursesList.length === 0 && (
+                  <p className="text-[10px] text-gray-400 py-3 text-center col-span-2 bg-white/50 rounded-xl border border-dashed border-purple-100">No viewed courses recorded yet. Explore our courses catalog to start learning!</p>
+                )}
+              </div>
+            </div>
+
+            {/* Liked Courses */}
+            <div className="space-y-2 pt-2 border-t border-purple-100/40">
+              <p className="text-[10px] font-black text-rose-900 uppercase tracking-wider flex items-center gap-1.5">
+                <Heart className="w-3.5 h-3.5 text-rose-500 fill-rose-500" />
+                <span>Liked Courses ({likedCoursesList.length})</span>
+              </p>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-h-[220px] overflow-y-auto pr-1">
+                {likedCoursesList.map(course => (
+                  <div
+                    key={course.id}
+                    onClick={() => onSelectCourse && onSelectCourse(course)}
+                    className="p-3 bg-white hover:bg-rose-50/20 rounded-2xl border border-rose-100/30 flex gap-2.5 items-center cursor-pointer transition-all hover:-translate-y-0.5 group"
+                  >
+                    <div className="w-10 h-10 rounded-xl bg-rose-500 text-white font-extrabold text-xs flex items-center justify-center shrink-0 shadow-sm">
+                      <Heart className="w-5 h-5 fill-white" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-[9px] font-bold text-rose-500 uppercase tracking-wider">{course.category}</p>
+                      <h4 className="text-[11px] font-bold text-purple-950 line-clamp-2 leading-tight group-hover:text-rose-600 transition-colors">{course.title}</h4>
+                    </div>
+                  </div>
+                ))}
+                {likedCoursesList.length === 0 && (
+                  <p className="text-[10px] text-gray-400 py-3 text-center col-span-2 bg-white/50 rounded-xl border border-dashed border-rose-100">You haven't liked any courses yet.</p>
+                )}
+              </div>
+            </div>
+
+            {/* Completed Courses Celebration Badges */}
+            {completedCoursesList.length > 0 && (
+              <div className="space-y-2 pt-2 border-t border-purple-100/40">
+                <p className="text-[10px] font-black text-emerald-900 uppercase tracking-wider flex items-center gap-1.5">
+                  <Award className="w-3.5 h-3.5 text-emerald-600" />
+                  <span>Completed Courses ({completedCoursesList.length})</span>
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  {completedCoursesList.map(course => (
+                    <span key={course.id} className="inline-flex items-center gap-1.5 px-3 py-1 bg-emerald-50 text-emerald-800 border border-emerald-200 rounded-full text-[11px] font-bold">
+                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                      <span>{course.title}</span>
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+
           {/* Saved Articles */}
           <div className="bg-white/40 backdrop-blur-lg border border-white/60 rounded-[32px] p-6 shadow-sm space-y-4">
             <h3 className="text-xs font-black text-purple-950 uppercase tracking-wider flex items-center gap-2 border-b border-purple-100/50 pb-2">

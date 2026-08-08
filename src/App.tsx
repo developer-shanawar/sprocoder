@@ -2615,6 +2615,12 @@ export default function App() {
                 currentUser={currentUser}
                 setCurrentUser={setCurrentUser}
                 allPosts={allPosts}
+                courses={courses}
+                onSelectCourse={(course) => {
+                  setSelectedCourseSlug(course.slug);
+                  setCurrentTab("courses");
+                  window.history.pushState(null, "", `/courses/${course.slug}`);
+                }}
                 onSelectPost={(post) => handleSelectPost(post)}
                 onLogout={() => {
                   setCurrentUser(null);
