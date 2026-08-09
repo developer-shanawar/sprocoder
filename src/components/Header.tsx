@@ -11,8 +11,8 @@ import RegistrationWizardModal from "./RegistrationWizardModal";
 import { motion, AnimatePresence } from "motion/react";
 
 interface HeaderProps {
-  currentTab: "home" | "articles" | "courses" | "about" | "privacy" | "terms" | "contact" | "admin-auth" | "admin" | "profile" | "disclaimer";
-  setCurrentTab: (tab: "home" | "articles" | "courses" | "about" | "privacy" | "terms" | "contact" | "admin-auth" | "admin" | "profile" | "disclaimer") => void;
+  currentTab: "home" | "articles" | "courses" | "about" | "privacy" | "terms" | "contact" | "admin-auth" | "admin" | "profile" | "disclaimer" | "register";
+  setCurrentTab: (tab: "home" | "articles" | "courses" | "about" | "privacy" | "terms" | "contact" | "admin-auth" | "admin" | "profile" | "disclaimer" | "register") => void;
   currentUser: UserAccount | null;
   setCurrentUser: (user: UserAccount | null) => void;
   onOpenAdmin: () => void;
@@ -570,13 +570,28 @@ export default function Header({
           ) : (
             <div className="flex items-center gap-1.5">
               <button
-                onClick={() => setIsRegisterWizardOpen(true)}
-                className="px-3 py-1.5 rounded-full bg-purple-700 hover:bg-purple-800 text-white text-[11px] font-extrabold flex items-center gap-1 cursor-pointer transition-all active:scale-95 shadow-sm"
-                id="auth-register-signin-combined-btn"
-                title="Register a new account or Sign In"
+                onClick={() => {
+                  setAuthMode("login");
+                  setIsAuthModalOpen(true);
+                }}
+                className="px-3 py-1.5 rounded-full bg-purple-100 hover:bg-purple-200 text-purple-900 text-[11px] font-extrabold flex items-center gap-1 cursor-pointer transition-all active:scale-95"
+                id="auth-signin-btn"
+                title="Sign In to your Account"
+              >
+                <LogIn className="w-3.5 h-3.5 text-purple-700" />
+                <span>Sign In</span>
+              </button>
+              <button
+                onClick={() => {
+                  window.history.pushState(null, "", "/register");
+                  setCurrentTab("register");
+                }}
+                className="px-3.5 py-1.5 rounded-full bg-purple-700 hover:bg-purple-800 text-white text-[11px] font-extrabold flex items-center gap-1 cursor-pointer transition-all active:scale-95 shadow-sm"
+                id="auth-register-btn"
+                title="Create a Reader Account"
               >
                 <Sparkles className="w-3.5 h-3.5 text-amber-300" />
-                <span>Register & Sign In</span>
+                <span>Register</span>
               </button>
             </div>
           )}
@@ -642,8 +657,9 @@ export default function Header({
                       </button>
                       <button
                         onClick={() => {
-                          setIsRegisterWizardOpen(true);
                           setIsMobileMenuOpen(false);
+                          window.history.pushState(null, "", "/register");
+                          setCurrentTab("register");
                         }}
                         className="w-full py-2 px-2 rounded-xl bg-purple-600 hover:bg-purple-700 text-white text-xs font-bold flex items-center justify-center gap-1 cursor-pointer transition-all shadow-sm"
                         id="mobile-drawer-register-btn"
@@ -811,11 +827,12 @@ export default function Header({
                   <button
                     onClick={() => {
                       setIsAuthModalOpen(false);
-                      setIsRegisterWizardOpen(true);
+                      window.history.pushState(null, "", "/register");
+                      setCurrentTab("register");
                     }}
                     className="text-purple-600 font-bold hover:underline cursor-pointer"
                   >
-                    Launch Step-by-Step Registration Wizard
+                    Create a Reader Account
                   </button>
                 </p>
               </div>

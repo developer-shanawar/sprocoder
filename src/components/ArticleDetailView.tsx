@@ -37,6 +37,7 @@ interface ArticleDetailViewProps {
   allPosts: BlogPost[];
   onSelectPost: (post: BlogPost) => void;
   onClose: () => void;
+  onReturnToHome?: () => void;
   isBookmarked: boolean;
   onToggleBookmark: () => void;
   onLike: () => void;
@@ -128,6 +129,7 @@ export default function ArticleDetailView({
   allPosts,
   onSelectPost,
   onClose,
+  onReturnToHome,
   isBookmarked,
   onToggleBookmark,
   onLike,
@@ -145,6 +147,7 @@ export default function ArticleDetailView({
   const [activeReplyCommentId, setActiveReplyCommentId] = useState<string | null>(null);
   const [replyText, setReplyText] = useState("");
   const [lightboxImg, setLightboxImg] = useState<string | null>(null);
+  const [showCourseCompletedModal, setShowCourseCompletedModal] = useState<boolean>(true);
 
   // Extract unique keywords for interactive Keywords Box
   const keywordList = React.useMemo(() => {
@@ -534,13 +537,84 @@ export default function ArticleDetailView({
                   </div>
                 )}
 
-                {/* Sprinkle Congratulatory Site Banner & Fullscreen Confetti Overlay when Course is Completed */}
+                {/* Course Completed Pop-Up Modal & Fullscreen Confetti Overlay */}
                 {activeCourseContext.lessonIndex === (activeCourseContext.course.lessons?.length || 1) - 1 && (
                   <>
                     <SprinkleConfetti 
                       show={true} 
                       courseTitle={activeCourseContext.course.title} 
                     />
+
+                    {/* COURSE COMPLETED POP-UP MODAL */}
+                    {showCourseCompletedModal && (
+                      <AnimatePresence>
+                        <div className="fixed inset-0 z-[10000] flex items-center justify-center p-4">
+                          {/* Backdrop */}
+                          <motion.div 
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            exit={{ opacity: 0 }}
+                            onClick={() => {
+                              setShowCourseCompletedModal(false);
+                              if (onReturnToHome) onReturnToHome();
+                              else onClose();
+                            }}
+                            className="absolute inset-0 bg-slate-950/80 backdrop-blur-md"
+                          />
+
+                          {/* Animated Pop-Up Card */}
+                          <motion.div
+                            initial={{ scale: 0.7, opacity: 0, y: 20 }}
+                            animate={{ scale: 1, opacity: 1, y: 0 }}
+                            exit={{ scale: 0.7, opacity: 0, y: 20 }}
+                            transition={{ type: "spring", stiffness: 300, damping: 22 }}
+                            className="relative z-10 w-full max-w-lg bg-slate-900 border-2 border-amber-400 text-white p-8 rounded-[36px] shadow-2xl text-center space-y-6"
+                            id="course-completed-popup-modal"
+                          >
+                            {/* Animated Green Checkmark Badge with Glow */}
+                            <div className="relative mx-auto w-20 h-20 flex items-center justify-center">
+                              <motion.div 
+                                initial={{ scale: 0, rotate: -45 }}
+                                animate={{ scale: 1, rotate: 0 }}
+                                transition={{ type: "spring", stiffness: 200, damping: 15 }}
+                                className="w-20 h-20 rounded-full bg-emerald-500 text-white flex items-center justify-center shadow-2xl shadow-emerald-500/50"
+                              >
+                                <CheckCircle2 className="w-12 h-12 text-white stroke-[2.5]" />
+                              </motion.div>
+                              <div className="absolute inset-0 rounded-full bg-emerald-400 animate-ping opacity-30 pointer-events-none" />
+                            </div>
+
+                            <div className="space-y-2">
+                              <div className="inline-flex items-center gap-2 px-3.5 py-1 rounded-full bg-amber-400 text-slate-950 font-black text-xs uppercase tracking-widest shadow-md">
+                                <Sparkles className="w-4 h-4 text-slate-950" />
+                                <span>Sprinkle Coder Passed</span>
+                              </div>
+                              <h2 className="text-2xl sm:text-3xl font-black text-white tracking-tight">
+                                Course completed successfully.
+                              </h2>
+                              <p className="text-xs sm:text-sm text-slate-300 font-medium leading-relaxed max-w-md mx-auto">
+                                Congratulations! You have successfully mastered all lessons in <strong>{activeCourseContext.course.title}</strong>!
+                              </p>
+                            </div>
+
+                            <div className="pt-2">
+                              <button
+                                onClick={() => {
+                                  setShowCourseCompletedModal(false);
+                                  if (onReturnToHome) onReturnToHome();
+                                  else onClose();
+                                }}
+                                className="w-full py-4 px-6 rounded-2xl bg-gradient-to-r from-emerald-500 via-amber-400 to-amber-500 hover:from-emerald-400 hover:to-amber-300 text-slate-950 font-black text-xs uppercase tracking-wider transition-all cursor-pointer shadow-xl active:scale-95 flex items-center justify-center gap-2"
+                              >
+                                <Award className="w-4.5 h-4.5 text-slate-950" />
+                                <span>Return to Homepage</span>
+                              </button>
+                            </div>
+                          </motion.div>
+                        </div>
+                      </AnimatePresence>
+                    )}
+
                     <div className="relative z-10 p-6 rounded-3xl bg-gradient-to-r from-purple-900 via-indigo-900 to-emerald-900 border-2 border-amber-400/80 shadow-2xl space-y-3 mt-4 text-center animate-in zoom-in duration-300">
                       <div className="flex items-center justify-center gap-2">
                         <Sparkles className="w-6 h-6 text-amber-300 animate-spin" />
@@ -551,7 +625,7 @@ export default function ArticleDetailView({
                       </div>
 
                       <h3 className="text-xl sm:text-2xl font-black text-white tracking-tight">
-                        🎉 Congratulations! You have completed the course!
+                        🎉 Course completed successfully.
                       </h3>
 
                       <p className="text-xs sm:text-sm text-purple-100 font-medium max-w-lg mx-auto leading-relaxed">
@@ -560,11 +634,14 @@ export default function ArticleDetailView({
 
                       <div className="pt-2 flex justify-center gap-3">
                         <button
-                          onClick={onReturnToCourse || onClose}
+                          onClick={() => {
+                            if (onReturnToHome) onReturnToHome();
+                            else onClose();
+                          }}
                           className="px-6 py-2.5 rounded-xl bg-amber-400 hover:bg-amber-300 text-slate-950 font-black text-xs flex items-center gap-2 transition-all cursor-pointer shadow-lg active:scale-95"
                         >
                           <Award className="w-4 h-4" />
-                          <span>View My Completed Courses</span>
+                          <span>Return to Homepage</span>
                         </button>
                       </div>
                     </div>

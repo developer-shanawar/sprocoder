@@ -24,6 +24,7 @@ const YouTubeShowcase = React.lazy(() => import("./components/YouTubeShowcase"))
 const AdminAuth = React.lazy(() => import("./components/AdminAuth"));
 const UserProfile = React.lazy(() => import("./components/UserProfile"));
 const CoursesView = React.lazy(() => import("./components/CoursesView"));
+const RegistrationPage = React.lazy(() => import("./components/RegistrationPage"));
 import AdRenderer from "./components/AdRenderer";
 
 const LoadingSpinner = () => (
@@ -93,9 +94,10 @@ const SplashScreen = () => {
 
 export default function App() {
   // Navigation tabs initialized from window.location.pathname dynamically
-  const [currentTab, setCurrentTab] = useState<"home" | "articles" | "about" | "privacy" | "terms" | "contact" | "admin-auth" | "admin" | "profile" | "disclaimer" | "courses">(() => {
+  const [currentTab, setCurrentTab] = useState<"home" | "articles" | "about" | "privacy" | "terms" | "contact" | "admin-auth" | "admin" | "profile" | "disclaimer" | "courses" | "register">(() => {
     if (typeof window === "undefined") return "home";
     const path = window.location.pathname;
+    if (path === "/register" || path === "/signup") return "register";
     if (path === "/courses" || path.startsWith("/courses/")) return "courses";
     if (path === "/blog" || path === "/articles") return "articles";
     if (path === "/about-us" || path === "/about") return "about";
@@ -451,6 +453,9 @@ export default function App() {
     } else if (path.startsWith("/courses/")) {
       setCurrentTab("courses");
       setSelectedCourseSlug(path.replace("/courses/", "").trim());
+      setSelectedPost(null);
+    } else if (path === "/register" || path === "/signup") {
+      setCurrentTab("register");
       setSelectedPost(null);
     } else if (path === "/blog" || path === "/articles") {
       setCurrentTab("articles");
@@ -1997,6 +2002,12 @@ export default function App() {
             activeCourseContext={activeCourseContext}
             onNavigateCourseLesson={(direction) => handleNavigateCourseLesson(direction)}
             onReturnToCourse={() => handleReturnToCourse()}
+            onReturnToHome={() => {
+              setSelectedPost(null);
+              setActiveCourseContext(null);
+              setCurrentTab("home");
+              window.history.pushState(null, "", "/");
+            }}
           />
         ) : (
           <>
@@ -2633,6 +2644,23 @@ export default function App() {
                   setCurrentUser(null);
                   localStorage.removeItem("spro_user");
                   setCurrentTab("home");
+                }}
+              />
+            </React.Suspense>
+          </div>
+        )}
+
+        {/* VIEW 4.6: REGISTER PAGE */}
+        {currentTab === "register" && (
+          <div className="max-w-3xl mx-auto animate-in fade-in duration-300" id="register-view-container">
+            <React.Suspense fallback={<LoadingSpinner />}>
+              <RegistrationPage 
+                onSuccessRegistration={(registeredUser) => {
+                  setCurrentUser(registeredUser);
+                }}
+                onNavigateHome={() => {
+                  setCurrentTab("home");
+                  window.history.pushState(null, "", "/");
                 }}
               />
             </React.Suspense>

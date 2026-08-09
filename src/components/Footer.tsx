@@ -4,8 +4,8 @@ import { db } from "../firebase";
 import { ref, onValue } from "firebase/database";
 
 interface FooterProps {
-  currentTab: "home" | "articles" | "courses" | "about" | "privacy" | "terms" | "contact" | "admin-auth" | "admin" | "profile" | "disclaimer";
-  setCurrentTab: (tab: "home" | "articles" | "courses" | "about" | "privacy" | "terms" | "contact" | "admin-auth" | "admin" | "profile" | "disclaimer") => void;
+  currentTab: "home" | "articles" | "courses" | "about" | "privacy" | "terms" | "contact" | "admin-auth" | "admin" | "profile" | "disclaimer" | "register";
+  setCurrentTab: (tab: "home" | "articles" | "courses" | "about" | "privacy" | "terms" | "contact" | "admin-auth" | "admin" | "profile" | "disclaimer" | "register") => void;
   isAdminAuthenticated: boolean;
   websiteIconUrl?: string;
   showWebsiteIcon?: boolean;
