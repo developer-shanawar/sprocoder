@@ -9,7 +9,7 @@ export const COOKIE_NAMES = {
   SUBDOMAIN_AUTH: "spro_code_subdomain_auth"
 };
 
-export const CODING_SUBDOMAIN = "https://code.espro.online";
+export const CODING_SUBDOMAIN = "https://code.sprocoder.online";
 
 /**
  * Generate a unique Section ID for the user session / coding section setup.
@@ -118,7 +118,7 @@ export async function initUserSectionSession(user: UserAccount): Promise<{
   setCookie(COOKIE_NAMES.SESSION_TOKEN, sessionToken, 365);
   setCookie(COOKIE_NAMES.USER_ID, user.id, 365);
   
-  // Store payload string for code.espro.online subdomain single sign-on
+  // Store payload string for code.sprocoder.online subdomain single sign-on
   const authPayload = JSON.stringify({
     userId: user.id,
     sectionId,

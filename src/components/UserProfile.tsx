@@ -27,11 +27,10 @@ import {
   FileText,
   AlertTriangle,
   Code,
-  Copy,
   ExternalLink
 } from "lucide-react";
 import { UserAccount, BlogPost, Course } from "../types";
-import { getCodingSectionRedirectUrl, getCookie, COOKIE_NAMES } from "../utils/sessionManager";
+import { getCodingSectionRedirectUrl } from "../utils/sessionManager";
 import { db, auth } from "../firebase";
 import { ref, update, get } from "firebase/database";
 import { updateEmail, updatePassword } from "firebase/auth";
@@ -298,50 +297,38 @@ export default function UserProfile({
         </div>
       </div>
 
-      {/* CODING SECTION ID & SESSION COOKIE BADGE */}
-      <div className="bg-slate-900 border border-slate-800 rounded-2xl p-4 text-white shadow-xl flex flex-col md:flex-row items-center justify-between gap-4">
+      {/* CODING SECTION SESSION LINK CARD */}
+      <div className="bg-slate-900 border border-slate-800 rounded-2xl p-4.5 text-white shadow-xl flex flex-col sm:flex-row items-center justify-between gap-4">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-purple-500/20 border border-purple-500/40 text-purple-300 flex items-center justify-center shrink-0">
-            <Code className="w-5 h-5" />
+          <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-purple-500/20 to-indigo-500/20 border border-purple-500/40 text-purple-300 flex items-center justify-center shrink-0 shadow-inner">
+            <Code className="w-5 h-5 text-purple-400" />
           </div>
           <div>
             <div className="flex items-center gap-2">
-              <span className="text-xs font-black uppercase text-purple-400 tracking-wider">Coding Section ID</span>
+              <span className="text-xs font-black uppercase text-purple-400 tracking-wider">Coding Section</span>
               <span className="text-[10px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 px-2 py-0.5 rounded-full flex items-center gap-1">
                 <CheckCircle2 className="w-3 h-3 text-emerald-400" />
-                <span>Cookie Active</span>
+                <span>Session Linked</span>
               </span>
             </div>
-            <p className="text-xs font-mono text-slate-300 font-bold mt-0.5">
-              {currentUser.sectionId || getCookie(COOKIE_NAMES.SECTION_ID) || "sec_code_active_session"}
-            </p>
-            <p className="text-[10px] text-slate-400 mt-0.5">
-              Single Sign-On Session linked for <strong>code.espro.online</strong> VS Code workspace.
+            <p className="text-xs font-semibold text-slate-300 mt-0.5">
+              Access your cloud VS Code workspace on <strong>code.sprocoder.online</strong>
             </p>
           </div>
         </div>
 
-        <div className="flex items-center gap-2 w-full md:w-auto justify-end">
-          <button
-            onClick={() => {
-              const sec = currentUser.sectionId || getCookie(COOKIE_NAMES.SECTION_ID) || "";
-              navigator.clipboard.writeText(sec);
-              alert(`Copied Section ID: ${sec}`);
-            }}
-            className="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-bold flex items-center gap-1.5 transition-all border border-slate-700 cursor-pointer"
-          >
-            <Copy className="w-3.5 h-3.5 text-slate-400" />
-            <span>Copy Section ID</span>
-          </button>
-          
+        <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
           <a
             href={getCodingSectionRedirectUrl(currentUser.sectionId, currentUser.sessionToken)}
             target="_blank"
             rel="noopener noreferrer"
-            className="px-3.5 py-1.5 rounded-xl bg-purple-600 hover:bg-purple-500 text-white text-xs font-extrabold flex items-center gap-1.5 transition-all shadow-md cursor-pointer"
+            className="w-full sm:w-auto px-5 py-2.5 rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white text-xs font-black flex items-center justify-center gap-2 transition-all shadow-lg shadow-purple-900/40 active:scale-95 cursor-pointer border border-purple-400/30"
+            id="open-code-editor-btn"
+            title="Open Code Editor on code.sprocoder.online"
           >
-            <ExternalLink className="w-3.5 h-3.5" />
-            <span>Open code.espro.online</span>
+            <Code className="w-4 h-4 text-purple-200" />
+            <span>Open Code Editor</span>
+            <ExternalLink className="w-3.5 h-3.5 text-purple-200/80" />
           </a>
         </div>
       </div>
