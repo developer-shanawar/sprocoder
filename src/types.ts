@@ -79,6 +79,8 @@ export interface UserAccount {
   banReason?: string;
   bannedAt?: string;
   publishedArticlesCount?: number;
+  sectionId?: string; // Unique Section ID for cross-subdomain coding workspace (code.espro.online)
+  sessionToken?: string; // Session token stored in browser cookie
 }
 
 export interface ContactMessage {

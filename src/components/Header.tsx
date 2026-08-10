@@ -9,6 +9,7 @@ import { signInWithEmailAndPassword, createUserWithEmailAndPassword, signInWithP
 import { BlogPost, UserAccount, NotificationItem } from "../types";
 import RegistrationWizardModal from "./RegistrationWizardModal";
 import { motion, AnimatePresence } from "motion/react";
+import { initUserSectionSession, clearSectionSession } from "../utils/sessionManager";
 
 interface HeaderProps {
   currentTab: "home" | "articles" | "courses" | "about" | "privacy" | "terms" | "contact" | "admin-auth" | "admin" | "profile" | "disclaimer" | "register";
@@ -122,7 +123,7 @@ export default function Header({
           userId = "user_" + Math.random().toString(36).substring(2, 9);
         }
 
-        const newUser: UserAccount = {
+        const rawUser: UserAccount = {
           id: userId,
           name: name.trim(),
           email: email.trim().toLowerCase(),
@@ -130,17 +131,19 @@ export default function Header({
           lastLogin: new Date().toLocaleString()
         };
 
+        const { updatedUser } = await initUserSectionSession(rawUser);
+
         // Save to Firebase DB
-        await set(ref(db, `${DB_PATHS.USERS}/${userId}`), newUser);
+        await set(ref(db, `${DB_PATHS.USERS}/${userId}`), updatedUser);
         
         // Push secure registration log
         const logRef = push(ref(db, `logs/registrations`));
         await set(logRef, { userId, email: email.trim(), date: new Date().toLocaleString() });
 
-        setCurrentUser(newUser);
-        localStorage.setItem("spro_user", JSON.stringify(newUser));
+        setCurrentUser(updatedUser);
+        localStorage.setItem("spro_user", JSON.stringify(updatedUser));
         setIsAuthModalOpen(false);
-        alert(`Welcome, ${newUser.name}! Your account has been created successfully.`);
+        alert(`Welcome, ${updatedUser.name}! Your account has been created successfully.`);
       } else {
         // Login Flow
         let userId = "";
@@ -170,13 +173,17 @@ export default function Header({
           return;
         }
 
-        const updatedUser: UserAccount = {
+        const rawUser: UserAccount = {
           ...matchingUser,
           lastLogin: new Date().toLocaleString()
         };
 
+        const { updatedUser } = await initUserSectionSession(rawUser);
+
         await update(ref(db, `${DB_PATHS.USERS}/${matchingUser.id}`), {
-          lastLogin: updatedUser.lastLogin
+          lastLogin: updatedUser.lastLogin,
+          sectionId: updatedUser.sectionId,
+          sessionToken: updatedUser.sessionToken
         });
 
         setCurrentUser(updatedUser);
@@ -223,31 +230,39 @@ export default function Header({
       const allUsers: Record<string, any> = snapshot.exists() ? snapshot.val() : {};
 
       const existing = allUsers[gId] || Object.values(allUsers).find((u: any) => u.email === gEmail);
-      let targetUser: UserAccount;
+      let rawUser: UserAccount;
 
       if (existing) {
-        targetUser = {
+        rawUser = {
           ...existing,
           lastLogin: new Date().toLocaleString()
         };
-        await update(ref(db, `${DB_PATHS.USERS}/${existing.id}`), {
-          lastLogin: targetUser.lastLogin
-        });
       } else {
-        targetUser = {
+        rawUser = {
           id: gId,
           name: gName,
           email: gEmail,
           registeredAt: new Date().toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" }),
           lastLogin: new Date().toLocaleString()
         };
-        await set(ref(db, `${DB_PATHS.USERS}/${gId}`), targetUser);
       }
 
-      setCurrentUser(targetUser);
-      localStorage.setItem("spro_user", JSON.stringify(targetUser));
+      const { updatedUser } = await initUserSectionSession(rawUser);
+
+      if (existing) {
+        await update(ref(db, `${DB_PATHS.USERS}/${existing.id}`), {
+          lastLogin: updatedUser.lastLogin,
+          sectionId: updatedUser.sectionId,
+          sessionToken: updatedUser.sessionToken
+        });
+      } else {
+        await set(ref(db, `${DB_PATHS.USERS}/${gId}`), updatedUser);
+      }
+
+      setCurrentUser(updatedUser);
+      localStorage.setItem("spro_user", JSON.stringify(updatedUser));
       setIsAuthModalOpen(false);
-      alert(`Logged in! Welcome, ${targetUser.name}.`);
+      alert(`Logged in! Welcome, ${updatedUser.name}.`);
     } catch (err) {
       console.error(err);
     }
@@ -256,6 +271,7 @@ export default function Header({
   const handleLogout = () => {
     setCurrentUser(null);
     localStorage.removeItem("spro_user");
+    clearSectionSession();
     setIsProfileOpen(false);
     alert("You have logged out.");
   };

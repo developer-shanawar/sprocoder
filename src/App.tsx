@@ -10,6 +10,7 @@ import { ref, set, onValue, get, update, push } from "firebase/database";
 import { onAuthStateChanged } from "firebase/auth";
 import { BlogPost, Comment, UserAccount, AdminPages, Course, CourseLesson } from "./types";
 import { INITIAL_POSTS } from "./data";
+import { initUserSectionSession } from "./utils/sessionManager";
 
 // Modular Component Imports
 import Header from "./components/Header";
@@ -124,6 +125,20 @@ export default function App() {
       return null;
     }
   });
+
+  // Ensure Section ID & Cookies are active for logged in user session
+  useEffect(() => {
+    if (currentUser) {
+      initUserSectionSession(currentUser).then(({ updatedUser }) => {
+        if (!currentUser.sectionId || currentUser.sectionId !== updatedUser.sectionId) {
+          setCurrentUser(updatedUser);
+          localStorage.setItem("spro_user", JSON.stringify(updatedUser));
+        }
+      }).catch(err => {
+        console.warn("Session init sync notice:", err);
+      });
+    }
+  }, [currentUser?.id]);
 
   // Admin auth state
   const [isAdminAuthenticated, setIsAdminAuthenticated] = useState<boolean>(() => {

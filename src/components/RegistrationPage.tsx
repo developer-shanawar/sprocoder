@@ -9,6 +9,7 @@ import { UserAccount } from "../types";
 import { db, auth, DB_PATHS } from "../firebase";
 import { ref, get, set, push } from "firebase/database";
 import { createUserWithEmailAndPassword } from "firebase/auth";
+import { initUserSectionSession } from "../utils/sessionManager";
 
 interface RegistrationPageProps {
   onSuccessRegistration: (user: UserAccount) => void;
@@ -167,7 +168,7 @@ export default function RegistrationPage({
         userId = "reader_" + Math.random().toString(36).substring(2, 10);
       }
 
-      const newUser: UserAccount = {
+      const rawUser: UserAccount = {
         id: userId,
         name: name.trim(),
         username: cleanUsername || `@reader_${Math.floor(1000 + Math.random() * 9000)}`,
@@ -179,30 +180,35 @@ export default function RegistrationPage({
         city
       };
 
+      // Generate unique Section ID system & set browser cookies (for code.espro.online subdomain support)
+      const { updatedUser, sectionId, sessionToken } = await initUserSectionSession(rawUser);
+
       // Store in Firebase Realtime Database
-      await set(ref(db, `${DB_PATHS.USERS}/${userId}`), newUser);
+      await set(ref(db, `${DB_PATHS.USERS}/${userId}`), updatedUser);
 
       // Log registration event
       const logRef = push(ref(db, `logs/registrations`));
       await set(logRef, {
         userId,
+        sectionId,
+        sessionToken,
         name: name.trim(),
         email: email.trim(),
-        username: newUser.username,
+        username: updatedUser.username,
         ipAddress,
         country,
         date: new Date().toLocaleString()
       });
 
       // Save to localStorage & local state
-      localStorage.setItem("spro_user", JSON.stringify(newUser));
+      localStorage.setItem("spro_user", JSON.stringify(updatedUser));
 
       // Trigger High-Level Success Animation
       setIsSubmittedSuccess(true);
       setIsSubmitting(false);
 
       // Trigger success login callback
-      onSuccessRegistration(newUser);
+      onSuccessRegistration(updatedUser);
 
       // Redirect to homepage after short delay for user to admire the animation
       setTimeout(() => {

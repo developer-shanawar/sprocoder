@@ -25,9 +25,13 @@ import {
   ChevronRight,
   Eye,
   FileText,
-  AlertTriangle
+  AlertTriangle,
+  Code,
+  Copy,
+  ExternalLink
 } from "lucide-react";
 import { UserAccount, BlogPost, Course } from "../types";
+import { getCodingSectionRedirectUrl, getCookie, COOKIE_NAMES } from "../utils/sessionManager";
 import { db, auth } from "../firebase";
 import { ref, update, get } from "firebase/database";
 import { updateEmail, updatePassword } from "firebase/auth";
@@ -291,6 +295,54 @@ export default function UserProfile({
             </button>
           </div>
 
+        </div>
+      </div>
+
+      {/* CODING SECTION ID & SESSION COOKIE BADGE */}
+      <div className="bg-slate-900 border border-slate-800 rounded-2xl p-4 text-white shadow-xl flex flex-col md:flex-row items-center justify-between gap-4">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-xl bg-purple-500/20 border border-purple-500/40 text-purple-300 flex items-center justify-center shrink-0">
+            <Code className="w-5 h-5" />
+          </div>
+          <div>
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-black uppercase text-purple-400 tracking-wider">Coding Section ID</span>
+              <span className="text-[10px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 px-2 py-0.5 rounded-full flex items-center gap-1">
+                <CheckCircle2 className="w-3 h-3 text-emerald-400" />
+                <span>Cookie Active</span>
+              </span>
+            </div>
+            <p className="text-xs font-mono text-slate-300 font-bold mt-0.5">
+              {currentUser.sectionId || getCookie(COOKIE_NAMES.SECTION_ID) || "sec_code_active_session"}
+            </p>
+            <p className="text-[10px] text-slate-400 mt-0.5">
+              Single Sign-On Session linked for <strong>code.espro.online</strong> VS Code workspace.
+            </p>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-2 w-full md:w-auto justify-end">
+          <button
+            onClick={() => {
+              const sec = currentUser.sectionId || getCookie(COOKIE_NAMES.SECTION_ID) || "";
+              navigator.clipboard.writeText(sec);
+              alert(`Copied Section ID: ${sec}`);
+            }}
+            className="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-bold flex items-center gap-1.5 transition-all border border-slate-700 cursor-pointer"
+          >
+            <Copy className="w-3.5 h-3.5 text-slate-400" />
+            <span>Copy Section ID</span>
+          </button>
+          
+          <a
+            href={getCodingSectionRedirectUrl(currentUser.sectionId, currentUser.sessionToken)}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="px-3.5 py-1.5 rounded-xl bg-purple-600 hover:bg-purple-500 text-white text-xs font-extrabold flex items-center gap-1.5 transition-all shadow-md cursor-pointer"
+          >
+            <ExternalLink className="w-3.5 h-3.5" />
+            <span>Open code.espro.online</span>
+          </a>
         </div>
       </div>
 
