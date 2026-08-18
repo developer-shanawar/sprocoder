@@ -2,6 +2,7 @@ import express from "express";
 import path from "path";
 import crypto from "crypto";
 import zlib from "zlib";
+import compression from "compression";
 import { createServer as createViteServer } from "vite";
 import { GoogleGenAI, Type } from "@google/genai";
 import dotenv from "dotenv";
@@ -12,7 +13,44 @@ dotenv.config();
 const app = express();
 const PORT = 3000;
 
+// Enable high-speed Gzip & Brotli HTTP compression for all server responses
+app.use(compression({
+  threshold: 512, // Compress anything larger than 512 bytes
+  filter: (req, res) => {
+    if (req.headers["x-no-compression"]) {
+      return false;
+    }
+    return compression.filter(req, res);
+  }
+}));
+
 app.use(express.json());
+
+// In-memory High Speed Server Cache for Firebase Queries
+interface CacheEntry<T> {
+  data: T;
+  timestamp: number;
+}
+const serverCache = new Map<string, CacheEntry<any>>();
+
+async function fetchWithServerCache<T>(url: string, ttlMs: number = 30000): Promise<T | null> {
+  const cached = serverCache.get(url);
+  const now = Date.now();
+  if (cached && (now - cached.timestamp < ttlMs)) {
+    return cached.data;
+  }
+  try {
+    const res = await fetch(url);
+    if (res.ok) {
+      const data = await res.json();
+      serverCache.set(url, { data, timestamp: now });
+      return data;
+    }
+  } catch (err) {
+    if (cached) return cached.data; // Serve stale cache on network failure
+  }
+  return cached?.data || null;
+}
 
 // Helper to slugify titles on the server side
 const slugify = (text: any): string => {
@@ -1679,9 +1717,8 @@ Return JSON with fields: title, tagline, excerpt, readTime, content, tags.`;
 // Dynamic helper to inject AdSense, verification codes, and custom meta tags into HTML template
 async function injectCustomCode(template: string): Promise<string> {
   try {
-    const response = await fetch("https://fir-pro-coder-default-rtdb.firebaseio.com/settings.json");
-    if (response.ok) {
-      const settings = await response.json();
+    const settings = await fetchWithServerCache<any>("https://fir-pro-coder-default-rtdb.firebaseio.com/settings.json", 45000);
+    if (settings) {
       const customCode = settings?.customCode || {};
       const headCode = customCode.headCode || "";
       const bodyCode = customCode.bodyCode || "";
@@ -1729,9 +1766,7 @@ async function injectArticleSeo(template: string, urlPath: string): Promise<stri
   if (!slug) return template;
 
   try {
-    const res = await fetch("https://fir-pro-coder-default-rtdb.firebaseio.com/articles.json");
-    if (!res.ok) return template;
-    const articlesData = await res.json();
+    const articlesData = await fetchWithServerCache<any>("https://fir-pro-coder-default-rtdb.firebaseio.com/articles.json", 30000);
     if (!articlesData) return template;
 
     const articlesList: any[] = Object.values(articlesData);
@@ -1893,6 +1928,59 @@ app.get(["/ads.txt", "/add.txt", "/s/add.txt", "/s/ads.txt"], async (req, res) =
   }
 });
 
+// Dynamic backend ad.js / ads.js engine endpoint
+app.get(["/ad.js", "/ads.js"], async (req, res) => {
+  res.setHeader("Content-Type", "application/javascript; charset=utf-8");
+  res.setHeader("Cache-Control", "public, max-age=3600");
+  try {
+    const settingsRes = await fetch("https://fir-pro-coder-default-rtdb.firebaseio.com/settings.json");
+    let pubId = "pub-8457467726305206";
+    let enableAdSense = true;
+    if (settingsRes.ok) {
+      const settings = await settingsRes.json();
+      if (settings?.enableAdSense !== undefined) {
+        enableAdSense = settings.enableAdSense;
+      }
+      const strSettings = JSON.stringify(settings || {});
+      const pubMatch = strSettings.match(/pub-\d{10,20}/i);
+      if (pubMatch && pubMatch[0]) {
+        pubId = pubMatch[0];
+      }
+    }
+    const jsContent = `
+/**
+ * S Pro Coder Dynamic Ad Engine
+ * Automatically synchronized with Admin Panel Ad Configurations
+ */
+(function() {
+  if (window.__SPRO_ADS_INITIALIZED__) return;
+  window.__SPRO_ADS_INITIALIZED__ = true;
+  var enableAds = ${enableAdSense};
+  var clientPub = "${pubId}";
+  
+  if (enableAds && !document.querySelector('script[src*="pagead2.googlesyndication.com"]')) {
+    var s = document.createElement('script');
+    s.async = true;
+    s.crossOrigin = "anonymous";
+    s.src = "https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=" + (clientPub.startsWith("ca-") ? clientPub : "ca-" + clientPub);
+    document.head.appendChild(s);
+  }
+  
+  window.pushAdSenseSlot = function() {
+    try {
+      (window.adsbygoogle = window.adsbygoogle || []).push({});
+    } catch(e) {
+      console.debug("AdSense push:", e);
+    }
+  };
+})();
+`;
+    return res.status(200).send(jsContent);
+  } catch (err) {
+    return res.status(200).send(`/* S Pro Coder Dynamic Ads Ready */ (window.adsbygoogle = window.adsbygoogle || []);`);
+  }
+});
+
 // Helper to generate dynamic sitemap XML
 async function generateSitemapXml(): Promise<string> {
   const baseUrl = "https://www.sprocoder.online";
@@ -1900,12 +1988,9 @@ async function generateSitemapXml(): Promise<string> {
 
   let articles: any[] = [];
   try {
-    const res = await fetch("https://fir-pro-coder-default-rtdb.firebaseio.com/articles.json");
-    if (res.ok) {
-      const data = await res.json();
-      if (data && typeof data === "object") {
-        articles = Object.values(data);
-      }
+    const data = await fetchWithServerCache<any>("https://fir-pro-coder-default-rtdb.firebaseio.com/articles.json", 60000);
+    if (data && typeof data === "object") {
+      articles = Object.values(data);
     }
   } catch (err) {
     console.warn("Sitemap: failed to fetch dynamic articles from Firebase:", err);
@@ -1913,12 +1998,9 @@ async function generateSitemapXml(): Promise<string> {
 
   let courses: any[] = [];
   try {
-    const cRes = await fetch("https://fir-pro-coder-default-rtdb.firebaseio.com/courses.json");
-    if (cRes.ok) {
-      const cData = await cRes.json();
-      if (cData && typeof cData === "object") {
-        courses = Object.values(cData);
-      }
+    const cData = await fetchWithServerCache<any>("https://fir-pro-coder-default-rtdb.firebaseio.com/courses.json", 60000);
+    if (cData && typeof cData === "object") {
+      courses = Object.values(cData);
     }
   } catch (err) {
     console.warn("Sitemap: failed to fetch dynamic courses from Firebase:", err);
@@ -2101,8 +2183,17 @@ async function setupViteOrStatic() {
     });
   } else {
     const distPath = path.join(process.cwd(), "dist");
-    // Serve static files with index: false to prevent serving raw index.html on root
-    app.use(express.static(distPath, { index: false }));
+    // Serve static files with 1 year cache for immutable assets and index: false to prevent serving raw index.html on root
+    app.use(express.static(distPath, { 
+      index: false,
+      maxAge: "365d",
+      immutable: true,
+      setHeaders: (res, filePath) => {
+        if (filePath.endsWith(".html")) {
+          res.setHeader("Cache-Control", "public, max-age=0, must-revalidate");
+        }
+      }
+    }));
     
     // Serve index.html with custom code (AdSense and meta verification tags) injected dynamically
     app.get("*", async (req, res, next) => {

@@ -2,6 +2,7 @@ import React from "react";
 import { Heart, Bookmark, ArrowRight, Sparkles, Star, Eye } from "lucide-react";
 import { BlogPost } from "../types";
 import { slugify } from "../utils/slugify";
+import { optimizeImageUrl } from "../utils/imageOptimizer";
 
 interface HeroSectionProps {
   post: BlogPost;
@@ -51,7 +52,7 @@ export default function HeroSection({
         className="w-full md:w-[48%] h-64 md:h-auto min-h-[280px] relative overflow-hidden shrink-0 block"
       >
         <img
-          src={post.thumbnailUrl}
+          src={optimizeImageUrl(post.thumbnailUrl, 800, 80)}
           alt={post.title}
           className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
           referrerPolicy="no-referrer"

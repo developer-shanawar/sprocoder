@@ -5,6 +5,7 @@ import {
 } from "lucide-react";
 import { Course, CourseLesson, BlogPost } from "../types";
 import { motion, AnimatePresence } from "motion/react";
+import { optimizeImageUrl } from "../utils/imageOptimizer";
 
 interface CoursesViewProps {
   courses: Course[];
@@ -131,10 +132,12 @@ export default function CoursesView({
 
             <div className="lg:col-span-5 relative rounded-2xl overflow-hidden border border-slate-800 shadow-xl group max-h-72">
               <img 
-                src={getCourseThumbnail(activeCourse)} 
+                src={optimizeImageUrl(getCourseThumbnail(activeCourse), 800, 80)} 
                 alt={activeCourse.title} 
                 className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                 referrerPolicy="no-referrer"
+                loading="eager"
+                decoding="async"
               />
               <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-transparent to-transparent opacity-80" />
               <div className="absolute bottom-4 left-4 right-4 flex items-center justify-between">
@@ -295,10 +298,12 @@ export default function CoursesView({
                       {/* Course Thumbnail Image Box */}
                       <div className="relative h-48 sm:h-52 overflow-hidden bg-slate-900 border-b border-purple-100">
                         <img 
-                          src={getCourseThumbnail(course)} 
+                          src={optimizeImageUrl(getCourseThumbnail(course), 600, 75)} 
                           alt={course.title} 
                           className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                           referrerPolicy="no-referrer"
+                          loading="lazy"
+                          decoding="async"
                         />
                         <div className="absolute inset-0 bg-gradient-to-t from-slate-950/80 via-transparent to-transparent" />
                         

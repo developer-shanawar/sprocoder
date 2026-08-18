@@ -31,6 +31,7 @@ import SprinkleConfetti from "./SprinkleConfetti";
 import { slugify } from "../utils/slugify";
 import { updateDocumentSeo } from "../utils/seo";
 import { getRecommendedArticles, recordUserInterest } from "../utils/recommendations";
+import { optimizeImageUrl } from "../utils/imageOptimizer";
 
 interface ArticleDetailViewProps {
   post: BlogPost;
@@ -314,15 +315,16 @@ export default function ArticleDetailView({
         </div>
 
         {/* Thumbnail: Shown with click-to-zoom instruction */}
-        <div className="w-full bg-slate-100/30 rounded-2xl sm:rounded-[28px] overflow-hidden p-2 border border-purple-50 flex flex-col items-center justify-center group relative">
+        <div className="w-full bg-slate-100/30 rounded-2xl sm:rounded-[28px] overflow-hidden p-2 border border-purple-50 flex flex-col items-center justify-center group relative min-h-[220px]">
           <img
-            src={post.thumbnailUrl}
+            src={optimizeImageUrl(post.thumbnailUrl, 1000, 80)}
             alt={post.title}
             onClick={() => setLightboxImg(post.thumbnailUrl)}
             className="max-w-full h-auto max-h-[480px] rounded-2xl shadow-sm object-contain cursor-zoom-in group-hover:opacity-95 transition-opacity"
             id="reader-original-thumbnail"
             referrerPolicy="no-referrer"
-            loading="lazy"
+            loading="eager"
+            decoding="async"
           />
           <span className="absolute bottom-4 right-4 bg-purple-950/80 backdrop-blur-md text-white text-[9px] px-2.5 py-1 rounded-lg font-mono font-bold opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none">
             Click Image to Expand
@@ -713,11 +715,12 @@ export default function ArticleDetailView({
                         className="flex gap-3 items-start group cursor-pointer border-b border-purple-100/30 last:border-none pb-2.5 last:pb-0 no-underline"
                       >
                         <img
-                          src={relPost.thumbnailUrl}
+                          src={optimizeImageUrl(relPost.thumbnailUrl, 160, 75)}
                           alt={relPost.title}
                           className="w-12 h-12 rounded-xl object-cover border border-purple-100/50 group-hover:scale-105 transition-transform shrink-0"
                           referrerPolicy="no-referrer"
                           loading="lazy"
+                          decoding="async"
                         />
                         <div className="min-w-0 flex-1">
                           <h5 className="text-[11px] font-extrabold text-purple-950 leading-tight line-clamp-2 group-hover:text-purple-700 transition-colors">
