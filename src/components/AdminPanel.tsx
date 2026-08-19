@@ -4,13 +4,14 @@ import {
   Plus, Edit, Trash2, Heart, Bookmark, Eye, FileText, Upload, Save, Check, RefreshCw, Lock,
   Youtube, Star, Bold, Italic, Underline, Link, Heading1, Heading2, List, Quote, Globe,
   TrendingUp, BarChart2, Send, Instagram, Facebook, Mail, Sparkles, MessageCircle, AlertCircle,
-  ShieldAlert, ShieldCheck, UserCheck, UserX, Search, Filter, Clock, Calendar, User, Ban, X, CheckCircle2, UserPlus, Bot, Loader2
+  ShieldAlert, ShieldCheck, UserCheck, UserX, Search, Filter, Clock, Calendar, User, Ban, X, CheckCircle2, UserPlus, Bot, Loader2, Brain
 } from "lucide-react";
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, PieChart, Pie, Cell, Legend } from "recharts";
 import { db, DB_PATHS } from "../firebase";
 import { ref, set, push, remove, get, update, onValue } from "firebase/database";
 import { BlogPost, UserAccount, ContactMessage, Course, CourseLesson } from "../types";
 import WriteArticleEditor from "./WriteArticleEditor";
+import SiteMindReports from "./SiteMindReports";
 
 function slugify(text: any): string {
   if (!text) return "";
@@ -82,7 +83,7 @@ interface AdminPanelProps {
 }
 
 export default function AdminPanel({ onClose, categories, setCategories, onLogout }: AdminPanelProps) {
-  const [activeTab, setActiveTab] = useState<"users" | "articles" | "writeArticle" | "categories" | "messages" | "pages" | "videos" | "featured" | "analytics" | "customCode" | "aiArticle" | "ads" | "courses">("articles");
+  const [activeTab, setActiveTab] = useState<"users" | "articles" | "writeArticle" | "categories" | "messages" | "pages" | "videos" | "featured" | "analytics" | "customCode" | "aiArticle" | "ads" | "courses" | "siteMind">("articles");
   const [loading, setLoading] = useState(false);
 
   // Courses & AI Course Generator States
@@ -1126,7 +1127,7 @@ export default function AdminPanel({ onClose, categories, setCategories, onLogou
     addLog(`Initiating AI Engine Generation ${isPreGen ? "(5-min Pre-Generation)" : ""} for Category: "${targetCat}"...`);
 
     try {
-      addLog("1/4: Requesting 1500-word human-like article generation from Gemini API Pool...");
+      addLog("1/4: Requesting 1000-1500 word humanized article with official reference links from Gemini API Pool...");
       setAiGenerationStep(1);
 
       const cleanedKeys = geminiApiKeys.map((k) => k.trim()).filter(Boolean);
@@ -1142,8 +1143,19 @@ export default function AdminPanel({ onClose, categories, setCategories, onLogou
         })
       });
 
+      const responseText = await res.text();
+      let responseData: any = {};
+      try {
+        responseData = JSON.parse(responseText);
+      } catch (parseErr) {
+        if (!res.ok) {
+          throw new Error(`Server returned error ${res.status}: ${res.statusText || "Article generation failed"}.`);
+        }
+        throw new Error("Invalid response format received from AI server. Please try again.");
+      }
+
       if (!res.ok) {
-        const errData = await res.json().catch(() => ({}));
+        const errData = responseData || {};
         const rawErr = errData.error || "Server returned error during AI generation.";
         const isLimitOrDenied =
           errData.quotaExceeded ||
@@ -1169,7 +1181,7 @@ export default function AdminPanel({ onClose, categories, setCategories, onLogou
         throw new Error(rawErr);
       }
 
-      const newPost: BlogPost = await res.json();
+      const newPost: BlogPost = responseData;
       addLog(`2/4: Generated article title: "${newPost.title}"`);
       setAiGenerationStep(2);
 
@@ -1401,12 +1413,22 @@ export default function AdminPanel({ onClose, categories, setCategories, onLogou
         })
       });
 
-      if (!res.ok) {
-        const errData = await res.json().catch(() => ({}));
-        throw new Error(errData.error || "Failed to generate AI course.");
+      const responseText = await res.text();
+      let responseData: any = {};
+      try {
+        responseData = JSON.parse(responseText);
+      } catch (parseErr) {
+        if (!res.ok) {
+          throw new Error(`Server returned error ${res.status}: ${res.statusText || "Course generation failed"}.`);
+        }
+        throw new Error("Invalid response format received from AI server. Please try again.");
       }
 
-      const { course, articles } = await res.json();
+      if (!res.ok) {
+        throw new Error(responseData?.error || "Failed to generate AI course.");
+      }
+
+      const { course, articles } = responseData;
       addCourseLog(`Course generated: "${course.title}" with ${articles.length} lessons!`);
 
       // 1. Save all generated articles into Firebase Realtime Database
@@ -1509,12 +1531,22 @@ export default function AdminPanel({ onClose, categories, setCategories, onLogou
         })
       });
 
-      if (!res.ok) {
-        const errData = await res.json().catch(() => ({}));
-        throw new Error(errData.error || "Failed to generate AI lesson.");
+      const responseText = await res.text();
+      let responseData: any = {};
+      try {
+        responseData = JSON.parse(responseText);
+      } catch (parseErr) {
+        if (!res.ok) {
+          throw new Error(`Server returned error ${res.status}: ${res.statusText || "Lesson generation failed"}.`);
+        }
+        throw new Error("Invalid response format received from AI server. Please try again.");
       }
 
-      const { article, lesson } = await res.json();
+      if (!res.ok) {
+        throw new Error(responseData?.error || "Failed to generate AI lesson.");
+      }
+
+      const { article, lesson } = responseData;
 
       // 1. Save Article to DB
       await set(ref(db, `${DB_PATHS.ARTICLES}/${article.id}`), sanitizeForFirebase(article));
@@ -1976,6 +2008,20 @@ export default function AdminPanel({ onClose, categories, setCategories, onLogou
 
                 <button
                   type="button"
+                  onClick={() => setActiveTab("siteMind")}
+                  className={`flex items-center gap-2.5 px-4 py-3 rounded-2xl text-xs font-bold transition-all text-left cursor-pointer ${
+                    activeTab === "siteMind" 
+                      ? "bg-gradient-to-r from-purple-800 to-indigo-800 text-white shadow-md shadow-purple-200 font-extrabold" 
+                      : "hover:bg-purple-100/60 text-purple-900 font-extrabold"
+                  }`}
+                  id="admin-nav-sitemind-btn"
+                >
+                  <Brain className="w-4 h-4 shrink-0 text-amber-300 animate-pulse" />
+                  <span className="truncate">🧠 Site Mind & Reports</span>
+                </button>
+
+                <button
+                  type="button"
                   onClick={() => setActiveTab("articles")}
                   className={`flex items-center gap-2.5 px-4 py-3 rounded-2xl text-xs font-bold transition-all text-left cursor-pointer ${
                     activeTab === "articles" 
@@ -2139,6 +2185,29 @@ export default function AdminPanel({ onClose, categories, setCategories, onLogou
           {/* Right Main Panel Content */}
           <div className="lg:col-span-9 min-h-[400px] space-y-6" id="admin-main-content">
           
+            {/* TAB: SITE MIND & ACTIVITY REPORTS AUDIT */}
+            {activeTab === "siteMind" && (
+              <SiteMindReports
+                articles={articles}
+                users={users}
+                analyticsData={analyticsData}
+                onRefreshArticles={async () => {
+                  try {
+                    const snap = await get(ref(db, DB_PATHS.ARTICLES));
+                    if (snap.exists()) {
+                      setArticles(Object.values(snap.val()));
+                    }
+                  } catch (e) {
+                    console.error("Failed to refresh articles:", e);
+                  }
+                }}
+                onEditArticle={(art) => {
+                  setEditingArticle(art);
+                  setActiveTab("writeArticle");
+                }}
+              />
+            )}
+
             {/* TAB: SEPARATE WRITE ARTICLE STUDIO */}
             {activeTab === "writeArticle" && (
               <div className="space-y-6 animate-in fade-in duration-200" id="tab-write-article-content">

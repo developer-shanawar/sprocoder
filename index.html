@@ -15,18 +15,51 @@
     <link rel="dns-prefetch" href="https://googleads.g.doubleclick.net" />
     <link rel="dns-prefetch" href="https://www.googletagservices.com" />
     
-    <!-- Early Third-Party/Cross-Origin Script Error Suppressor -->
+    <!-- Safe window.fetch Descriptor & Early Third-Party Script Error Guard -->
     <script>
       (function() {
+        try {
+          var originalFetch = window.fetch;
+          var activeFetch = function() {
+            var target = (typeof activeFetch._impl === 'function') ? activeFetch._impl : originalFetch;
+            return target.apply(window, arguments);
+          };
+          activeFetch._impl = originalFetch;
+
+          var desc = Object.getOwnPropertyDescriptor(window, 'fetch');
+          if (!desc || desc.configurable || !desc.set) {
+            Object.defineProperty(window, 'fetch', {
+              get: function() {
+                return activeFetch._impl || originalFetch;
+              },
+              set: function(newFetch) {
+                if (typeof newFetch === 'function') {
+                  activeFetch._impl = newFetch;
+                }
+              },
+              configurable: true,
+              enumerable: true
+            });
+          }
+        } catch (fetchInitErr) {
+          // Fallback gracefully if defineProperty on window is restricted
+        }
+
         var swallowError = function(msg, source, errorObj) {
-          var str = String(msg || source || errorObj || '').toLowerCase();
+          var str = String(msg || source || (errorObj && errorObj.message) || errorObj || '').toLowerCase();
           return !msg ||
                  str === 'script error.' ||
+                 str === 'script error' ||
                  str.indexOf('script error') !== -1 || 
+                 str.indexOf('cannot set property fetch') !== -1 ||
+                 str.indexOf('only a getter') !== -1 ||
                  str.indexOf('adsbygoogle') !== -1 || 
                  str.indexOf('googleads') !== -1 ||
                  str.indexOf('cross-origin') !== -1 ||
-                 str.indexOf('load failed') !== -1;
+                 str.indexOf('load failed') !== -1 ||
+                 str.indexOf('failed to fetch') !== -1 ||
+                 str.indexOf('ezo') !== -1 ||
+                 str.indexOf('aclib') !== -1;
         };
 
         window.addEventListener('error', function(e) {

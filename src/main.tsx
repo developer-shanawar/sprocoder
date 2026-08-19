@@ -12,11 +12,15 @@ if (typeof window !== 'undefined') {
     return lower === 'script error.' ||
            lower === 'script error' ||
            lower.includes('script error') || 
+           lower.includes('cannot set property fetch') ||
+           lower.includes('only a getter') ||
            lower.includes('adsbygoogle') || 
            lower.includes('googleads') ||
            lower.includes('cross-origin') ||
            lower.includes('load failed') ||
-           lower.includes('failed to fetch');
+           lower.includes('failed to fetch') ||
+           lower.includes('ezo') ||
+           lower.includes('aclib');
   };
 
   window.addEventListener('error', (e) => {

@@ -98,9 +98,10 @@ export default function App() {
   // Navigation tabs initialized from window.location.pathname dynamically
   const [currentTab, setCurrentTab] = useState<"home" | "articles" | "about" | "privacy" | "terms" | "contact" | "admin-auth" | "admin" | "profile" | "disclaimer" | "courses" | "register">(() => {
     if (typeof window === "undefined") return "home";
-    const path = window.location.pathname;
+    const rawPath = window.location.pathname;
+    const path = rawPath.replace(/\.html$/, "");
     if (path === "/register" || path === "/signup") return "register";
-    if (path === "/courses" || path.startsWith("/courses/")) return "courses";
+    if (path === "/courses" || path.startsWith("/courses/") || path.startsWith("/course/")) return "courses";
     if (path === "/blog" || path === "/articles") return "articles";
     if (path === "/about-us" || path === "/about") return "about";
     if (path === "/privacy-policy" || path === "/privacy") return "privacy";
@@ -110,7 +111,13 @@ export default function App() {
     if (path === "/profile") return "profile";
     if (path === "/admin-auth") return "admin-auth";
     if (path === "/admin") return "admin";
-    if (path.startsWith("/blog/") || path.startsWith("/articles/")) return "articles";
+    if (
+      path.startsWith("/blog/") || 
+      path.startsWith("/articles/") || 
+      path.startsWith("/article/") || 
+      path.startsWith("/post/") || 
+      path.startsWith("/p/")
+    ) return "articles";
     return "home";
   });
 
@@ -287,12 +294,73 @@ export default function App() {
 
   // Active reading article and course context
   const [selectedPost, setSelectedPost] = useState<BlogPost | null>(() => {
-    if (typeof window !== "undefined" && (window as any).__INITIAL_POST__) {
-      return (window as any).__INITIAL_POST__;
+    if (typeof window !== "undefined") {
+      if ((window as any).__INITIAL_POST__) {
+        return (window as any).__INITIAL_POST__;
+      }
+      const rawPath = window.location.pathname;
+      const path = rawPath.replace(/\.html$/, "");
+      if (
+        path.startsWith("/blog/") || 
+        path.startsWith("/articles/") || 
+        path.startsWith("/article/") || 
+        path.startsWith("/post/") || 
+        path.startsWith("/p/")
+      ) {
+        const rawSlug = path.split("/").pop() || "";
+        const slug = rawSlug.trim();
+        const cached = localStorage.getItem("spro_cached_posts");
+        let list: BlogPost[] = INITIAL_POSTS;
+        if (cached) {
+          try {
+            const parsed = JSON.parse(cached);
+            if (Array.isArray(parsed) && parsed.length > 0) list = parsed;
+          } catch (e) {}
+        }
+        const matched = list.find((p) => slugify(p.title) === slug || p.id === slug);
+        if (matched) return matched;
+      }
     }
     return null;
   });
   const [activeCourseContext, setActiveCourseContext] = useState<{ course: Course; lessonIndex: number } | null>(null);
+
+  // Algorithmic Watchdog Bot: Analyzes all articles in real-time.
+  // Any article below 1,000 words is automatically quarantined/privatized in Firebase.
+  useEffect(() => {
+    if (!allPosts || allPosts.length === 0) return;
+    
+    const timer = setTimeout(async () => {
+      const getWordCount = (content: string): number => {
+        if (!content) return 0;
+        const clean = content
+          .replace(/<[^>]*>/g, " ")
+          .replace(/\[([^\]]+)\]\([^)]+\)/g, "$1")
+          .replace(/[#*`_~>-]/g, " ")
+          .replace(/\s+/g, " ")
+          .trim();
+        return clean ? clean.split(/\s+/).filter(Boolean).length : 0;
+      };
+
+      for (const post of allPosts) {
+        if (post && post.id && post.visibility !== "private") {
+          const words = getWordCount(post.content || "");
+          if (words > 0 && words < 1000) {
+            console.log(`[Watchdog Bot] Auto-quarantining sub-1,000 word article "${post.title}" (${words} words) to Private.`);
+            try {
+              await update(ref(db, `${DB_PATHS.ARTICLES}/${post.id}`), {
+                visibility: "private"
+              });
+            } catch (err) {
+              console.warn("Watchdog bot notice:", err);
+            }
+          }
+        }
+      }
+    }, 4000);
+
+    return () => clearTimeout(timer);
+  }, [allPosts.length]);
 
   const handleReturnToCourse = () => {
     setSelectedPost(null);
@@ -349,7 +417,12 @@ export default function App() {
     return typeof window !== "undefined" ? window.location.pathname : "/";
   });
 
-  const isPostRoute = currentPath.startsWith("/blog/") || currentPath.startsWith("/articles/");
+  const isPostRoute = 
+    currentPath.startsWith("/blog/") || 
+    currentPath.startsWith("/articles/") || 
+    currentPath.startsWith("/article/") || 
+    currentPath.startsWith("/post/") || 
+    currentPath.startsWith("/p/");
   const isPostRouteLoading = isPostRoute && !selectedPost && allPosts.length === 0;
 
   // Ambient lighting parameters (Frosted Glass aesthetics)
@@ -492,7 +565,13 @@ export default function App() {
     } else if (path === "/admin") {
       setCurrentTab("admin");
       setSelectedPost(null);
-    } else if (path.startsWith("/blog/") || path.startsWith("/articles/")) {
+    } else if (
+      path.startsWith("/blog/") || 
+      path.startsWith("/articles/") || 
+      path.startsWith("/article/") || 
+      path.startsWith("/post/") || 
+      path.startsWith("/p/")
+    ) {
       const rawSlug = path.split("/").pop() || "";
       const slug = rawSlug.replace(/\.html$/, "");
       const matched = postsList.find(
@@ -522,7 +601,12 @@ export default function App() {
   useEffect(() => {
     const handleInitialRouteFetch = async () => {
       const path = window.location.pathname;
-      const isPostRoute = path.startsWith("/blog/") || path.startsWith("/articles/");
+      const isPostRoute = 
+        path.startsWith("/blog/") || 
+        path.startsWith("/articles/") || 
+        path.startsWith("/article/") || 
+        path.startsWith("/post/") || 
+        path.startsWith("/p/");
       
       if (isPostRoute && (window as any).__INITIAL_POST__) {
         hasParsedInitialPostRoute.current = true;
@@ -619,7 +703,12 @@ export default function App() {
   useEffect(() => {
     if (allPosts.length > 0) {
       const path = window.location.pathname;
-      const isPostRoute = path.startsWith("/blog/") || path.startsWith("/articles/");
+      const isPostRoute = 
+        path.startsWith("/blog/") || 
+        path.startsWith("/articles/") || 
+        path.startsWith("/article/") || 
+        path.startsWith("/post/") || 
+        path.startsWith("/p/");
       
       if (isPostRoute && !hasParsedInitialPostRoute.current) {
         hasParsedInitialPostRoute.current = true;

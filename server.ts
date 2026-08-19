@@ -284,8 +284,14 @@ app.get("/llms.txt", async (req, res) => {
 app.get([
   "/blog/:slug",
   "/articles/:slug",
+  "/article/:slug",
+  "/post/:slug",
+  "/p/:slug",
   "/blog/:slug.html",
-  "/articles/:slug.html"
+  "/articles/:slug.html",
+  "/article/:slug.html",
+  "/post/:slug.html",
+  "/p/:slug.html"
 ], async (req, res, next) => {
   const rawSlug = req.params.slug;
   if (!rawSlug || rawSlug === "" || rawSlug === "index.html") {
@@ -481,11 +487,13 @@ app.get([
   "/ai-news",
   "/ai-tools",
   "/games",
+  "/courses",
   "/home",
   "/tech-news.html",
   "/ai-news.html",
   "/ai-tools.html",
   "/games.html",
+  "/courses.html",
   "/home.html"
 ], async (req, res, next) => {
   const targetPath = req.path.replace(/\.html$/, "");
@@ -572,6 +580,15 @@ app.get([
         const cat = (a.category || "").toLowerCase();
         return cat.includes("game") || cat.includes("gaming") || cat.includes("play");
       });
+    } else if (targetPath === "/courses") {
+      pageTitle = "Interactive Tech & AI Courses | S Pro Coder";
+      pageDesc = "Learn modern coding, web development, and AI engineering with interactive step-by-step courses crafted by industry experts on S Pro Coder.";
+      pageH1 = "Interactive Coding & Artificial Intelligence Courses";
+      seoCopy = `Accelerate your software engineering career with S Pro Coder interactive courses. Our structured learning paths take you from beginner fundamentals to advanced production-grade architectures. Each course is broken into comprehensive step-by-step lessons, equipped with code samples, visual explanations, and real-world project assignments.
+
+      Learn in-demand technologies like TypeScript, React, Next.js, Node.js, Python, and the Google Gemini API. Whether you are building responsive full-stack applications, fine-tuning machine learning models, or architecting serverless databases, our courses provide the hands-on mastery you need.
+
+      Explore our course catalogue below and start learning today with high-fidelity modules and practical coding exercises.`;
     } else {
       // Homepage /
       seoCopy = `Welcome to S Pro Coder, the ultimate online sanctuary built for software developers, technology enthusiasts, AI practitioners, and passionate gamers. Our platform is dedicated to bringing you the most precise, high-fidelity updates from the ever-evolving landscapes of modern consumer technology, artificial intelligence breakthroughs, emerging web tools, and immersive gaming experiences.
@@ -757,15 +774,28 @@ app.post("/api/blog/generate", async (req, res) => {
 
     const prompt = `Write a high-quality blog post about: "${topic}". ${category ? `Make it fit into the '${category}' category.` : ""} ${tone ? `Write in a ${tone} tone.` : "Write in an insightful, engaging, and slightly poetic yet clear tone."} Include concrete examples, interesting concepts, and deep reflection.`;
 
-    const response = await ai.models.generateContent({
-      model: "gemini-3.5-flash",
-      contents: prompt,
-      config: {
-        systemInstruction: "You are an elite, award-winning blogger and tech philosopher who writes deeply engaging, polished articles. You construct gorgeous articles with clear formatting, rich descriptions, and elegant structures.",
-        responseMimeType: "application/json",
-        responseSchema: blogPostSchema
+    let response: any = null;
+    const modelsToTry = ["gemini-3.7-flash", "gemini-3.1-flash-lite", "gemini-flash-latest", "gemini-3.6-flash"];
+    for (const modelName of modelsToTry) {
+      try {
+        response = await ai.models.generateContent({
+          model: modelName,
+          contents: prompt,
+          config: {
+            systemInstruction: "You are an elite, award-winning blogger and tech philosopher who writes deeply engaging, polished articles. You construct gorgeous articles with clear formatting, rich descriptions, and elegant structures.",
+            responseMimeType: "application/json",
+            responseSchema: blogPostSchema
+          }
+        });
+        if (response && response.text) break;
+      } catch (err: any) {
+        console.warn(`Blog generate attempt with ${modelName} failed:`, err?.message || err);
       }
-    });
+    }
+
+    if (!response || !response.text) {
+      throw new Error("Empty response or failed generation from Gemini API");
+    }
 
     const jsonStr = response.text;
     if (!jsonStr) {
@@ -1093,26 +1123,32 @@ const CATEGORY_TREND_SEEDS: Record<string, string[]> = {
   ]
 };
 
-// New AI schema for 1500-word article formatting
+// New AI schema for 1000-1500 word human-like article formatting
 const aiBlogPostSchema = {
   type: Type.OBJECT,
   properties: {
-    title: { type: Type.STRING, description: "Highly engaging, catchy, human-like SEO-optimized article title (headline only, 8 to 14 words)." },
-    tagline: { type: Type.STRING, description: "Compelling tagline highlighting article value and practical insights." },
+    title: { 
+      type: Type.STRING, 
+      description: "Compelling, catchy, human-like SEO-optimized headline (8 to 14 words). Headline only, do NOT replicate inside content." 
+    },
+    tagline: { 
+      type: Type.STRING, 
+      description: "Engaging 1-sentence value proposition explaining what real-world problem or knowledge this article delivers." 
+    },
     category: { type: Type.STRING, description: "Target category matching the user selection." },
     content: { 
       type: Type.STRING, 
-      description: "A detailed, comprehensive 1500-word article body formatted in clean HTML/Markdown. MUST be completely distinct from the title. Write in simple, clear, direct, human-like English with NO meaningless symbols or robotic AI boilerplate. Use H2/H3 headings and short readable paragraphs. Include code snippets where appropriate. Highlight key terms and main words in green using: <mark>[keyword]</mark>. Conclude with an explicit FAQ section using <h2>Frequently Asked Questions (FAQs)</h2> containing 3-5 clear Q&As." 
+      description: "Comprehensive 1000 to 1500 word high-quality technical article body formatted in clean HTML/Markdown. STRICTLY HUMAN-WRITTEN TONE: no robotic AI boilerplate, no cliché phrases (e.g., no 'in today's digital world', 'delve into', 'tapestry', 'crucial', 'furthermore', 'in conclusion'), and no emoji spam or weird symbols. Structured with semantic H2/H3 headings, short readable paragraphs (2-4 sentences max), real code or technical specification blocks with output explanations, green highlighted key terms using <mark>[keyword]</mark>, 2-4 authentic external reference links to official documentation (e.g. MDN, W3C, official language/framework docs) to build authority and AdSense trust, an 'Authoritative References & Official Resources' section, and concludes with an explicit <h2>Frequently Asked Questions (FAQs)</h2> section containing 3 to 5 realistic Q&As." 
     },
-    readTime: { type: Type.STRING, description: "Estimated read time, e.g., '7 min read'." },
+    readTime: { type: Type.STRING, description: "Estimated read time, e.g., '6 min read' or '8 min read'." },
     tags: {
       type: Type.ARRAY,
       items: { type: Type.STRING },
       description: "Array of 4-6 lowercase keyword tags."
     },
-    excerpt: { type: Type.STRING, description: "A brief 2-sentence summary." },
-    author: { type: Type.STRING, description: "Author name, e.g., 'S Pro Coder AI'." },
-    keywords: { type: Type.STRING, description: "Comma-separated target SEO keywords." }
+    excerpt: { type: Type.STRING, description: "A concise 2-sentence summary providing high-value overview." },
+    author: { type: Type.STRING, description: "Author name, e.g., 'Shanawar Ali' or 'S Pro Coder'." },
+    keywords: { type: Type.STRING, description: "Comma-separated target SEO keywords for Google Search & AdSense." }
   },
   required: ["title", "tagline", "category", "content", "readTime", "tags", "excerpt", "author", "keywords"]
 };
@@ -1215,10 +1251,10 @@ const handleAiArticleGeneration = async (req: express.Request, res: express.Resp
     const clientsToTry: { name: string; client: GoogleGenAI }[] = [];
     if (keyPool.length > 0) {
       for (let i = 0; i < keyPool.length; i++) {
-        clientsToTry.push({ name: `Key Pool #${i + 1}`, client: new GoogleGenAI({ apiKey: keyPool[i] }) });
+        clientsToTry.push({ name: `Key Pool #${i + 1}`, client: new GoogleGenAI({ apiKey: keyPool[i], httpOptions: { headers: { 'User-Agent': 'aistudio-build' } } }) });
       }
     } else if (process.env.GEMINI_API_KEY) {
-      clientsToTry.push({ name: "Environment Key", client: new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY }) });
+      clientsToTry.push({ name: "Environment Key", client: new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY, httpOptions: { headers: { 'User-Agent': 'aistudio-build' } } }) });
     }
     if (clientsToTry.length === 0 && ai) {
       clientsToTry.push({ name: "Default Gemini Client", client: ai });
@@ -1230,24 +1266,36 @@ const handleAiArticleGeneration = async (req: express.Request, res: express.Resp
       });
     }
 
-    const prompt = `Write a 100% unique, exceptionally high quality, 1500-word SEO-optimized article specifically for category: "${targetCategory}".
+    const prompt = `Write a 100% original, exceptionally high-quality, comprehensive 1000 to 1500 word educational article specifically for category: "${targetCategory}".
 
 ${categoryBoundaryRule}
 
-STRICT CREATIVE & TECHNICAL DIRECTIVES:
-1. STRICT TOPICAL BOUNDARY: Do NOT cross into unrelated categories. Stay 100% inside "${targetCategory}".
-2. UNIQUE & SEPARATE TITLE VS CONTENT:
-   - TITLE: Must be a catchy, highly clickable 8 to 14 word headline specific to "${targetCategory}". (Example headline only, do NOT copy title into content).
-   - CONTENT: Must be a deep, detailed 1500+ word step-by-step article body formatted in clean HTML/Markdown.
+CORE EDITORIAL & QUALITY DIRECTIVES (GOOGLE SEARCH ESSENTIALS & ADSENSE COMPLIANT):
+1. TARGET LENGTH: 1000 to 1500 words of rich, deep, value-packed technical content. No thin content, no filler fluff, and no artificial repetition.
+2. STRICTLY HUMAN-WRITTEN TONE & ZERO AI CLICHÉS:
+   - Write like a seasoned human software engineer and tech editor sharing practical, real-world knowledge.
+   - BANNED CLICHÉS & AI PHRASES (STRICTLY FORBIDDEN): Do NOT use "In today's fast-paced digital world", "Delve into", "Let's dive in", "Tapestry", "Crucial", "Testament", "Furthermore, it is worth noting", "In conclusion", "As an AI language model", "Without further ado", "Needless to say", "A realm of possibilities".
+   - NO EMOJI SPAM OR ROBOTIC SYMBOLS: Do NOT place decorative emojis (🚀🔥🤖💡✨) on every heading. Keep headings professional and clean.
+   - Readability: Keep paragraphs short (2 to 4 sentences maximum) so users can easily read and understand.
+3. SEPARATE TITLE VS CONTENT:
+   - TITLE: Must be a catchy, highly clickable 8 to 14 word headline specific to "${targetCategory}".
+   - CONTENT: Must be a deep, detailed 1000-1500 word step-by-step article body formatted in clean HTML/Markdown.
    - THE TITLE AND CONTENT MUST BE COMPLETELY SEPARATE AND DIFFERENT.
-3. TREND & TOPIC SEED: Focus on latest 2026 insights inspired by: "${randomTrendSeed}".
-4. CODE / TECHNICAL EXAMPLE: Include at least one relevant code snippet, API request, or technical specification block appropriate for "${targetCategory}".
-5. KEY TERM GREEN HIGHLIGHTS: Highlight key terms and main words in green using: <mark>[keyword]</mark>.
-6. FAQS SECTION: Conclude with <h2>Frequently Asked Questions (FAQs)</h2> containing 3 to 5 clear, insightful Q&A items matching "${targetCategory}".`;
+4. TREND & PRACTICAL TOPIC: Focus on practical 2026 insights inspired by: "${randomTrendSeed}".
+5. CODE / TECHNICAL IMPLEMENTATION & OUTPUT DEMONSTRATION:
+   - Include at least one complete, well-explained code snippet, API request, or technical specification block.
+   - Clearly explain what each key line does and describe what the visual/console output looks like.
+6. GREEN KEY TERM HIGHLIGHTS:
+   - Highlight important key concepts and terminology in green using: <mark>[keyword]</mark> (e.g., <mark>Server Actions</mark> or <mark>Zero-Trust Architecture</mark>).
+7. HIGH-AUTHORITY CITATIONS & OFFICIAL DOCUMENTATION LINKS:
+   - Naturally weave 2 to 4 authentic markdown reference links to official documentation (e.g., [MDN Web Docs](https://developer.mozilla.org), [W3C Standards](https://www.w3.org), [Python Documentation](https://docs.python.org), [React Official Docs](https://react.dev), [Node.js Documentation](https://nodejs.org), [OWASP Security Guide](https://owasp.org), [TypeScript Handbook](https://www.typescriptlang.org), [GitHub Documentation](https://docs.github.com)) into the text.
+   - Include a dedicated section titled <h2>Authoritative References & Official Resources</h2> with bulleted official links before the FAQs to establish strong domain authority and AdSense trust.
+8. FAQS SECTION:
+   - Conclude with <h2>Frequently Asked Questions (FAQs)</h2> containing 3 to 5 realistic, high-value Q&A items with direct, concise human answers.`;
 
-    console.log(`Generating high-quality 1500-word article for category "${targetCategory}" via Gemini SDK (Clients: ${clientsToTry.length})...`);
+    console.log(`Generating high-quality 1000-1500 word humanized article for category "${targetCategory}" via Gemini SDK (Clients: ${clientsToTry.length})...`);
 
-    const modelsToTry = ["gemini-3.5-flash", "gemini-2.5-flash"];
+    const modelsToTry = ["gemini-3.7-flash", "gemini-3.1-flash-lite", "gemini-flash-latest", "gemini-3.6-flash"];
     let lastErrorMsg = "";
     let hitQuotaOrDenied = false;
 
@@ -1259,7 +1307,7 @@ STRICT CREATIVE & TECHNICAL DIRECTIVES:
             model: modelName,
             contents: prompt,
             config: {
-              systemInstruction: `You are an expert technical editor and specialist author writing exclusively for the category: "${targetCategory}". You produce 100% unique, 1500-word articles that strictly adhere to "${targetCategory}" without crossing into unrelated subjects or frameworks. You write separate titles and content, green highlighted key terms using <mark>[keyword]</mark>, relevant code/technical examples, and an explicit FAQs section.`,
+              systemInstruction: `You are a master technical author and senior software architect writing 100% original, human-crafted 1000-1500 word articles exclusively for "${targetCategory}". You strictly avoid all robotic AI clichés (like 'in today's fast-paced world', 'delve into', 'tapestry', 'crucial', 'testament', 'in conclusion'), avoid emoji spam/weird symbols, and write in clear, engaging, easy-to-understand English that adheres to Google AdSense & Search Essentials EEAT standards. You integrate working code blocks with output explanations, green key term highlights using <mark>[keyword]</mark>, authentic official reference links (MDN, W3C, language docs), an official resources section, and an explicit FAQs section.`,
               responseMimeType: "application/json",
               responseSchema: aiBlogPostSchema
             }
@@ -1389,7 +1437,7 @@ const aiCourseSchema = {
           readTime: { type: Type.STRING, description: "e.g. '8 min read'" },
           content: { 
             type: Type.STRING, 
-            description: "Deep, 1200+ word step-by-step instructional guide in clean Markdown/HTML. Include clear headings, organized bullet points, software setup instructions, simplified step-by-step guides, clean source code blocks with output demonstrations, green key term highlights <mark>[keyword]</mark>, 2-3 authentic external links to official documentation or resources (e.g., [MDN Web Docs](https://developer.mozilla.org), [W3C Standards](https://www.w3.org), or official technology docs) to increase authority, and 3-5 FAQs." 
+            description: "Deep, 1000 to 1500 word step-by-step instructional guide in clean Markdown/HTML. STRICTLY HUMAN-WRITTEN: no robotic AI boilerplate, no clichés ('delve into', 'tapestry', 'in conclusion'), and no emoji spam. Include clear headings, organized bullet points, simplified step-by-step guides, clean source code blocks with output demonstrations, green key term highlights <mark>[keyword]</mark>, 2-4 authentic external links to official documentation (e.g., [MDN Web Docs](https://developer.mozilla.org), [W3C Standards](https://www.w3.org), or official language docs) to build authority and AdSense trust, and 3-5 FAQs." 
           },
           tags: {
             type: Type.ARRAY,
@@ -1423,10 +1471,10 @@ app.post("/api/ai-generate-course", async (req, res) => {
     const clientsToTry: { name: string; client: GoogleGenAI }[] = [];
     if (keyPool.length > 0) {
       for (let i = 0; i < keyPool.length; i++) {
-        clientsToTry.push({ name: `Key Pool #${i + 1}`, client: new GoogleGenAI({ apiKey: keyPool[i] }) });
+        clientsToTry.push({ name: `Key Pool #${i + 1}`, client: new GoogleGenAI({ apiKey: keyPool[i], httpOptions: { headers: { 'User-Agent': 'aistudio-build' } } }) });
       }
     } else if (process.env.GEMINI_API_KEY) {
-      clientsToTry.push({ name: "Environment Key", client: new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY }) });
+      clientsToTry.push({ name: "Environment Key", client: new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY, httpOptions: { headers: { 'User-Agent': 'aistudio-build' } } }) });
     }
     if (clientsToTry.length === 0 && ai) {
       clientsToTry.push({ name: "Default Gemini Client", client: ai });
@@ -1438,27 +1486,30 @@ app.post("/api/ai-generate-course", async (req, res) => {
       });
     }
 
-    const coursePrompt = `Create a complete, multi-part step-by-step tech course curriculum titled "${titlePrompt}" in category "${targetCategory}" containing exactly ${requestedCount} detailed, instructional articles/lessons.
+    const coursePrompt = `Create a complete, multi-part step-by-step tech course curriculum titled "${titlePrompt}" in category "${targetCategory}" containing exactly ${requestedCount} detailed, instructional articles/lessons (each 1000 to 1500 words).
 
 SPECIFIC INSTRUCTIONS & EXAMPLE CURRICULUM:
 If the course is "How to Learn HTML for Beginners in 2026":
-- Lesson 1: Required software setup (VS Code, web browsers) and introduction to HTML structure.
+- Lesson 1: Required software setup (VS Code, modern web browsers) and foundational HTML structure.
 - Lesson 2: Basic HTML tags and structural layout tags like <div>, <section>, <header>, <nav>, and <footer>.
-- Lesson 3: Working with HTML Text, Headings, Paragraphs, Lists, and Links.
+- Lesson 3: Working with HTML Text, Headings, Paragraphs, Lists, and Semantic Links.
 - Lesson 4: HTML Forms, Input Elements, Buttons, and Tables.
 - Lesson 5: Building a Complete Step-by-Step Sample HTML Web Page Project.
 
-STRICT INSTRUCTIONAL DIRECTIVES FOR EACH LESSON:
-1. Provide simplified, beginner-friendly step-by-step instructions.
-2. For coding sections: provide clean code blocks AND explain/demonstrate the visual output.
-3. Use green key term highlights in each lesson: <mark>[keyword]</mark>.
-4. Include an explicit 3-5 question Frequently Asked Questions (FAQs) section at the end of every lesson.
-5. Additional custom instructions from instructor: ${promptInstructions || "Focus on practical, hands-on 2026 standards."}`;
+STRICT HUMAN-WRITING DIRECTIVES FOR EVERY LESSON:
+1. WORD COUNT: Each lesson must be a rich 1000 to 1500 words guide.
+2. ZERO AI CLICHÉS: No robotic phrases ("delve into", "tapestry", "in today's fast-paced world", "in conclusion", "crucial"), no emoji spam on headings.
+3. CLEAR STEP-BY-STEP EXPLANATIONS: Provide simplified, beginner-friendly instructions with short paragraphs.
+4. CODE BLOCKS & OUTPUT DEMONSTRATIONS: Provide clean code blocks AND describe the visual/browser output clearly.
+5. GREEN KEY TERM HIGHLIGHTS: Highlight important terms using <mark>[keyword]</mark>.
+6. HIGH-AUTHORITY CITATIONS & DOCUMENTATION LINKS: Include 2-4 official documentation reference links (MDN, W3C, official language docs) in each lesson.
+7. FAQS SECTION: Conclude every lesson with <h2>Frequently Asked Questions (FAQs)</h2> containing 3-5 realistic Q&As.
+8. Additional custom instructions from instructor: ${promptInstructions || "Focus on practical, hands-on standards."}`;
 
-    console.log(`Generating AI course "${titlePrompt}" with ${requestedCount} lessons via Gemini...`);
+    console.log(`Generating AI course "${titlePrompt}" with ${requestedCount} humanized 1000-1500 word lessons via Gemini...`);
 
     let courseResult: any = null;
-    const modelsToTry = ["gemini-3.5-flash", "gemini-2.5-flash"];
+    const modelsToTry = ["gemini-3.7-flash", "gemini-3.1-flash-lite", "gemini-flash-latest", "gemini-3.6-flash"];
 
     for (const clientObj of clientsToTry) {
       for (const modelName of modelsToTry) {
@@ -1467,7 +1518,7 @@ STRICT INSTRUCTIONAL DIRECTIVES FOR EACH LESSON:
             model: modelName,
             contents: coursePrompt,
             config: {
-              systemInstruction: "You are a senior computer science professor and master educator crafting step-by-step programming and tech courses. You generate structured, multi-part curricula with code blocks, output demonstrations, green key term highlights <mark>[keyword]</mark>, and FAQs.",
+              systemInstruction: "You are a senior computer science professor and master educator crafting step-by-step programming and tech courses. You write in a clear, human-like voice strictly avoiding AI clichés and emoji spam. You produce rich 1000-1500 word curricula with code blocks, output demonstrations, green key term highlights <mark>[keyword]</mark>, official authority documentation links (MDN, W3C), and FAQs.",
               responseMimeType: "application/json",
               responseSchema: aiCourseSchema
             }
@@ -1599,10 +1650,10 @@ app.post("/api/ai-generate-lesson", async (req, res) => {
     const clientsToTry: { name: string; client: GoogleGenAI }[] = [];
     if (keyPool.length > 0) {
       for (let i = 0; i < keyPool.length; i++) {
-        clientsToTry.push({ name: `Key Pool #${i + 1}`, client: new GoogleGenAI({ apiKey: keyPool[i] }) });
+        clientsToTry.push({ name: `Key Pool #${i + 1}`, client: new GoogleGenAI({ apiKey: keyPool[i], httpOptions: { headers: { 'User-Agent': 'aistudio-build' } } }) });
       }
     } else if (process.env.GEMINI_API_KEY) {
-      clientsToTry.push({ name: "Environment Key", client: new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY }) });
+      clientsToTry.push({ name: "Environment Key", client: new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY, httpOptions: { headers: { 'User-Agent': 'aistudio-build' } } }) });
     }
     if (clientsToTry.length === 0 && ai) {
       clientsToTry.push({ name: "Default Gemini Client", client: ai });
@@ -1613,12 +1664,15 @@ app.post("/api/ai-generate-lesson", async (req, res) => {
     }
 
     const lessonPrompt = `Generate a complete, high-quality, step-by-step lesson article titled "Lesson ${num}: ${topic}" for the course "${courseTitle || "Tech Course"}" in category "${targetCategory}".
-Include:
-1. Clear beginner-friendly instructional steps with bullet points.
-2. Code blocks with practical examples and visual output demonstrations.
-3. Green key term highlights: <mark>[keyword]</mark>.
-4. At least 2-3 authentic external links to official documentation (e.g. [MDN Web Docs](https://developer.mozilla.org), [W3C Specifications](https://www.w3.org), or official library guides) to boost content quality and authority.
-5. 3-5 Frequently Asked Questions (FAQs) at the end.
+
+CORE REQUIREMENTS:
+1. WORD COUNT: 1000 to 1500 words of comprehensive, easy-to-read tutorial content.
+2. HUMAN-LIKE TONE: Write like a friendly senior software engineer. Strictly NO AI clichés ("delve into", "tapestry", "in today's digital world", "in conclusion", "crucial") and NO emoji clutter.
+3. Clear beginner-friendly instructional steps with bullet points and short paragraphs.
+4. Code blocks with practical examples and visual/console output demonstrations.
+5. Green key term highlights: <mark>[keyword]</mark>.
+6. At least 2-4 authentic external reference links to official documentation (e.g. [MDN Web Docs](https://developer.mozilla.org), [W3C Specifications](https://www.w3.org), or official library guides) to boost content quality and authority.
+7. Conclude with <h2>Frequently Asked Questions (FAQs)</h2> containing 3-5 realistic Q&As.
 Return JSON with fields: title, tagline, excerpt, readTime, content, tags.`;
 
     const singleLessonSchema = {
@@ -1628,14 +1682,14 @@ Return JSON with fields: title, tagline, excerpt, readTime, content, tags.`;
         tagline: { type: Type.STRING },
         excerpt: { type: Type.STRING },
         readTime: { type: Type.STRING },
-        content: { type: Type.STRING },
+        content: { type: Type.STRING, description: "1000-1500 words of human-like educational guide with code, output, <mark> tags, official reference links, and FAQs." },
         tags: { type: Type.ARRAY, items: { type: Type.STRING } }
       },
       required: ["title", "tagline", "excerpt", "readTime", "content"]
     };
 
     let result: any = null;
-    const modelsToTry = ["gemini-3.5-flash", "gemini-2.5-flash"];
+    const modelsToTry = ["gemini-3.7-flash", "gemini-3.1-flash-lite", "gemini-flash-latest", "gemini-3.6-flash"];
 
     for (const clientObj of clientsToTry) {
       for (const modelName of modelsToTry) {
@@ -1644,7 +1698,7 @@ Return JSON with fields: title, tagline, excerpt, readTime, content, tags.`;
             model: modelName,
             contents: lessonPrompt,
             config: {
-              systemInstruction: "You are a master CS educator writing hands-on lesson articles.",
+              systemInstruction: "You are a master computer science educator writing 1000-1500 word hands-on lesson articles in a natural, human voice without AI clichés or emoji clutter. You include practical code snippets, output demonstrations, green key term highlights <mark>[keyword]</mark>, official reference links, and FAQs.",
               responseMimeType: "application/json",
               responseSchema: singleLessonSchema
             }
