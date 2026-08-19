@@ -94,6 +94,19 @@ const SplashScreen = () => {
   );
 };
 
+// Helper to slugify titles for SEO-friendly URLs (Top-level scope to avoid TDZ)
+export const slugify = (text: any): string => {
+  if (!text) return "";
+  return String(text)
+    .toLowerCase()
+    .trim()
+    .replace(/\s+/g, "-")
+    .replace(/[^\w\-]+/g, "")
+    .replace(/\-\-+/g, "-")
+    .replace(/^-+/, "")
+    .replace(/-+$/, "");
+};
+
 export default function App() {
   // Navigation tabs initialized from window.location.pathname dynamically
   const [currentTab, setCurrentTab] = useState<"home" | "articles" | "about" | "privacy" | "terms" | "contact" | "admin-auth" | "admin" | "profile" | "disclaimer" | "courses" | "register">(() => {
@@ -295,30 +308,36 @@ export default function App() {
   // Active reading article and course context
   const [selectedPost, setSelectedPost] = useState<BlogPost | null>(() => {
     if (typeof window !== "undefined") {
-      if ((window as any).__INITIAL_POST__) {
-        return (window as any).__INITIAL_POST__;
-      }
-      const rawPath = window.location.pathname;
-      const path = rawPath.replace(/\.html$/, "");
-      if (
-        path.startsWith("/blog/") || 
-        path.startsWith("/articles/") || 
-        path.startsWith("/article/") || 
-        path.startsWith("/post/") || 
-        path.startsWith("/p/")
-      ) {
-        const rawSlug = path.split("/").pop() || "";
-        const slug = rawSlug.trim();
-        const cached = localStorage.getItem("spro_cached_posts");
-        let list: BlogPost[] = INITIAL_POSTS;
-        if (cached) {
-          try {
-            const parsed = JSON.parse(cached);
-            if (Array.isArray(parsed) && parsed.length > 0) list = parsed;
-          } catch (e) {}
+      try {
+        if ((window as any).__INITIAL_POST__) {
+          return (window as any).__INITIAL_POST__;
         }
-        const matched = list.find((p) => slugify(p.title) === slug || p.id === slug);
-        if (matched) return matched;
+        const rawPath = window.location.pathname;
+        const path = rawPath.replace(/\.html$/, "");
+        if (
+          path.startsWith("/blog/") || 
+          path.startsWith("/articles/") || 
+          path.startsWith("/article/") || 
+          path.startsWith("/post/") || 
+          path.startsWith("/p/")
+        ) {
+          const rawSlug = path.split("/").pop() || "";
+          const slug = rawSlug.trim();
+          if (slug) {
+            const cached = localStorage.getItem("spro_cached_posts");
+            let list: BlogPost[] = INITIAL_POSTS;
+            if (cached) {
+              try {
+                const parsed = JSON.parse(cached);
+                if (Array.isArray(parsed) && parsed.length > 0) list = parsed;
+              } catch (e) {}
+            }
+            const matched = list.find((p) => p && (slugify(p.title) === slug || p.id === slug));
+            if (matched) return matched;
+          }
+        }
+      } catch (err) {
+        console.warn("Initial selected post sync error:", err);
       }
     }
     return null;
@@ -480,19 +499,6 @@ export default function App() {
     } catch (err) {
       console.error("Failed to increment feedViews:", err);
     }
-  };
-
-  // Helper to slugify titles for SEO-friendly URLs
-  const slugify = (text: any): string => {
-    if (!text) return "";
-    return String(text)
-      .toLowerCase()
-      .trim()
-      .replace(/\s+/g, "-")
-      .replace(/[^\w\-]+/g, "")
-      .replace(/\-\-+/g, "-")
-      .replace(/^-+/, "")
-      .replace(/-+$/, "");
   };
 
   // Sync state from browser URL path
