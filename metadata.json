@@ -1,6 +1,6 @@
 {
-  "name": "Glow Blog",
-  "description": "A high-quality, responsive blog featuring interactive articles and an AI post creator, framed in an ambient purple-glowing light aesthetics.",
+  "name": "S Pro Coder",
+  "description": "Professional development and tech learning platform featuring step-by-step programming courses, 1500+ word deep-dive tutorials, algorithmic Site Mind watchdog auditing, and interactive developer guides.",
   "requestFramePermissions": [],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }

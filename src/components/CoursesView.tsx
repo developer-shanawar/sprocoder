@@ -305,17 +305,7 @@ export default function CoursesView({
                           loading="lazy"
                           decoding="async"
                         />
-                        <div className="absolute inset-0 bg-gradient-to-t from-slate-950/80 via-transparent to-transparent" />
-                        
-                        {/* Category & Level Badges */}
-                        <div className="absolute top-3 left-3 right-3 flex items-center justify-between">
-                          <span className="px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider bg-purple-700 text-white shadow-md">
-                            {course.category}
-                          </span>
-                          <span className="px-2.5 py-1 rounded-full text-[10px] font-extrabold bg-slate-900/90 text-emerald-400 border border-emerald-500/40 backdrop-blur-md">
-                            {course.level || "Beginner 2026"}
-                          </span>
-                        </div>
+                        <div className="absolute inset-0 bg-gradient-to-t from-slate-950/60 via-transparent to-transparent" />
 
                         {/* Article Count Badge */}
                         <div className="absolute bottom-3 left-3 flex items-center gap-1 bg-purple-950/90 backdrop-blur-md text-white text-[11px] font-black px-3 py-1 rounded-xl border border-purple-800 shadow-sm">
@@ -332,6 +322,16 @@ export default function CoursesView({
                         <p className="text-xs text-gray-600 leading-relaxed line-clamp-3 font-normal">
                           {course.description}
                         </p>
+
+                        {/* Category & Level Badges inside the card below title and description */}
+                        <div className="flex items-center gap-2 pt-1 flex-wrap">
+                          <span className="px-2.5 py-0.5 rounded-lg text-[10px] font-black uppercase tracking-wider bg-purple-100 text-purple-800 border border-purple-200">
+                            {course.category}
+                          </span>
+                          <span className="px-2.5 py-0.5 rounded-lg text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                            {course.level || "Beginner"}
+                          </span>
+                        </div>
                       </div>
                     </div>
 

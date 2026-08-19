@@ -70,6 +70,8 @@ function preprocessArticleContent(rawContent: string): string {
   text = text.replace(/\\"/g, '"').replace(/\\'/g, "'");
   text = text.replace(/<mark\s+style="[^"]*">/gi, "<mark>");
   text = text.replace(/<mark\s+style='[^']*'>/gi, "<mark>");
+  // Ensure all anchor tags have target="_blank" rel="noopener noreferrer"
+  text = text.replace(/<a\s+(?![^>]*\btarget=)([^>]*href=["'][^"']+["'][^>]*)>/gi, '<a target="_blank" rel="noopener noreferrer" $1>');
   return text;
 }
 
@@ -350,14 +352,15 @@ export default function ArticleDetailView({
                           rehypePlugins={[rehypeRaw]}
                           components={{
                             p: ({ children }) => <p className="mb-4 leading-relaxed text-slate-800 text-left sm:text-justify">{children}</p>,
-                            a: ({ href, children }) => (
+                            a: ({ href, children }: any) => (
                               <a 
                                 href={href} 
                                 target="_blank" 
                                 rel="noopener noreferrer" 
-                                className="text-purple-600 font-bold hover:text-purple-850 underline decoration-purple-400 decoration-2 transition-colors cursor-pointer"
+                                className="text-purple-600 font-extrabold hover:text-purple-800 underline decoration-purple-400 decoration-2 underline-offset-2 transition-all cursor-pointer inline-flex items-center gap-1 hover:decoration-purple-600 active:scale-95"
                               >
-                                {children}
+                                <span>{children}</span>
+                                <svg className="w-3.5 h-3.5 inline-block opacity-75 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
                               </a>
                             ),
                             img: ({ src, alt }) => (

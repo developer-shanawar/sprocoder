@@ -11,7 +11,6 @@ import { db, DB_PATHS } from "../firebase";
 import { ref, set, push, remove, get, update, onValue } from "firebase/database";
 import { BlogPost, UserAccount, ContactMessage, Course, CourseLesson } from "../types";
 import WriteArticleEditor from "./WriteArticleEditor";
-import SiteMindReports from "./SiteMindReports";
 
 function slugify(text: any): string {
   if (!text) return "";
@@ -83,7 +82,7 @@ interface AdminPanelProps {
 }
 
 export default function AdminPanel({ onClose, categories, setCategories, onLogout }: AdminPanelProps) {
-  const [activeTab, setActiveTab] = useState<"users" | "articles" | "writeArticle" | "categories" | "messages" | "pages" | "videos" | "featured" | "analytics" | "customCode" | "aiArticle" | "ads" | "courses" | "siteMind">("articles");
+  const [activeTab, setActiveTab] = useState<"users" | "articles" | "writeArticle" | "categories" | "messages" | "pages" | "videos" | "featured" | "analytics" | "customCode" | "aiArticle" | "ads" | "courses">("articles");
   const [loading, setLoading] = useState(false);
 
   // Courses & AI Course Generator States
@@ -492,7 +491,13 @@ export default function AdminPanel({ onClose, categories, setCategories, onLogou
     const unsubArticles = onValue(articlesRef, (snapshot) => {
       if (snapshot.exists()) {
         const data = snapshot.val();
-        const articlesList: BlogPost[] = Object.values(data);
+        const articlesList: BlogPost[] = Object.keys(data).map((key) => {
+          const item = data[key];
+          return {
+            ...item,
+            id: item.id || key
+          };
+        }).filter(Boolean);
         setArticles(articlesList);
       } else {
         setArticles([]);
@@ -1346,12 +1351,41 @@ export default function AdminPanel({ onClose, categories, setCategories, onLogou
     setActiveTab("writeArticle");
   };
 
+  const [publishingAllPrivate, setPublishingAllPrivate] = useState(false);
+  const [publishAllSuccessMsg, setPublishAllSuccessMsg] = useState<string | null>(null);
+
   const handleToggleVisibility = async (post: BlogPost) => {
     const newVis = post.visibility === "private" ? "public" : "private";
     try {
       await update(ref(db, `${DB_PATHS.ARTICLES}/${post.id}`), { visibility: newVis });
     } catch (err) {
       console.error(err);
+    }
+  };
+
+  const handlePublishAllPrivateArticles = async () => {
+    const privateArticles = articles.filter(a => a.visibility === "private");
+    if (privateArticles.length === 0) {
+      alert("All articles are already public and live!");
+      return;
+    }
+    if (!confirm(`Are you sure you want to publish all ${privateArticles.length} private articles and make them public live?`)) {
+      return;
+    }
+    try {
+      setPublishingAllPrivate(true);
+      const updates: Record<string, any> = {};
+      privateArticles.forEach((art) => {
+        updates[`${DB_PATHS.ARTICLES}/${art.id}/visibility`] = "public";
+      });
+      await update(ref(db), updates);
+      setPublishAllSuccessMsg(`Successfully published ${privateArticles.length} private article(s) to public!`);
+      setTimeout(() => setPublishAllSuccessMsg(null), 5000);
+    } catch (err) {
+      console.error(err);
+      alert("Failed to publish all private articles.");
+    } finally {
+      setPublishingAllPrivate(false);
     }
   };
 
@@ -1365,15 +1399,74 @@ export default function AdminPanel({ onClose, categories, setCategories, onLogou
     }
   };
 
-  // Delete Course
+  // Delete Course and all associated orphaned lesson articles
   const handleDeleteCourse = async (id: string) => {
-    if (!confirm("Are you sure you want to delete this course?")) return;
+    const courseToDelete = coursesList.find((c) => c.id === id);
+    const courseTitle = courseToDelete?.title || "this course";
+    
+    if (!confirm(`Are you sure you want to delete course "${courseTitle}"?\n\nAll associated lesson articles that are not linked to any other active course will be automatically deleted.`)) {
+      return;
+    }
+
     try {
+      // 1. Identify all articleIds linked to the course being deleted
+      const targetArticleIds = new Set<string>();
+      if (courseToDelete?.lessons && Array.isArray(courseToDelete.lessons)) {
+        courseToDelete.lessons.forEach((l) => {
+          if (l.articleId) targetArticleIds.add(l.articleId);
+        });
+      }
+
+      // Also check if any articles match this course's lesson titles
+      if (courseToDelete?.lessons) {
+        const lessonTitles = new Set(courseToDelete.lessons.map((l) => l.title?.trim().toLowerCase()).filter(Boolean));
+        articles.forEach((art) => {
+          if (art.id && (targetArticleIds.has(art.id) || (art.title && lessonTitles.has(art.title.trim().toLowerCase())))) {
+            targetArticleIds.add(art.id);
+          }
+        });
+      }
+
+      // 2. Determine which articleIds are STILL used by other active courses
+      const otherCourses = coursesList.filter((c) => c.id !== id);
+      const usedByOtherCourses = new Set<string>();
+      otherCourses.forEach((c) => {
+        if (c.lessons && Array.isArray(c.lessons)) {
+          c.lessons.forEach((l) => {
+            if (l.articleId) usedByOtherCourses.add(l.articleId);
+          });
+        }
+      });
+
+      // 3. Filter down to articles that must be deleted (not used by any other course)
+      const articlesToDelete = Array.from(targetArticleIds).filter(
+        (artId) => !usedByOtherCourses.has(artId)
+      );
+
+      // 4. Delete the course from Firebase
       await remove(ref(db, `${DB_PATHS.COURSES}/${id}`));
-      alert("Course deleted successfully.");
-    } catch (err) {
-      console.error(err);
-      alert("Failed to delete course.");
+
+      // 5. Delete all orphaned lesson articles from Firebase
+      let deletedArticlesCount = 0;
+      for (const artId of articlesToDelete) {
+        try {
+          await remove(ref(db, `${DB_PATHS.ARTICLES}/${artId}`));
+          deletedArticlesCount++;
+        } catch (artErr) {
+          console.warn(`Failed to remove lesson article ${artId}:`, artErr);
+        }
+      }
+
+      // 6. Update local articles state
+      if (articlesToDelete.length > 0) {
+        const deleteSet = new Set(articlesToDelete);
+        setArticles((prev) => prev.filter((a) => !deleteSet.has(a.id)));
+      }
+
+      alert(`✅ Course "${courseTitle}" deleted successfully! Automatically removed ${deletedArticlesCount} unlinked lesson article(s).`);
+    } catch (err: any) {
+      console.error("Error deleting course and linked articles:", err);
+      alert("Failed to delete course: " + err.message);
     }
   };
 
@@ -2008,20 +2101,6 @@ export default function AdminPanel({ onClose, categories, setCategories, onLogou
 
                 <button
                   type="button"
-                  onClick={() => setActiveTab("siteMind")}
-                  className={`flex items-center gap-2.5 px-4 py-3 rounded-2xl text-xs font-bold transition-all text-left cursor-pointer ${
-                    activeTab === "siteMind" 
-                      ? "bg-gradient-to-r from-purple-800 to-indigo-800 text-white shadow-md shadow-purple-200 font-extrabold" 
-                      : "hover:bg-purple-100/60 text-purple-900 font-extrabold"
-                  }`}
-                  id="admin-nav-sitemind-btn"
-                >
-                  <Brain className="w-4 h-4 shrink-0 text-amber-300 animate-pulse" />
-                  <span className="truncate">🧠 Site Mind & Reports</span>
-                </button>
-
-                <button
-                  type="button"
                   onClick={() => setActiveTab("articles")}
                   className={`flex items-center gap-2.5 px-4 py-3 rounded-2xl text-xs font-bold transition-all text-left cursor-pointer ${
                     activeTab === "articles" 
@@ -2185,29 +2264,6 @@ export default function AdminPanel({ onClose, categories, setCategories, onLogou
           {/* Right Main Panel Content */}
           <div className="lg:col-span-9 min-h-[400px] space-y-6" id="admin-main-content">
           
-            {/* TAB: SITE MIND & ACTIVITY REPORTS AUDIT */}
-            {activeTab === "siteMind" && (
-              <SiteMindReports
-                articles={articles}
-                users={users}
-                analyticsData={analyticsData}
-                onRefreshArticles={async () => {
-                  try {
-                    const snap = await get(ref(db, DB_PATHS.ARTICLES));
-                    if (snap.exists()) {
-                      setArticles(Object.values(snap.val()));
-                    }
-                  } catch (e) {
-                    console.error("Failed to refresh articles:", e);
-                  }
-                }}
-                onEditArticle={(art) => {
-                  setEditingArticle(art);
-                  setActiveTab("writeArticle");
-                }}
-              />
-            )}
-
             {/* TAB: SEPARATE WRITE ARTICLE STUDIO */}
             {activeTab === "writeArticle" && (
               <div className="space-y-6 animate-in fade-in duration-200" id="tab-write-article-content">
@@ -2668,10 +2724,42 @@ export default function AdminPanel({ onClose, categories, setCategories, onLogou
               </form>
 
               {/* Table / List of Existing Articles */}
-              <div className="space-y-2">
-                <h3 className="text-xs font-black text-purple-950 uppercase tracking-wider">
-                  Existing Articles ({articles.length})
-                </h3>
+              <div className="space-y-3 pt-2">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-purple-100 pb-2">
+                  <div>
+                    <h3 className="text-xs font-black text-purple-950 uppercase tracking-wider flex items-center gap-2">
+                      <BookOpen className="w-4 h-4 text-purple-600" />
+                      <span>Existing Articles ({articles.length})</span>
+                    </h3>
+                    <p className="text-[10px] text-gray-500">
+                      Manage publication status, view analytics, and edit live article content.
+                    </p>
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    {articles.filter(a => a.visibility === "private").length > 0 && (
+                      <button
+                        type="button"
+                        onClick={handlePublishAllPrivateArticles}
+                        disabled={publishingAllPrivate}
+                        className="px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white font-extrabold text-xs flex items-center gap-1.5 transition-all shadow-sm cursor-pointer active:scale-95"
+                      >
+                        <Globe className="w-3.5 h-3.5" />
+                        <span>{publishingAllPrivate ? "Publishing All..." : `Publish All Private (${articles.filter(a => a.visibility === "private").length})`}</span>
+                      </button>
+                    )}
+                    <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded-lg border border-emerald-100">
+                      {articles.filter(a => a.visibility !== "private").length} Public Live
+                    </span>
+                  </div>
+                </div>
+
+                {publishAllSuccessMsg && (
+                  <div className="p-3 bg-emerald-50 border border-emerald-200 text-emerald-900 rounded-xl text-xs font-bold flex items-center gap-2">
+                    <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                    <span>{publishAllSuccessMsg}</span>
+                  </div>
+                )}
 
                 <div className="overflow-x-auto rounded-xl border border-purple-100 bg-white">
                   <table className="w-full text-left text-xs border-collapse">

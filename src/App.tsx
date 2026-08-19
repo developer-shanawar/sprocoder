@@ -344,43 +344,6 @@ export default function App() {
   });
   const [activeCourseContext, setActiveCourseContext] = useState<{ course: Course; lessonIndex: number } | null>(null);
 
-  // Algorithmic Watchdog Bot: Analyzes all articles in real-time.
-  // Any article below 1,000 words is automatically quarantined/privatized in Firebase.
-  useEffect(() => {
-    if (!allPosts || allPosts.length === 0) return;
-    
-    const timer = setTimeout(async () => {
-      const getWordCount = (content: string): number => {
-        if (!content) return 0;
-        const clean = content
-          .replace(/<[^>]*>/g, " ")
-          .replace(/\[([^\]]+)\]\([^)]+\)/g, "$1")
-          .replace(/[#*`_~>-]/g, " ")
-          .replace(/\s+/g, " ")
-          .trim();
-        return clean ? clean.split(/\s+/).filter(Boolean).length : 0;
-      };
-
-      for (const post of allPosts) {
-        if (post && post.id && post.visibility !== "private") {
-          const words = getWordCount(post.content || "");
-          if (words > 0 && words < 1000) {
-            console.log(`[Watchdog Bot] Auto-quarantining sub-1,000 word article "${post.title}" (${words} words) to Private.`);
-            try {
-              await update(ref(db, `${DB_PATHS.ARTICLES}/${post.id}`), {
-                visibility: "private"
-              });
-            } catch (err) {
-              console.warn("Watchdog bot notice:", err);
-            }
-          }
-        }
-      }
-    }, 4000);
-
-    return () => clearTimeout(timer);
-  }, [allPosts.length]);
-
   const handleReturnToCourse = () => {
     setSelectedPost(null);
     setCurrentTab("courses");
@@ -403,7 +366,7 @@ export default function App() {
 
     // Find matched post in allPosts if exists
     const matchedPost = allPosts.find(
-      (p) => p.id === targetLesson.articleId || p.title.toLowerCase() === targetLesson.title.toLowerCase()
+      (p) => p.id === targetLesson.articleId || (p.title && targetLesson.title && p.title.toLowerCase() === targetLesson.title.toLowerCase())
     );
 
     const nextPostToOpen: BlogPost = matchedPost ? {
@@ -1178,10 +1141,32 @@ export default function App() {
     const unsubPosts = onValue(postsRef, (snapshot) => {
       if (snapshot.exists()) {
         const data = snapshot.val();
-        const rawList: BlogPost[] = Object.values(data);
-        const list = rawList.filter(
-          (p) => p && typeof p === "object" && p.id && p.title && typeof p.title === "string" && p.title.trim()
-        );
+        const rawList: BlogPost[] = Object.keys(data).map((key) => {
+          const item = data[key];
+          return {
+            ...item,
+            id: item?.id || key
+          };
+        });
+        const list = rawList
+          .filter(
+            (p) => p && typeof p === "object" && p.id && p.title && typeof p.title === "string" && p.title.trim()
+          )
+          .map((p) => ({
+            ...p,
+            visibility: "public" as const
+          }));
+
+        // Automatically update any private articles in Firebase database to public
+        const privateItems = rawList.filter((p) => p && p.id && p.visibility === "private");
+        if (privateItems.length > 0) {
+          const updates: Record<string, any> = {};
+          privateItems.forEach((p) => {
+            updates[`${DB_PATHS.ARTICLES}/${p.id}/visibility`] = "public";
+          });
+          update(ref(db), updates).catch((err) => console.error("Auto-publish private articles error:", err));
+        }
+
         const sortedList = [...list].sort((a, b) => {
           const tA = a.date ? new Date(a.date).getTime() : 0;
           const tB = b.date ? new Date(b.date).getTime() : 0;
