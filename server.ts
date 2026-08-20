@@ -780,9 +780,9 @@ CORE MANDATES:
 1. WORD COUNT: AT LEAST 1500 words (1500 to 2200+ words) of deep, hands-on, high-signal technical depth.
 2. ZERO AI CLICHÉS: No phrases like "in today's fast-paced digital world", "delve into", "tapestry", "crucial", "testament", "in conclusion".
 3. HUMAN READABILITY: Keep paragraphs concise (2-3 sentences). Explain technical concepts simply with real-world analogies.
-4. PRACTICAL CODE & OUTPUT: Include clean code examples with clear line-by-line explanations and expected output.
-5. GREEN KEY TERMS: Highlight important key terms with <mark>[keyword]</mark>.
-6. AUTHENTIC DOCUMENTATION LINKS: Include 3-5 clickable markdown links to official documentation (e.g., [MDN Web Docs](https://developer.mozilla.org), [W3C Standards](https://www.w3.org), or official language docs) in the body and in a dedicated <h2>Authoritative References & Official Resources</h2> section.
+4. PRACTICAL CODE & OUTPUT: Include clean, multi-line code examples inside <pre><code>...</code></pre> with line-by-line explanations and expected output.
+5. GREEN KEY TERMS: Highlight important key terms with <mark>keyword</mark> (e.g. <mark>Server Actions</mark>). Do NOT put square brackets inside the mark tags.
+6. AUTHENTIC DOCUMENTATION LINKS: Include 3-5 clickable links to official documentation (MDN Web Docs, W3C Standards, or official language docs) in the body and in a dedicated <h2>Authoritative References & Official Resources</h2> section formatted with <ul><li><a href="...">Title</a> - Description</li></ul>.
 7. FAQS: Conclude with <h2>Frequently Asked Questions (FAQs)</h2> containing 4 to 6 thorough Q&As.`;
 
     let response: any = null;
@@ -1294,13 +1294,13 @@ CORE EDITORIAL & QUALITY DIRECTIVES (GOOGLE SEARCH ESSENTIALS & ADSENSE COMPLIAN
    - THE TITLE AND CONTENT MUST BE COMPLETELY SEPARATE AND DIFFERENT.
 4. TREND & PRACTICAL TOPIC: Focus on practical 2026 insights inspired by: "${randomTrendSeed}".
 5. CODE / TECHNICAL IMPLEMENTATION & OUTPUT DEMONSTRATION:
-   - Include complete, working code snippets, API requests, or technical specification blocks.
+   - Include complete, multi-line working code snippets inside <pre><code class="language-python">...</code></pre> with proper newlines on every code line.
    - Clearly explain what each line does and describe the expected output in detail.
 6. GREEN KEY TERM HIGHLIGHTS:
-   - Highlight important key concepts and terminology in green using: <mark>[keyword]</mark> (e.g., <mark>Server Actions</mark> or <mark>Zero-Trust Architecture</mark>).
+   - Highlight important key concepts and terminology in green using: <mark>keyword</mark> (e.g., <mark>Server Actions</mark> or <mark>Zero-Trust Architecture</mark>). Do NOT put square brackets inside the mark tags.
 7. HIGH-AUTHORITY CITATIONS & OFFICIAL DOCUMENTATION LINKS:
-   - Naturally weave 3 to 5 authentic markdown reference links to official documentation (e.g., [MDN Web Docs](https://developer.mozilla.org), [W3C Standards](https://www.w3.org), [Python Documentation](https://docs.python.org), [React Official Docs](https://react.dev), [Node.js Documentation](https://nodejs.org), [OWASP Security Guide](https://owasp.org), [TypeScript Handbook](https://www.typescriptlang.org), [GitHub Documentation](https://docs.github.com)) into the text.
-   - Include a dedicated section titled <h2>Authoritative References & Official Resources</h2> with bulleted official links before the FAQs to establish strong domain authority and AdSense trust.
+   - Naturally weave 3 to 5 authentic links to official documentation (e.g., [MDN Web Docs](https://developer.mozilla.org), [W3C Standards](https://www.w3.org), [Python Documentation](https://docs.python.org), [React Official Docs](https://react.dev), [Node.js Documentation](https://nodejs.org), [OWASP Security Guide](https://owasp.org), [TypeScript Handbook](https://www.typescriptlang.org), [GitHub Documentation](https://docs.github.com)) into the text.
+   - Include a dedicated section titled <h2>Authoritative References & Official Resources</h2> with a clean bulleted list (<ul><li><a href="..." target="_blank" rel="noopener noreferrer">Resource Name</a> - Description</li></ul>) before the FAQs to establish strong domain authority and AdSense trust.
 8. FAQS SECTION:
    - Conclude with <h2>Frequently Asked Questions (FAQs)</h2> containing 4 to 6 realistic, high-value Q&A items with direct, concise human answers.`;
 
@@ -1318,7 +1318,7 @@ CORE EDITORIAL & QUALITY DIRECTIVES (GOOGLE SEARCH ESSENTIALS & ADSENSE COMPLIAN
             model: modelName,
             contents: prompt,
             config: {
-              systemInstruction: `You are a master technical author and senior software architect writing 100% original, human-crafted 1500+ word articles exclusively for "${targetCategory}". You strictly avoid all robotic AI clichés (like 'in today's fast-paced world', 'delve into', 'tapestry', 'crucial', 'testament', 'in conclusion'), avoid emoji spam/weird symbols, and write in clear, engaging, easy-to-understand English that adheres to Google AdSense & Search Essentials EEAT standards. You integrate working code blocks with output explanations, green key term highlights using <mark>[keyword]</mark>, authentic official reference links (MDN, W3C, language docs), an official resources section, and an explicit FAQs section.`,
+              systemInstruction: `You are a master technical author and senior software architect writing 100% original, human-crafted 1500+ word articles exclusively for "${targetCategory}". You strictly avoid all robotic AI clichés (like 'in today's fast-paced world', 'delve into', 'tapestry', 'crucial', 'testament', 'in conclusion'), avoid emoji spam/weird symbols, and write in clear, engaging, easy-to-understand English that adheres to Google AdSense & Search Essentials EEAT standards. You integrate multi-line code blocks with output explanations, clean green key term highlights using <mark>keyword</mark>, authentic official reference links (MDN, W3C, language docs) in bullet lists, and an explicit FAQs section.`,
               responseMimeType: "application/json",
               responseSchema: aiBlogPostSchema
             }
@@ -1511,9 +1511,9 @@ STRICT HUMAN-WRITING DIRECTIVES FOR EVERY LESSON:
 1. WORD COUNT: Each lesson must be a deeply comprehensive, hands-on guide of AT LEAST 1500 words (1500 to 2200+ words).
 2. ZERO AI CLICHÉS: No robotic phrases ("delve into", "tapestry", "in today's fast-paced world", "in conclusion", "crucial"), no emoji spam on headings.
 3. CLEAR STEP-BY-STEP EXPLANATIONS: Provide simplified, beginner-friendly instructions with short, easily digestible paragraphs.
-4. CODE BLOCKS & OUTPUT DEMONSTRATIONS: Provide clean code blocks AND describe the visual/browser output clearly.
-5. GREEN KEY TERM HIGHLIGHTS: Highlight important terms using <mark>[keyword]</mark>.
-6. HIGH-AUTHORITY CITATIONS & DOCUMENTATION LINKS: Include 3-5 official documentation reference links (MDN, W3C, official language docs) in each lesson.
+4. CODE BLOCKS & OUTPUT DEMONSTRATIONS: Provide clean, multi-line code blocks inside <pre><code>...</code></pre> AND describe the visual/browser output clearly.
+5. GREEN KEY TERM HIGHLIGHTS: Highlight important terms using <mark>keyword</mark> (e.g. <mark>HTML Element</mark>). Do NOT put square brackets inside the mark tags.
+6. HIGH-AUTHORITY CITATIONS & DOCUMENTATION LINKS: Include 3-5 official documentation reference links (MDN, W3C, official language docs) formatted as bullet list items in each lesson.
 7. FAQS SECTION: Conclude every lesson with <h2>Frequently Asked Questions (FAQs)</h2> containing 4-6 realistic Q&As.
 8. Additional custom instructions from instructor: ${promptInstructions || "Focus on practical, hands-on standards."}`;
 
@@ -1529,7 +1529,7 @@ STRICT HUMAN-WRITING DIRECTIVES FOR EVERY LESSON:
             model: modelName,
             contents: coursePrompt,
             config: {
-              systemInstruction: "You are a senior computer science professor and master educator crafting step-by-step programming and tech courses. You write in a clear, human-like voice strictly avoiding AI clichés and emoji spam. You produce rich 1500+ word curricula with code blocks, output demonstrations, green key term highlights <mark>[keyword]</mark>, official authority documentation links (MDN, W3C), and FAQs.",
+              systemInstruction: "You are a senior computer science professor and master educator crafting step-by-step programming and tech courses. You write in a clear, human-like voice strictly avoiding AI clichés and emoji spam. You produce rich 1500+ word curricula with multi-line code blocks, output demonstrations, clean green key term highlights <mark>keyword</mark>, official authority documentation links (MDN, W3C), and FAQs.",
               responseMimeType: "application/json",
               responseSchema: aiCourseSchema
             }
@@ -1680,9 +1680,9 @@ CORE REQUIREMENTS:
 1. WORD COUNT: AT LEAST 1500 words (1500 to 2200+ words) of comprehensive, easy-to-read tutorial content.
 2. HUMAN-LIKE TONE: Write like a friendly senior software engineer. Strictly NO AI clichés ("delve into", "tapestry", "in today's digital world", "in conclusion", "crucial") and NO emoji clutter.
 3. Clear beginner-friendly instructional steps with bullet points and short paragraphs.
-4. Code blocks with practical examples and visual/console output demonstrations.
-5. Green key term highlights: <mark>[keyword]</mark>.
-6. At least 3-5 authentic external reference links to official documentation (e.g. [MDN Web Docs](https://developer.mozilla.org), [W3C Specifications](https://www.w3.org), or official library guides) formatted as clickable markdown links.
+4. Clean multi-line code blocks inside <pre><code>...</code></pre> with practical examples and visual/console output demonstrations.
+5. Green key term highlights: <mark>keyword</mark> (e.g. <mark>Async/Await</mark>). Do NOT put square brackets inside the mark tags.
+6. At least 3-5 authentic external reference links to official documentation (e.g. [MDN Web Docs](https://developer.mozilla.org), [W3C Specifications](https://www.w3.org), or official library guides) formatted as clickable links in bullet lists.
 7. Conclude with <h2>Frequently Asked Questions (FAQs)</h2> containing 4-6 realistic Q&As.
 Return JSON with fields: title, tagline, excerpt, readTime, content, tags.`;
 

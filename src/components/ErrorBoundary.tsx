@@ -21,6 +21,19 @@ export class ErrorBoundary extends Component<Props, State> {
     if (errorMsg === "script error." || errorMsg.includes("script error")) {
       return { hasError: false, error: null };
     }
+    // If it's a dynamic module import failure, auto-reload once to refresh the stale bundle
+    if (
+      errorMsg.includes("failed to fetch dynamically imported module") || 
+      errorMsg.includes("dynamically imported module") ||
+      errorMsg.includes("loading chunk")
+    ) {
+      const hasRetried = window.sessionStorage.getItem("spro_chunk_reload_done");
+      if (!hasRetried) {
+        window.sessionStorage.setItem("spro_chunk_reload_done", "true");
+        window.location.reload();
+        return { hasError: false, error: null };
+      }
+    }
     return { hasError: true, error };
   }
 

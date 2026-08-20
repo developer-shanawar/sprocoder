@@ -64,6 +64,8 @@ export interface UserAccount {
   lastLogin: string;
   username?: string; // e.g. @shanawar
   avatarUrl?: string; // profile picture URL
+  whatsapp?: string; // WhatsApp Number or ID
+  telegram?: string; // Telegram Username or ID
   ipAddress?: string; // User IP Address
   country?: string; // User Country
   city?: string; // User City

@@ -7,13 +7,13 @@ import { db, DB_PATHS, auth } from "../firebase";
 import { ref, set, get, update, push, onValue } from "firebase/database";
 import { signInWithEmailAndPassword, createUserWithEmailAndPassword, signInWithPopup, GoogleAuthProvider } from "firebase/auth";
 import { BlogPost, UserAccount, NotificationItem } from "../types";
-import RegistrationWizardModal from "./RegistrationWizardModal";
+import AuthModal from "./AuthModal";
 import { motion, AnimatePresence } from "motion/react";
 import { initUserSectionSession, clearSectionSession } from "../utils/sessionManager";
 
 interface HeaderProps {
-  currentTab: "home" | "articles" | "courses" | "about" | "privacy" | "terms" | "contact" | "admin-auth" | "admin" | "profile" | "disclaimer" | "register";
-  setCurrentTab: (tab: "home" | "articles" | "courses" | "about" | "privacy" | "terms" | "contact" | "admin-auth" | "admin" | "profile" | "disclaimer" | "register") => void;
+  currentTab: "home" | "articles" | "courses" | "about" | "privacy" | "terms" | "contact" | "admin-auth" | "admin" | "profile" | "disclaimer" | "register" | "login";
+  setCurrentTab: (tab: "home" | "articles" | "courses" | "about" | "privacy" | "terms" | "contact" | "admin-auth" | "admin" | "profile" | "disclaimer" | "register" | "login") => void;
   currentUser: UserAccount | null;
   setCurrentUser: (user: UserAccount | null) => void;
   onOpenAdmin: () => void;
@@ -740,140 +740,16 @@ export default function Header({
         )}
       </AnimatePresence>
 
-      {/* Login & Registration Form Dialog Modal */}
-      <AnimatePresence>
-        {isAuthModalOpen && (
-          <div className="fixed inset-0 z-[120] flex items-center justify-center p-4">
-            {/* Backdrop */}
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              onClick={() => setIsAuthModalOpen(false)}
-              className="absolute inset-0 bg-slate-950/70 backdrop-blur-md"
-            />
-            {/* Box */}
-            <motion.div
-              initial={{ scale: 0.95, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.95, opacity: 0 }}
-              className="bg-white/95 rounded-[32px] w-full max-w-sm overflow-hidden border border-white shadow-2xl relative z-10 text-purple-950 p-6 md:p-8 space-y-5"
-              id="auth-modal-dialog"
-            >
-              <div className="text-center space-y-1">
-                <h2 className="text-xl font-black text-purple-950 tracking-tight flex items-center justify-center gap-1.5">
-                  <KeyRound className="w-5 h-5 text-purple-600" />
-                  <span>{authMode === "login" ? "Welcome Back" : "Create Coder Profile"}</span>
-                </h2>
-                <p className="text-xs text-gray-500 leading-normal">
-                  {authMode === "login" 
-                    ? "Log in to view saved posts and write discussions." 
-                    : "Become a registered reader and save articles live!"
-                  }
-                </p>
-              </div>
-
-              {authError && (
-                <div className="p-3 bg-red-50 border border-red-200 rounded-xl text-[11px] text-red-600 font-bold flex items-center gap-1.5">
-                  <AlertCircle className="w-4 h-4 text-red-500 shrink-0" />
-                  <span>{authError}</span>
-                </div>
-              )}
-
-              {/* Form */}
-              <form onSubmit={handleAuthSubmit} className="space-y-3">
-                {authMode === "register" && (
-                  <div className="space-y-1">
-                    <label className="text-[10px] font-bold text-purple-900 uppercase block">Full Name</label>
-                    <div className="relative">
-                      <input
-                        type="text"
-                        required
-                        placeholder="e.g. Shanawar Ali"
-                        value={name}
-                        onChange={(e) => setName(e.target.value)}
-                        className="w-full pl-9 pr-3 py-2 rounded-xl bg-purple-50/50 border border-purple-100 text-xs text-purple-950 focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-400/20"
-                      />
-                      <User className="absolute left-3 top-3 w-3.5 h-3.5 text-purple-400" />
-                    </div>
-                  </div>
-                )}
-
-                <div className="space-y-1">
-                  <label className="text-[10px] font-bold text-purple-900 uppercase block">Email Address</label>
-                  <div className="relative">
-                    <input
-                      type="email"
-                      required
-                      placeholder="user@domain.com"
-                      value={email}
-                      onChange={(e) => setEmail(e.target.value)}
-                      className="w-full pl-9 pr-3 py-2 rounded-xl bg-purple-50/50 border border-purple-100 text-xs text-purple-950 focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-400/20"
-                    />
-                    <Mail className="absolute left-3 top-3 w-3.5 h-3.5 text-purple-400" />
-                  </div>
-                </div>
-
-                <div className="space-y-1">
-                  <label className="text-[10px] font-bold text-purple-900 uppercase block">Secure Password</label>
-                  <div className="relative">
-                    <input
-                      type="password"
-                      required
-                      placeholder="••••••••"
-                      value={password}
-                      onChange={(e) => setPassword(e.target.value)}
-                      className="w-full pl-9 pr-3 py-2 rounded-xl bg-purple-50/50 border border-purple-100 text-xs text-purple-950 focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-400/20"
-                    />
-                    <Lock className="absolute left-3 top-3 w-3.5 h-3.5 text-purple-400" />
-                  </div>
-                </div>
-
-                <button
-                  type="submit"
-                  className="w-full py-2.5 rounded-xl bg-purple-600 text-white font-bold text-xs hover:bg-purple-700 active:scale-95 transition-transform cursor-pointer"
-                >
-                  {authMode === "login" ? "Verify Credentials" : "Build My Account"}
-                </button>
-              </form>
-
-              <div className="border-t border-purple-100 pt-3 flex flex-col gap-2">
-                <p className="text-[10px] text-center text-gray-500">
-                  New user?{" "}
-                  <button
-                    onClick={() => {
-                      setIsAuthModalOpen(false);
-                      window.history.pushState(null, "", "/register");
-                      setCurrentTab("register");
-                    }}
-                    className="text-purple-600 font-bold hover:underline cursor-pointer"
-                  >
-                    Create a Reader Account
-                  </button>
-                </p>
-              </div>
-
-              {/* Close Button */}
-              <button
-                onClick={() => setIsAuthModalOpen(false)}
-                className="absolute top-3 right-3 p-1 rounded-full text-gray-400 hover:text-purple-950 cursor-pointer"
-              >
-                ✕
-              </button>
-            </motion.div>
-          </div>
-        )}
-      </AnimatePresence>
-
-      {/* 4-Step User Registration Wizard */}
-      <RegistrationWizardModal
-        isOpen={isRegisterWizardOpen}
-        onClose={() => setIsRegisterWizardOpen(false)}
-        onSuccessLogin={(registeredUser) => {
-          setCurrentUser(registeredUser);
-          setIsRegisterWizardOpen(false);
+      {/* Login & 4-Step Registration Popup Box Modal */}
+      <AuthModal
+        isOpen={isAuthModalOpen}
+        initialMode={authMode}
+        onClose={() => setIsAuthModalOpen(false)}
+        onSuccessLogin={(user) => {
+          setCurrentUser(user);
+          setIsAuthModalOpen(false);
         }}
-        existingUsers={existingUsers}
+        onNavigateHome={() => setCurrentTab("home")}
       />
     </>
   );

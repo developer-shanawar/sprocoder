@@ -23,6 +23,12 @@ if (typeof window !== 'undefined') {
            lower.includes('aclib');
   };
 
+  // Auto-reload if dynamic asset chunk preload fails on new deploys
+  window.addEventListener('vite:preloadError', (event) => {
+    console.warn('[Vite] Preload error detected. Reloading page to fetch latest assets...', event);
+    window.location.reload();
+  });
+
   window.addEventListener('error', (e) => {
     if ((e.target && (e.target as HTMLElement).tagName === 'SCRIPT') || isIgnoredError(e.message) || isIgnoredError(e.filename)) {
       console.warn('[System Guard Client] Suppressed cross-origin error:', e.message || 'Script error');

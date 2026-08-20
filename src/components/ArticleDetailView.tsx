@@ -68,10 +68,58 @@ function preprocessArticleContent(rawContent: string): string {
   if (!rawContent) return "";
   let text = decodeHtmlEntities(rawContent);
   text = text.replace(/\\"/g, '"').replace(/\\'/g, "'");
+
+  // 1. Clean up mark tags with unwanted inline styles
   text = text.replace(/<mark\s+style="[^"]*">/gi, "<mark>");
   text = text.replace(/<mark\s+style='[^']*'>/gi, "<mark>");
-  // Ensure all anchor tags have target="_blank" rel="noopener noreferrer"
+
+  // 2. Remove unwanted square brackets inside <mark> tags: e.g. <mark>[RAG]</mark> -> <mark>RAG</mark>
+  text = text.replace(/<mark>\s*\[(.*?)\]\s*<\/mark>/gi, "<mark>$1</mark>");
+
+  // 3. Convert markdown links [Title](https://...) inside raw HTML/paragraphs into standard HTML <a> tags with security attributes
+  text = text.replace(/\[([^\]]+)\]\((https?:\/\/[^\s\)\"\']+)\)/gi, '<a href="$2" target="_blank" rel="noopener noreferrer">$1</a>');
+
+  // 4. Ensure all existing anchor tags have target="_blank" rel="noopener noreferrer"
   text = text.replace(/<a\s+(?![^>]*\btarget=)([^>]*href=["'][^"']+["'][^>]*)>/gi, '<a target="_blank" rel="noopener noreferrer" $1>');
+
+  // 5. Convert standalone bracketed key terms that are NOT links/footnotes (e.g. [Deep Search Oracles], [RAG], [LLM Reasoning Core])
+  // into clean <mark>Term</mark> badges without brackets
+  text = text.replace(/\[([A-Za-z0-9][A-Za-z0-9\s\-_/]{1,40})\](?!\s*\(|\s*\[|\s*:\s*https?)/g, (match, term) => {
+    if (term.startsWith("AD_") || /^\d+$/.test(term)) return match;
+    return `<mark>${term}</mark>`;
+  });
+
+  // 6. Fix glued or single-line bullet reference lists like:
+  // "- <a href="...">Title</a> - Description. - <a href="...">Title 2</a> - Description 2."
+  // or "- item 1 - item 2" inside paragraphs or plain text
+  text = text.replace(/(?:<p>)?(\s*-\s+(?:<a\s+[^>]+>.*?<\/a>|[A-Z0-9\w\s]+)(?:[\s\S]*?))(?=<\/p>|$)/gi, (match) => {
+    if (match.includes(" - <a ") || match.includes("\n- ") || (match.match(/-\s+<a/g)?.length || 0) > 1) {
+      const items = match
+        .replace(/^<p>|<\/p>$/gi, "")
+        .split(/(?:\n\s*-\s+|\s+-\s+(?=<a\s+|[A-Z]))/)
+        .map(item => item.replace(/^-\s*/, "").trim())
+        .filter(Boolean);
+      
+      if (items.length > 1) {
+        return `<ul class="list-disc pl-5 my-4 space-y-2.5">${items.map(it => `<li class="text-slate-800 leading-relaxed">${it}</li>`).join("")}</ul>`;
+      }
+    }
+    return match;
+  });
+
+  // 7. Fix standalone <code> blocks containing multi-line statements or code keywords (e.g. `import ... from ... # comment`)
+  // so they wrap in <pre><code> for full multi-line code block rendering with Copy button
+  text = text.replace(/<p>\s*<code>([\s\S]*?)<\/code>\s*<\/p>/gi, (_match, codeContent) => {
+    return `<pre><code>${codeContent}</code></pre>`;
+  });
+
+  // 8. Fix flattened single-line code blocks that have multiple Python/JS statements glued together without newlines
+  text = text.replace(/<pre><code>([\s\S]*?)<\/code><\/pre>/gi, (_match, codeContent) => {
+    let formattedCode = codeContent;
+    formattedCode = formattedCode.replace(/(?<=[^\n])\s+(?=(?:import\s+|from\s+[a-zA-Z0-9_.]+\s+import|const\s+|let\s+|var\s+|def\s+|class\s+|#\s+|(?<!:)\/\/\s+|return\s+|if\s+|else:|elif\s+|try:|except\s+|async\s+def\s+|await\s+))/g, "\n");
+    return `<pre><code>${formattedCode.trim()}</code></pre>`;
+  });
+
   return text;
 }
 
@@ -85,17 +133,24 @@ const CodeBlock: React.FC<{ children: React.ReactNode }> = ({ children }) => {
     return "";
   };
 
+  const rawText = extractText(children);
+  
+  // Format code if single line contains multiple statements
+  const formattedCode = rawText.includes("\n")
+    ? rawText
+    : rawText.replace(/(?<=[^\n])\s+(?=(?:import\s+|from\s+[a-zA-Z0-9_.]+\s+import|const\s+|let\s+|var\s+|def\s+|class\s+|#\s+|(?<!:)\/\/\s+|return\s+|if\s+|else:|elif\s+|try:|except\s+|async\s+def\s+|await\s+))/g, "\n");
+
   const handleCopy = () => {
-    const text = extractText(children);
-    if (text) {
-      navigator.clipboard.writeText(text);
+    const textToCopy = formattedCode || rawText;
+    if (textToCopy) {
+      navigator.clipboard.writeText(textToCopy);
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     }
   };
 
   return (
-    <div className="my-6 max-w-full rounded-2xl bg-[#0f172a] border border-slate-700 shadow-xl overflow-hidden group">
+    <div className="my-6 max-w-full rounded-2xl bg-[#0f172a] border border-slate-700/80 shadow-2xl overflow-hidden group">
       <div className="flex items-center justify-between px-4 py-2.5 bg-[#1e293b] border-b border-slate-700/80 text-slate-200 text-xs font-mono select-none">
         <div className="flex items-center gap-2">
           <div className="flex gap-1.5">
@@ -119,8 +174,8 @@ const CodeBlock: React.FC<{ children: React.ReactNode }> = ({ children }) => {
       </div>
 
       <div className="p-4 sm:p-5 overflow-x-auto bg-[#0b1329]">
-        <pre className="font-mono text-xs sm:text-sm text-emerald-300 font-semibold leading-relaxed whitespace-pre break-words max-w-full tracking-wide">
-          {children}
+        <pre className="font-mono text-xs sm:text-sm text-emerald-300 font-medium leading-relaxed whitespace-pre break-words max-w-full tracking-wide">
+          {formattedCode || children}
         </pre>
       </div>
     </div>
@@ -395,18 +450,21 @@ export default function ArticleDetailView({
                               </mark>
                             ),
                             code: ({ inline, className, children, ...props }: any) => {
-                              if (inline) {
-                                return (
-                                  <code className="px-2 py-0.5 rounded-md bg-slate-900 text-emerald-300 font-mono text-xs font-extrabold border border-slate-700 shadow-xs break-words mx-0.5 inline-block" {...props}>
-                                    {children}
-                                  </code>
-                                );
+                              const textContent = Array.isArray(children) 
+                                ? children.map((c: any) => (typeof c === "string" ? c : (c?.props?.children || ""))).join("") 
+                                : String(children || "");
+                              const hasLineBreaks = textContent.includes("\n");
+                              const isMultiStatement = /(?:import\s+|from\s+[a-zA-Z0-9_.]+\s+import|const\s+|let\s+|var\s+|def\s+|class\s+|#\s+|\/\/\s+|function\s+|return\s+)/.test(textContent);
+                              const isLong = textContent.length > 55;
+
+                              if (!inline || hasLineBreaks || isMultiStatement || isLong) {
+                                return <CodeBlock>{children}</CodeBlock>;
                               }
                               return (
-                                <code className="font-mono text-xs sm:text-sm text-emerald-300 font-semibold whitespace-pre break-words block max-w-full" {...props}>
+                                <code className="px-2 py-0.5 rounded-md bg-slate-900 text-emerald-300 font-mono text-xs font-extrabold border border-slate-700 shadow-xs break-words mx-0.5 inline-block" {...props}>
                                   {children}
                                 </code>
-                               );
+                              );
                             },
                             table: ({ children }) => (
                               <div className="my-4 max-w-full overflow-x-auto rounded-xl border border-purple-100 shadow-sm">

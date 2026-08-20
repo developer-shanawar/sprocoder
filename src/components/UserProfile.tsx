@@ -297,42 +297,6 @@ export default function UserProfile({
         </div>
       </div>
 
-      {/* CODING SECTION SESSION LINK CARD */}
-      <div className="bg-slate-900 border border-slate-800 rounded-2xl p-4.5 text-white shadow-xl flex flex-col sm:flex-row items-center justify-between gap-4">
-        <div className="flex items-center gap-3">
-          <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-purple-500/20 to-indigo-500/20 border border-purple-500/40 text-purple-300 flex items-center justify-center shrink-0 shadow-inner">
-            <Code className="w-5 h-5 text-purple-400" />
-          </div>
-          <div>
-            <div className="flex items-center gap-2">
-              <span className="text-xs font-black uppercase text-purple-400 tracking-wider">Coding Section</span>
-              <span className="text-[10px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 px-2 py-0.5 rounded-full flex items-center gap-1">
-                <CheckCircle2 className="w-3 h-3 text-emerald-400" />
-                <span>Session Linked</span>
-              </span>
-            </div>
-            <p className="text-xs font-semibold text-slate-300 mt-0.5">
-              Access your cloud VS Code workspace on <strong>code.sprocoder.online</strong>
-            </p>
-          </div>
-        </div>
-
-        <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
-          <a
-            href={getCodingSectionRedirectUrl(currentUser.sectionId, currentUser.sessionToken)}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="w-full sm:w-auto px-5 py-2.5 rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white text-xs font-black flex items-center justify-center gap-2 transition-all shadow-lg shadow-purple-900/40 active:scale-95 cursor-pointer border border-purple-400/30"
-            id="open-code-editor-btn"
-            title="Open Code Editor on code.sprocoder.online"
-          >
-            <Code className="w-4 h-4 text-purple-200" />
-            <span>Open Code Editor</span>
-            <ExternalLink className="w-3.5 h-3.5 text-purple-200/80" />
-          </a>
-        </div>
-      </div>
-
       {/* SOCIAL MEDIA STYLE TABBED NAVIGATION BAR */}
       <div className="flex items-center justify-center sm:justify-start gap-2 border-b border-purple-100/80 pb-1">
         <button
@@ -395,7 +359,7 @@ export default function UserProfile({
                   onClick={() => onSelectCourse && onSelectCourse(course)}
                   className="p-4 bg-white hover:bg-purple-50/50 rounded-2xl border border-purple-100/80 flex gap-3.5 items-center cursor-pointer transition-all hover:-translate-y-0.5 shadow-sm group"
                 >
-                  <div className="w-12 h-12 rounded-2xl bg-slate-900 overflow-hidden shrink-0 relative shadow-sm">
+                  <div className="w-14 h-14 rounded-2xl bg-slate-900 overflow-hidden shrink-0 relative shadow-sm">
                     {course.thumbnailUrl ? (
                       <img src={course.thumbnailUrl} alt={course.title} className="w-full h-full object-cover" />
                     ) : (
@@ -404,10 +368,22 @@ export default function UserProfile({
                       </div>
                     )}
                   </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-[9px] font-mono font-bold text-purple-600 uppercase">{course.category}</p>
-                    <h4 className="text-xs font-extrabold text-purple-950 line-clamp-2 leading-tight group-hover:text-purple-700 transition-colors">{course.title}</h4>
-                    <span className="text-[10px] text-gray-400 font-medium">{course.lessons?.length || 0} Lessons • {course.level || "Beginner"}</span>
+                  <div className="flex-1 min-w-0 space-y-1">
+                    <h4 className="text-xs font-extrabold text-purple-950 line-clamp-2 leading-tight group-hover:text-purple-700 transition-colors">
+                      {course.title}
+                    </h4>
+                    {/* Level & Category badges placed in content area below title */}
+                    <div className="flex items-center gap-1.5 flex-wrap pt-0.5">
+                      <span className="text-[9px] font-bold text-purple-700 bg-purple-100/80 px-2 py-0.5 rounded-md uppercase tracking-wider">
+                        {course.category || "Development"}
+                      </span>
+                      <span className="text-[9px] font-bold text-emerald-700 bg-emerald-100/80 px-2 py-0.5 rounded-md capitalize">
+                        {course.level || "Beginner"}
+                      </span>
+                      <span className="text-[9px] text-gray-400 font-mono">
+                        {course.lessons?.length || 0} Lessons
+                      </span>
+                    </div>
                   </div>
                   <ChevronRight className="w-5 h-5 text-gray-400 group-hover:text-purple-600 group-hover:translate-x-0.5 transition-all shrink-0" />
                 </div>

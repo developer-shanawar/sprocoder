@@ -18,15 +18,13 @@ import Footer from "./components/Footer";
 import HeroSection from "./components/HeroSection";
 import ArticleDetailView from "./components/ArticleDetailView";
 import { optimizeImageUrl } from "./utils/imageOptimizer";
-
-// Lazy loaded components for split chunks and optimized load speed
-const AdminPanel = React.lazy(() => import("./components/AdminPanel"));
-const ContactForm = React.lazy(() => import("./components/ContactForm"));
-const YouTubeShowcase = React.lazy(() => import("./components/YouTubeShowcase"));
-const AdminAuth = React.lazy(() => import("./components/AdminAuth"));
-const UserProfile = React.lazy(() => import("./components/UserProfile"));
-const CoursesView = React.lazy(() => import("./components/CoursesView"));
-const RegistrationPage = React.lazy(() => import("./components/RegistrationPage"));
+import AdminPanel from "./components/AdminPanel";
+import ContactForm from "./components/ContactForm";
+import YouTubeShowcase from "./components/YouTubeShowcase";
+import AdminAuth from "./components/AdminAuth";
+import UserProfile from "./components/UserProfile";
+import CoursesView from "./components/CoursesView";
+import RegistrationPage from "./components/RegistrationPage";
 import AdRenderer from "./components/AdRenderer";
 
 const LoadingSpinner = () => (
@@ -109,11 +107,12 @@ export const slugify = (text: any): string => {
 
 export default function App() {
   // Navigation tabs initialized from window.location.pathname dynamically
-  const [currentTab, setCurrentTab] = useState<"home" | "articles" | "about" | "privacy" | "terms" | "contact" | "admin-auth" | "admin" | "profile" | "disclaimer" | "courses" | "register">(() => {
+  const [currentTab, setCurrentTab] = useState<"home" | "articles" | "about" | "privacy" | "terms" | "contact" | "admin-auth" | "admin" | "profile" | "disclaimer" | "courses" | "register" | "login">(() => {
     if (typeof window === "undefined") return "home";
     const rawPath = window.location.pathname;
     const path = rawPath.replace(/\.html$/, "");
     if (path === "/register" || path === "/signup") return "register";
+    if (path === "/login" || path === "/signin") return "login";
     if (path === "/courses" || path.startsWith("/courses/") || path.startsWith("/course/")) return "courses";
     if (path === "/blog" || path === "/articles") return "articles";
     if (path === "/about-us" || path === "/about") return "about";
@@ -506,6 +505,9 @@ export default function App() {
       setSelectedPost(null);
     } else if (path === "/register" || path === "/signup") {
       setCurrentTab("register");
+      setSelectedPost(null);
+    } else if (path === "/login" || path === "/signin") {
+      setCurrentTab("login");
       setSelectedPost(null);
     } else if (path === "/blog" || path === "/articles") {
       setCurrentTab("articles");
@@ -2745,17 +2747,32 @@ export default function App() {
         {/* VIEW 4.6: REGISTER PAGE */}
         {currentTab === "register" && (
           <div className="max-w-3xl mx-auto animate-in fade-in duration-300" id="register-view-container">
-            <React.Suspense fallback={<LoadingSpinner />}>
-              <RegistrationPage 
-                onSuccessRegistration={(registeredUser) => {
-                  setCurrentUser(registeredUser);
-                }}
-                onNavigateHome={() => {
-                  setCurrentTab("home");
-                  window.history.pushState(null, "", "/");
-                }}
-              />
-            </React.Suspense>
+            <RegistrationPage 
+              initialMode="register"
+              onSuccessRegistration={(registeredUser) => {
+                setCurrentUser(registeredUser);
+              }}
+              onNavigateHome={() => {
+                setCurrentTab("home");
+                window.history.pushState(null, "", "/");
+              }}
+            />
+          </div>
+        )}
+
+        {/* VIEW 4.7: LOGIN PAGE */}
+        {currentTab === "login" && (
+          <div className="max-w-3xl mx-auto animate-in fade-in duration-300" id="login-view-container">
+            <RegistrationPage 
+              initialMode="login"
+              onSuccessRegistration={(loggedInUser) => {
+                setCurrentUser(loggedInUser);
+              }}
+              onNavigateHome={() => {
+                setCurrentTab("home");
+                window.history.pushState(null, "", "/");
+              }}
+            />
           </div>
         )}
 
