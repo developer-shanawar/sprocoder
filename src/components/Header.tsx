@@ -1,13 +1,14 @@
 import React, { useState, useEffect } from "react";
 import { 
   Bell, Menu, X, User, LogIn, LogOut, Heart, History, Bookmark, 
-  Sparkles, ShieldCheck, Mail, Lock, Check, KeyRound, AlertCircle 
+  ShieldCheck, Mail, Lock, Check, KeyRound, AlertCircle, UserPlus 
 } from "lucide-react";
 import { db, DB_PATHS, auth } from "../firebase";
 import { ref, set, get, update, push, onValue } from "firebase/database";
 import { signInWithEmailAndPassword, createUserWithEmailAndPassword, signInWithPopup, GoogleAuthProvider } from "firebase/auth";
 import { BlogPost, UserAccount, NotificationItem } from "../types";
 import AuthModal from "./AuthModal";
+import TomatoIcon from "./TomatoIcon";
 import { motion, AnimatePresence } from "motion/react";
 import { initUserSectionSession, clearSectionSession } from "../utils/sessionManager";
 
@@ -318,10 +319,11 @@ export default function Header({
           ) : (
             <InstantLogoMini size={36} />
           ))}
-          <div className="text-left">
+          <div className="text-left flex items-center gap-1.5">
             <h1 className="font-sans font-black text-purple-950 text-sm md:text-base tracking-tight leading-none">
               S pro coder
             </h1>
+            <TomatoIcon className="w-4 h-4 text-rose-500" size={16} />
           </div>
         </div>
 
@@ -405,8 +407,8 @@ export default function Header({
                     id="notifications-dropdown"
                   >
                     <div className="flex items-center justify-between border-b border-purple-100 pb-2">
-                      <h4 className="font-extrabold text-xs uppercase tracking-wider flex items-center gap-1">
-                        <Sparkles className="w-3.5 h-3.5 text-purple-600" />
+                      <h4 className="font-extrabold text-xs uppercase tracking-wider flex items-center gap-1.5">
+                        <Bell className="w-3.5 h-3.5 text-purple-600" />
                         <span>S pro Alerts</span>
                       </h4>
                       <button 
@@ -599,14 +601,14 @@ export default function Header({
               </button>
               <button
                 onClick={() => {
-                  window.history.pushState(null, "", "/register");
-                  setCurrentTab("register");
+                  setAuthMode("register");
+                  setIsAuthModalOpen(true);
                 }}
-                className="px-3.5 py-1.5 rounded-full bg-purple-700 hover:bg-purple-800 text-white text-[11px] font-extrabold flex items-center gap-1 cursor-pointer transition-all active:scale-95 shadow-sm"
+                className="px-3.5 py-1.5 rounded-full bg-purple-700 hover:bg-purple-800 text-white text-[11px] font-extrabold flex items-center gap-1.5 cursor-pointer transition-all active:scale-95 shadow-sm"
                 id="auth-register-btn"
-                title="Create a Reader Account"
+                title="Create an Account"
               >
-                <Sparkles className="w-3.5 h-3.5 text-amber-300" />
+                <TomatoIcon className="w-3.5 h-3.5" size={14} />
                 <span>Register</span>
               </button>
             </div>
@@ -647,7 +649,7 @@ export default function Header({
               <div className="space-y-5">
                 <div className="flex items-center justify-between border-b border-purple-100 pb-3">
                   <div className="flex items-center gap-2">
-                    <Sparkles className="w-4 h-4 text-purple-600" />
+                    <TomatoIcon className="w-4 h-4" size={16} />
                     <h3 className="font-sans font-black text-purple-950 text-xs uppercase tracking-wider">Navigation</h3>
                   </div>
                   <button onClick={() => setIsMobileMenuOpen(false)} className="p-1 rounded-full hover:bg-purple-100 text-purple-950">
@@ -673,14 +675,14 @@ export default function Header({
                       </button>
                       <button
                         onClick={() => {
+                          setAuthMode("register");
+                          setIsAuthModalOpen(true);
                           setIsMobileMenuOpen(false);
-                          window.history.pushState(null, "", "/register");
-                          setCurrentTab("register");
                         }}
-                        className="w-full py-2 px-2 rounded-xl bg-purple-600 hover:bg-purple-700 text-white text-xs font-bold flex items-center justify-center gap-1 cursor-pointer transition-all shadow-sm"
+                        className="w-full py-2 px-2 rounded-xl bg-purple-600 hover:bg-purple-700 text-white text-xs font-bold flex items-center justify-center gap-1.5 cursor-pointer transition-all shadow-sm"
                         id="mobile-drawer-register-btn"
                       >
-                        <Sparkles className="w-3.5 h-3.5 text-amber-300" />
+                        <TomatoIcon className="w-3.5 h-3.5" size={14} />
                         <span>Register</span>
                       </button>
                     </div>

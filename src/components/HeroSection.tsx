@@ -1,5 +1,5 @@
 import React from "react";
-import { Heart, Bookmark, ArrowRight, Sparkles, Star, Eye } from "lucide-react";
+import { Heart, Bookmark, ArrowRight, Star, Eye } from "lucide-react";
 import { BlogPost } from "../types";
 import { slugify } from "../utils/slugify";
 import { optimizeImageUrl } from "../utils/imageOptimizer";
@@ -103,7 +103,7 @@ export default function HeroSection({
               title="Like featured article"
             >
               <Heart className={`w-4 h-4 ${isLiked ? "fill-white" : ""}`} />
-              <span>{post.likes}</span>
+              <span>{Math.round(Number(post.likes) || 0)}</span>
             </button>
 
             <button
@@ -126,7 +126,7 @@ export default function HeroSection({
 
             <span className="p-2 rounded-xl flex items-center gap-1.5 text-xs font-bold border border-purple-100 bg-white/60 text-purple-950">
               <Eye className="w-4 h-4 text-purple-500" />
-              <span>{post.views || 0}</span>
+              <span>{Math.round(Number(post.views) || 0)}</span>
             </span>
           </div>
 

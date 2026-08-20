@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { Sparkles, Award, CheckCircle2, Star } from "lucide-react";
+import { Award, CheckCircle2, Star } from "lucide-react";
 
 interface SprinkleConfettiProps {
   show: boolean;
@@ -63,11 +63,11 @@ export default function SprinkleConfetti({ show, onClose, courseTitle }: Sprinkl
       {/* Center Celebration Banner Card */}
       <div className="relative z-10 pointer-events-auto max-w-md w-full bg-slate-900 border-2 border-amber-400/90 text-white p-8 rounded-[36px] shadow-2xl text-center space-y-5 animate-in zoom-in duration-300">
         <div className="flex justify-center items-center gap-2">
-          <Sparkles className="w-6 h-6 text-amber-300 animate-bounce" />
+          <Star className="w-5 h-5 text-amber-300 fill-amber-300" />
           <span className="px-3.5 py-1 rounded-full bg-amber-400 text-slate-950 font-black text-xs uppercase tracking-widest shadow-md">
-            Sprinkle Course Passed
+            Course Passed
           </span>
-          <Sparkles className="w-6 h-6 text-amber-300 animate-bounce" />
+          <Star className="w-5 h-5 text-amber-300 fill-amber-300" />
         </div>
 
         <div className="w-16 h-16 mx-auto rounded-3xl bg-gradient-to-tr from-amber-400 via-purple-600 to-indigo-600 flex items-center justify-center text-white shadow-xl shadow-purple-950/80">

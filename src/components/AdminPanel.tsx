@@ -2694,7 +2694,7 @@ export default function AdminPanel({ onClose, categories, setCategories, onLogou
                       type="number" 
                       min="0"
                       value={likes}
-                      onChange={(e) => setLikes(Number(e.target.value))}
+                      onChange={(e) => setLikes(Math.max(0, parseInt(e.target.value, 10) || 0))}
                       className="w-full px-3 py-1.5 rounded-lg border border-purple-200 bg-white text-xs"
                     />
                   </div>
@@ -2707,7 +2707,7 @@ export default function AdminPanel({ onClose, categories, setCategories, onLogou
                       type="number" 
                       min="0"
                       value={savesCount}
-                      onChange={(e) => setSavesCount(Number(e.target.value))}
+                      onChange={(e) => setSavesCount(Math.max(0, parseInt(e.target.value, 10) || 0))}
                       className="w-full px-3 py-1.5 rounded-lg border border-purple-200 bg-white text-xs"
                     />
                   </div>
@@ -5203,12 +5203,12 @@ export default function AdminPanel({ onClose, categories, setCategories, onLogou
                               ? post.comments 
                               : Object.values(post.comments)) 
                             : [];
-                          const commsCount = commentsArray.length;
-                          const views = post.views || 0;
-                          const feedViews = post.feedViews || 0;
-                          const articleViews = post.articleViews || views;
-                          const likesCount = post.likes || 0;
-                          const savesCount = post.savesCount || 0;
+                          const commsCount = Math.round(Number(commentsArray.length) || 0);
+                          const views = Math.round(Number(post.views) || 0);
+                          const feedViews = Math.round(Number(post.feedViews) || 0);
+                          const articleViews = Math.round(Number(post.articleViews || views) || 0);
+                          const likesCount = Math.round(Number(post.likes) || 0);
+                          const savesCount = Math.round(Number(post.savesCount) || 0);
                           
                           // Engagement rate calculation based on real reads/opens
                           const engagementPoints = likesCount * 2 + savesCount * 3 + commsCount * 4;

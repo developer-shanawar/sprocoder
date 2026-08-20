@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { 
-  BookOpen, Sparkles, Clock, Layers, ChevronRight, Search, 
+  BookOpen, Clock, Layers, ChevronRight, Search, 
   CheckCircle2, ArrowLeft, Award, User, Flame, Play, FileText
 } from "lucide-react";
 import { Course, CourseLesson, BlogPost } from "../types";
@@ -235,8 +235,8 @@ export default function CoursesView({
             <div className="absolute top-0 right-0 w-96 h-96 bg-purple-600/20 rounded-full blur-3xl pointer-events-none" />
             <div className="relative z-10 space-y-4 max-w-3xl">
               <span className="inline-flex items-center gap-1.5 px-3.5 py-1 rounded-full bg-purple-500/20 border border-purple-400/30 text-purple-300 text-xs font-black uppercase tracking-wider">
-                <Sparkles className="w-4 h-4 text-purple-400 animate-pulse" />
-                <span>Structured Tech & AI Learning 2026</span>
+                <BookOpen className="w-4 h-4 text-purple-400" />
+                <span>Structured Tech & Learning Hub</span>
               </span>
 
               <h1 className="text-3xl sm:text-5xl font-black tracking-tight leading-tight">

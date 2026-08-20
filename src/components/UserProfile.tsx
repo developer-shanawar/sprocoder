@@ -18,7 +18,6 @@ import {
   Globe, 
   BookOpen, 
   Award, 
-  Sparkles, 
   Layers, 
   Pencil, 
   X, 

@@ -18,9 +18,9 @@ import {
   ChevronLeft,
   CheckCircle2,
   Award,
-  Sparkles,
   Layers,
-  Play
+  Play,
+  Star
 } from "lucide-react";
 import { BlogPost, Comment, Course } from "../types";
 import { motion, AnimatePresence } from "motion/react";
@@ -366,7 +366,7 @@ export default function ArticleDetailView({
             </span>
             <span className="flex items-center gap-1.5">
               <Eye className="w-3.5 h-3.5 text-purple-500" />
-              <span>{post.views || 0} Views</span>
+              <span>{Math.round(Number(post.views) || 0)} Views</span>
             </span>
           </div>
         </div>
@@ -649,8 +649,8 @@ export default function ArticleDetailView({
 
                             <div className="space-y-2">
                               <div className="inline-flex items-center gap-2 px-3.5 py-1 rounded-full bg-amber-400 text-slate-950 font-black text-xs uppercase tracking-widest shadow-md">
-                                <Sparkles className="w-4 h-4 text-slate-950" />
-                                <span>Sprinkle Coder Passed</span>
+                                <Award className="w-4 h-4 text-slate-950" />
+                                <span>Course Passed</span>
                               </div>
                               <h2 className="text-2xl sm:text-3xl font-black text-white tracking-tight">
                                 Course completed successfully.
@@ -680,11 +680,11 @@ export default function ArticleDetailView({
 
                     <div className="relative z-10 p-6 rounded-3xl bg-gradient-to-r from-purple-900 via-indigo-900 to-emerald-900 border-2 border-amber-400/80 shadow-2xl space-y-3 mt-4 text-center animate-in zoom-in duration-300">
                       <div className="flex items-center justify-center gap-2">
-                        <Sparkles className="w-6 h-6 text-amber-300 animate-spin" />
+                        <Star className="w-5 h-5 text-amber-300 fill-amber-300" />
                         <span className="px-3 py-1 rounded-full bg-amber-400 text-slate-950 font-black text-xs uppercase tracking-widest">
-                          Sprinkle Celebration
+                          Course Milestone
                         </span>
-                        <Sparkles className="w-6 h-6 text-amber-300 animate-spin" />
+                        <Star className="w-5 h-5 text-amber-300 fill-amber-300" />
                       </div>
 
                       <h3 className="text-xl sm:text-2xl font-black text-white tracking-tight">
@@ -734,7 +734,7 @@ export default function ArticleDetailView({
                   id="reader-like-btn"
                 >
                   <Heart className={`w-4 h-4 ${isLiked ? "fill-white" : ""}`} />
-                  <span>{post.likes} Likes</span>
+                  <span>{Math.round(Number(post.likes) || 0)} Likes</span>
                 </button>
 
                 <button

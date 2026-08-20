@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { 
   Bold, Italic, Heading1, Heading2, Heading3, List, Quote, Image as ImageIcon, 
-  Sparkles, Save, Eye, Edit3, Send, CheckCircle2, AlertCircle, RefreshCw, Wand2, Globe, Tag, Clock, BookOpen, Lock, Calendar
+  Save, Eye, Edit3, Send, CheckCircle2, AlertCircle, RefreshCw, Globe, Tag, Clock, BookOpen, Lock, Calendar
 } from "lucide-react";
 import { runArticleFormatterBot } from "../utils/articleFormatterBot";
 import { BlogPost, UserAccount } from "../types";
@@ -589,8 +589,8 @@ export default function WriteArticleEditor({
                   disabled={isBotFormatting}
                   className="px-4 py-2 bg-gradient-to-r from-purple-700 to-indigo-700 hover:from-purple-800 hover:to-indigo-800 text-white font-black text-xs rounded-xl shadow cursor-pointer transition-all flex items-center gap-1.5 active:scale-95 disabled:opacity-50"
                 >
-                  <Wand2 className="w-4 h-4 text-purple-200 animate-spin" />
-                  <span>{isBotFormatting ? "Bot Formatting..." : "🤖 Run AI Formatter Bot"}</span>
+                  <RefreshCw className={`w-4 h-4 text-purple-200 ${isBotFormatting ? "animate-spin" : ""}`} />
+                  <span>{isBotFormatting ? "Formatting..." : "Format Article"}</span>
                 </button>
               </div>
             </div>
@@ -618,8 +618,8 @@ export default function WriteArticleEditor({
               onClick={handleRunBotFormat}
               className="px-4 py-2.5 bg-purple-100 hover:bg-purple-200 text-purple-950 font-bold text-xs rounded-2xl cursor-pointer transition-colors flex items-center gap-2"
             >
-              <Sparkles className="w-4 h-4 text-purple-600" />
-              <span>Auto-Fix Formatting with Bot</span>
+              <CheckCircle2 className="w-4 h-4 text-purple-600" />
+              <span>Auto-Format Standards</span>
             </button>
 
             <button

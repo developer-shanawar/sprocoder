@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from "react";
-import { Mail, Send, Sparkles } from "lucide-react";
+import { Mail, Send } from "lucide-react";
 import { db } from "../firebase";
 import { ref, onValue } from "firebase/database";
+import TomatoIcon from "./TomatoIcon";
 
 interface FooterProps {
   currentTab: "home" | "articles" | "courses" | "about" | "privacy" | "terms" | "contact" | "admin-auth" | "admin" | "profile" | "disclaimer" | "register" | "login";
@@ -89,7 +90,10 @@ export default function Footer({
                   SP
                 </div>
               ))}
-              <h2 className="font-sans font-black text-xl tracking-tight">S pro coder</h2>
+              <div className="flex items-center gap-2">
+                <h2 className="font-sans font-black text-xl tracking-tight">S pro coder</h2>
+                <TomatoIcon className="w-5 h-5" size={20} />
+              </div>
             </div>
             
             <p className="text-xs text-slate-300 leading-relaxed max-w-sm">

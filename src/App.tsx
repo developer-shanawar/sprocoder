@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import { 
-  Heart, Bookmark, MessageSquare, Sparkles, Calendar, Clock, 
+  Heart, Bookmark, MessageSquare, Calendar, Clock, 
   User, ChevronRight, Plus, Check, BookOpen, Send, X, Zap, 
   Flame, Globe, Star, RefreshCw, Search, ShieldCheck, Eye, Ban
 } from "lucide-react";
@@ -2129,7 +2129,7 @@ export default function App() {
               <div className="bg-white/60 border-2 border-black rounded-[28px] p-5 shadow-sm space-y-4 backdrop-blur-sm">
                 <div className="flex items-center justify-between border-b border-purple-100 pb-3">
                   <div className="flex items-center gap-2">
-                    <Sparkles className="w-4 h-4 text-amber-500 fill-amber-500" />
+                    <Star className="w-4 h-4 text-amber-500 fill-amber-500" />
                     <h3 className="font-sans font-black text-purple-950 text-xs sm:text-sm uppercase tracking-wider">
                       Recommended For You
                     </h3>
@@ -2181,7 +2181,7 @@ export default function App() {
                           <span>{rec.readTime || "5 min read"}</span>
                           <span className="flex items-center gap-1 text-purple-600 font-bold">
                             <Eye className="w-3 h-3" />
-                            {rec.views || 0}
+                            {Math.round(Number(rec.views) || 0)}
                           </span>
                         </div>
                       </a>
@@ -2307,7 +2307,7 @@ export default function App() {
                             <div className="flex items-center justify-between border-t border-purple-50/50 pt-2 text-[10px] text-gray-500 font-mono">
                               <span className="flex items-center gap-1">
                                 <Eye className="w-3.5 h-3.5 text-purple-600" />
-                                <span className="font-bold">{art.views || 0} views</span>
+                                <span className="font-bold">{Math.round(Number(art.views) || 0)} views</span>
                               </span>
                               <span className="text-[9px] bg-purple-50 text-purple-700 font-bold px-1.5 py-0.5 rounded uppercase tracking-wider scale-90">
                                 Top Content
@@ -2386,15 +2386,15 @@ export default function App() {
                           <div className="flex items-center gap-2">
                             <span className="flex items-center gap-0.5 text-[10px] font-bold text-gray-500">
                               <Heart className="w-3.5 h-3.5 text-rose-500 fill-rose-500/10" />
-                              <span>{post.likes}</span>
+                              <span>{Math.round(Number(post.likes) || 0)}</span>
                             </span>
                             <span className="flex items-center gap-0.5 text-[10px] font-bold text-gray-500">
                               <Bookmark className="w-3.5 h-3.5 text-purple-600 fill-purple-600/10" />
-                              <span>{post.savesCount || 0}</span>
+                              <span>{Math.round(Number(post.savesCount) || 0)}</span>
                             </span>
                             <span className="flex items-center gap-0.5 text-[10px] font-bold text-gray-500" title="Views">
                               <Eye className="w-3.5 h-3.5 text-purple-500" />
-                              <span>{post.views || 0}</span>
+                              <span>{Math.round(Number(post.views) || 0)}</span>
                             </span>
                           </div>
                         </div>
@@ -2560,11 +2560,11 @@ export default function App() {
                       <div className="flex items-center gap-1.5 shrink-0">
                         <span className="flex items-center gap-0.5">
                           <Heart className="w-3.5 h-3.5 text-rose-500 fill-rose-500/10" />
-                          <span>{post.likes}</span>
+                          <span>{Math.round(Number(post.likes) || 0)}</span>
                         </span>
                         <span className="flex items-center gap-0.5">
                           <Bookmark className="w-3.5 h-3.5 text-purple-600 fill-purple-600/10" />
-                          <span>{post.savesCount || 0}</span>
+                          <span>{Math.round(Number(post.savesCount) || 0)}</span>
                         </span>
                       </div>
                     </div>
