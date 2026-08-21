@@ -20,7 +20,8 @@ import {
   Award,
   Layers,
   Play,
-  Star
+  Star,
+  List
 } from "lucide-react";
 import { BlogPost, Comment, Course } from "../types";
 import { motion, AnimatePresence } from "motion/react";
@@ -39,6 +40,8 @@ interface ArticleDetailViewProps {
   onSelectPost: (post: BlogPost) => void;
   onClose: () => void;
   onReturnToHome?: () => void;
+  onNavigateAuthor?: () => void;
+  onNavigateEditorial?: () => void;
   isBookmarked: boolean;
   onToggleBookmark: () => void;
   onLike: () => void;
@@ -199,13 +202,16 @@ export default function ArticleDetailView({
   onSearchKeyword,
   activeCourseContext = null,
   onNavigateCourseLesson,
-  onReturnToCourse
+  onReturnToCourse,
+  onNavigateAuthor,
+  onNavigateEditorial
 }: ArticleDetailViewProps) {
   const [newComment, setNewComment] = useState("");
   const [activeReplyCommentId, setActiveReplyCommentId] = useState<string | null>(null);
   const [replyText, setReplyText] = useState("");
   const [lightboxImg, setLightboxImg] = useState<string | null>(null);
   const [showCourseCompletedModal, setShowCourseCompletedModal] = useState<boolean>(true);
+  const [isTocOpen, setIsTocOpen] = useState<boolean>(true);
 
   // Extract unique keywords for interactive Keywords Box
   const keywordList = React.useMemo(() => {
@@ -229,6 +235,34 @@ export default function ArticleDetailView({
     return Array.from(set);
   }, [post]);
 
+  // Extract headings for Table of Contents
+  const tableOfContents = React.useMemo(() => {
+    if (!post.content) return [];
+    const lines = post.content.split("\n");
+    const headings: Array<{ text: string; id: string; level: number }> = [];
+    lines.forEach(line => {
+      const match = line.match(/^(#{2,3})\s+(.+)$/);
+      if (match) {
+        const level = match[1].length;
+        const rawText = match[2].replace(/<[^>]+>/g, "").replace(/\*\*/g, "").trim();
+        const id = slugify(rawText);
+        headings.push({ text: rawText, id, level });
+      }
+    });
+    return headings;
+  }, [post.content]);
+
+  // Calculate Previous and Next Article
+  const { prevPost, nextPost } = React.useMemo(() => {
+    if (!allPosts || allPosts.length === 0) return { prevPost: null, nextPost: null };
+    const currentIndex = allPosts.findIndex(p => p.id === post.id);
+    if (currentIndex === -1) return { prevPost: null, nextPost: null };
+    return {
+      prevPost: currentIndex > 0 ? allPosts[currentIndex - 1] : null,
+      nextPost: currentIndex < allPosts.length - 1 ? allPosts[currentIndex + 1] : null
+    };
+  }, [allPosts, post.id]);
+
   // Dynamic SEO Update and User Interest Tracking on Article Mount / Change
   useEffect(() => {
     if (post) {
@@ -240,7 +274,7 @@ export default function ArticleDetailView({
         url: `https://www.sprocoder.online/blog/${slugify(post.title)}`,
         category: post.category,
         date: post.date,
-        author: post.author,
+        author: post.author || "Shanawar Ali",
         tags: post.tags,
         type: "article"
       });
@@ -345,7 +379,25 @@ export default function ArticleDetailView({
         
         {/* Header Metadata info */}
         <div className="space-y-4">
-          <span className="text-[10px] bg-purple-600 text-white px-3.5 py-1 rounded-full font-bold uppercase tracking-widest shadow">
+          {/* Breadcrumb Navigation */}
+          <nav aria-label="Breadcrumb" className="flex items-center gap-2 text-xs font-mono text-gray-500 mb-1 flex-wrap">
+            <button 
+              type="button"
+              onClick={() => {
+                if (onReturnToHome) onReturnToHome();
+                else onClose();
+              }} 
+              className="hover:text-purple-600 transition-colors cursor-pointer"
+            >
+              Home
+            </button>
+            <span className="text-gray-300">/</span>
+            <span className="text-purple-600 font-semibold">{post.category}</span>
+            <span className="text-gray-300">/</span>
+            <span className="text-purple-950 font-bold truncate max-w-[200px] sm:max-w-xs">{post.title}</span>
+          </nav>
+
+          <span className="text-[10px] bg-purple-600 text-white px-3.5 py-1 rounded-full font-bold uppercase tracking-widest shadow inline-block">
             {post.category}
           </span>
           <h1 className="text-xl sm:text-4xl font-black text-purple-950 tracking-tight leading-tight">
@@ -356,6 +408,15 @@ export default function ArticleDetailView({
           </p>
 
           <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-xs text-gray-500 font-mono border-y border-purple-100 py-3">
+            <button
+              type="button"
+              onClick={onNavigateAuthor}
+              className="flex items-center gap-1.5 font-bold text-purple-900 hover:text-purple-600 transition-colors cursor-pointer"
+              title="View Shanawar Ali's author profile"
+            >
+              <User className="w-3.5 h-3.5 text-purple-500" />
+              <span>By {post.author || "Shanawar Ali"}</span>
+            </button>
             <span className="flex items-center gap-1.5">
               <Calendar className="w-3.5 h-3.5 text-purple-500" />
               <span>{post.date}</span>
@@ -368,6 +429,17 @@ export default function ArticleDetailView({
               <Eye className="w-3.5 h-3.5 text-purple-500" />
               <span>{Math.round(Number(post.views) || 0)} Views</span>
             </span>
+            {onNavigateEditorial && (
+              <button
+                type="button"
+                onClick={onNavigateEditorial}
+                className="ml-auto text-[11px] text-emerald-700 hover:text-emerald-900 bg-emerald-50 hover:bg-emerald-100 px-2.5 py-1 rounded-lg border border-emerald-200 flex items-center gap-1.5 cursor-pointer transition-colors"
+                title="Read our Editorial & Peer Review Policy"
+              >
+                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                <span className="font-semibold">Reviewed & Verified</span>
+              </button>
+            )}
           </div>
         </div>
 
@@ -393,6 +465,40 @@ export default function ArticleDetailView({
           
           {/* Left Column: Article Body (8 cols on desktop) */}
           <div className="lg:col-span-8 space-y-6">
+
+            {/* Table of Contents (TOC) */}
+            {tableOfContents.length >= 2 && (
+              <div className="p-5 rounded-2xl bg-purple-50/60 border border-purple-200/70 shadow-xs">
+                <div 
+                  className="flex items-center justify-between cursor-pointer"
+                  onClick={() => setIsTocOpen(!isTocOpen)}
+                >
+                  <div className="flex items-center gap-2">
+                    <List className="w-4 h-4 text-purple-700" />
+                    <h3 className="text-xs font-black uppercase tracking-wider text-purple-950">Table of Contents</h3>
+                  </div>
+                  <span className="text-xs text-purple-700 font-bold hover:underline">
+                    {isTocOpen ? "Hide" : `Show (${tableOfContents.length} sections)`}
+                  </span>
+                </div>
+                {isTocOpen && (
+                  <nav className="mt-3 pt-3 border-t border-purple-100 space-y-1.5">
+                    {tableOfContents.map((item, idx) => (
+                      <a
+                        key={idx}
+                        href={`#${item.id}`}
+                        className={`block text-xs text-purple-900 hover:text-purple-600 hover:underline transition-colors ${
+                          item.level === 3 ? "pl-4 text-slate-600" : "font-semibold"
+                        }`}
+                      >
+                        {item.text}
+                      </a>
+                    ))}
+                  </nav>
+                )}
+              </div>
+            )}
+
             <article className="prose prose-purple max-w-none text-purple-950">
               <div className="text-sm sm:text-base leading-relaxed text-slate-800 text-left sm:text-justify">
                 {(() => {
@@ -432,9 +538,21 @@ export default function ArticleDetailView({
                                 </span>
                               </div>
                             ),
-                            h1: ({ children }) => <h1 className="text-xl font-bold text-purple-950 mt-6 mb-2">{children}</h1>,
-                            h2: ({ children }) => <h2 className="text-lg font-bold text-purple-950 mt-5 mb-2">{children}</h2>,
-                            h3: ({ children }) => <h3 className="text-base font-bold text-purple-950 mt-4 mb-1">{children}</h3>,
+                            h1: ({ children }: any) => {
+                              const headingText = typeof children === "string" ? children : (Array.isArray(children) ? children.join("") : "");
+                              const headingId = slugify(headingText || "");
+                              return <h1 id={headingId} className="text-xl sm:text-2xl font-black text-purple-950 mt-6 mb-2 scroll-mt-24">{children}</h1>;
+                            },
+                            h2: ({ children }: any) => {
+                              const headingText = typeof children === "string" ? children : (Array.isArray(children) ? children.join("") : "");
+                              const headingId = slugify(headingText || "");
+                              return <h2 id={headingId} className="text-lg sm:text-xl font-bold text-purple-950 mt-5 mb-2 scroll-mt-24">{children}</h2>;
+                            },
+                            h3: ({ children }: any) => {
+                              const headingText = typeof children === "string" ? children : (Array.isArray(children) ? children.join("") : "");
+                              const headingId = slugify(headingText || "");
+                              return <h3 id={headingId} className="text-base sm:text-lg font-bold text-purple-950 mt-4 mb-1 scroll-mt-24">{children}</h3>;
+                            },
                             ul: ({ children }) => <ul className="list-disc pl-5 mb-4 space-y-1">{children}</ul>,
                             ol: ({ children }) => <ol className="list-decimal pl-5 mb-4 space-y-1">{children}</ol>,
                             li: ({ children }) => <li className="text-slate-800">{children}</li>,
@@ -485,6 +603,75 @@ export default function ArticleDetailView({
                 })()}
               </div>
             </article>
+
+            {/* Author Box: Shanawar Ali */}
+            <div className="my-8 p-6 rounded-3xl bg-gradient-to-br from-purple-50/90 to-indigo-50/40 border border-purple-200/80 shadow-sm flex flex-col sm:flex-row items-start sm:items-center gap-4 sm:gap-6">
+              <img
+                src="/author-shanawar-ali.svg"
+                alt={post.author || "Shanawar Ali"}
+                className="w-16 h-16 rounded-2xl object-cover border-2 border-purple-400 shadow-md shrink-0"
+              />
+              <div className="space-y-1.5 flex-1 min-w-0">
+                <div className="flex flex-wrap items-center gap-2">
+                  <h4 className="text-sm font-black text-purple-950">{post.author || "Shanawar Ali"}</h4>
+                  <span className="text-[10px] bg-purple-100 text-purple-800 font-bold px-2 py-0.5 rounded-md">Founder & Lead Engineer</span>
+                </div>
+                <p className="text-xs text-slate-600 leading-relaxed">
+                  Full-stack developer and technical author behind S Pro Coder, sharing production-grade guides on web frameworks, AI engineering, and code architecture.
+                </p>
+                <div className="pt-1 flex items-center gap-3 flex-wrap">
+                  <button
+                    type="button"
+                    onClick={onNavigateAuthor}
+                    className="text-xs font-bold text-purple-600 hover:text-purple-900 hover:underline cursor-pointer flex items-center gap-1"
+                  >
+                    <span>View Author Profile</span>
+                    <ChevronRight className="w-3.5 h-3.5" />
+                  </button>
+                  <span className="text-gray-300">•</span>
+                  <button
+                    type="button"
+                    onClick={onNavigateEditorial}
+                    className="text-xs font-medium text-gray-500 hover:text-purple-700 cursor-pointer"
+                  >
+                    Editorial Standards
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            {/* Previous and Next Article Navigation */}
+            {(prevPost || nextPost) && (
+              <div className="my-8 grid grid-cols-1 sm:grid-cols-2 gap-4 border-t border-purple-100 pt-6">
+                {prevPost ? (
+                  <div
+                    onClick={() => onSelectPost(prevPost)}
+                    className="p-4 rounded-2xl bg-purple-50/40 hover:bg-purple-100/60 border border-purple-100 hover:border-purple-300 transition-all cursor-pointer group"
+                  >
+                    <span className="text-[10px] font-bold uppercase text-purple-600 flex items-center gap-1">
+                      <ChevronLeft className="w-3.5 h-3.5" /> Previous Article
+                    </span>
+                    <h5 className="text-xs font-bold text-purple-950 mt-1 line-clamp-2 group-hover:text-purple-700 transition-colors">
+                      {prevPost.title}
+                    </h5>
+                  </div>
+                ) : <div />}
+
+                {nextPost ? (
+                  <div
+                    onClick={() => onSelectPost(nextPost)}
+                    className="p-4 rounded-2xl bg-purple-50/40 hover:bg-purple-100/60 border border-purple-100 hover:border-purple-300 transition-all cursor-pointer group text-right ml-auto w-full"
+                  >
+                    <span className="text-[10px] font-bold uppercase text-purple-600 flex items-center justify-end gap-1">
+                      Next Article <ChevronRight className="w-3.5 h-3.5" />
+                    </span>
+                    <h5 className="text-xs font-bold text-purple-950 mt-1 line-clamp-2 group-hover:text-purple-700 transition-colors">
+                      {nextPost.title}
+                    </h5>
+                  </div>
+                ) : <div />}
+              </div>
+            )}
 
             {/* Course Next Article Sequence & Larger Lesson Exchange Box */}
             {activeCourseContext && (

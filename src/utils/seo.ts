@@ -7,22 +7,27 @@ export interface SeoOptions {
   url?: string;
   category?: string;
   date?: string;
+  modifiedDate?: string;
   author?: string;
   tags?: string[];
-  type?: "website" | "article";
+  type?: "website" | "article" | "profile" | "course";
+  faqs?: Array<{ question: string; answer: string }>;
 }
 
 export function updateDocumentSeo(options: SeoOptions) {
   if (typeof document === "undefined") return;
 
-  const defaultTitle = "S pro coder | Tech News, AI News, AI Tools & Games";
-  const defaultDesc = "S pro coder (sprocoder.online) is a premium tech tutorials and professional development portal, supplying high-end tech guides, coding deep dives and AI insights.";
-  const defaultImage = "https://images.unsplash.com/photo-1620712943543-bcc4688e7485?auto=format&fit=crop&w=1200&q=80";
+  const defaultTitle = "S Pro Coder | Coding Tutorials, Web Development & AI Tools";
+  const defaultDesc = "S Pro Coder (sprocoder.online) is a premier technology and programming publication founded by Shanawar Ali, delivering tested coding tutorials, web development walkthroughs, and practical AI tools guides.";
+  const defaultImage = "https://www.sprocoder.online/logo.svg";
 
-  const title = options.title ? `${options.title} | S pro coder` : defaultTitle;
+  const title = options.title 
+    ? (options.title.includes("S Pro Coder") ? options.title : `${options.title} | S Pro Coder`) 
+    : defaultTitle;
   const description = options.description || defaultDesc;
   const image = options.image || defaultImage;
-  const canonicalUrl = options.url || (typeof window !== "undefined" ? window.location.href : "https://www.sprocoder.online/");
+  const canonicalUrl = options.url || (typeof window !== "undefined" ? window.location.href.split("?")[0] : "https://www.sprocoder.online/");
+  const authorName = options.author || "Shanawar Ali";
 
   // 1. Title
   document.title = title;
@@ -42,7 +47,7 @@ export function updateDocumentSeo(options: SeoOptions) {
     let tag = document.querySelector(`link[rel="${relVal}"]`);
     if (!tag) {
       tag = document.createElement("link");
-      tag.setAttribute("rel", relVal);
+      tag.setAttribute(relVal, hrefVal);
       document.head.appendChild(tag);
     }
     tag.setAttribute("href", hrefVal || "");
@@ -50,16 +55,20 @@ export function updateDocumentSeo(options: SeoOptions) {
 
   // Standard Meta Tags
   setMetaTag("name", "description", description);
+  setMetaTag("name", "author", authorName);
 
   // Open Graph
+  setMetaTag("property", "og:site_name", "S Pro Coder");
   setMetaTag("property", "og:title", title);
   setMetaTag("property", "og:description", description);
   setMetaTag("property", "og:image", image);
   setMetaTag("property", "og:url", canonicalUrl);
-  setMetaTag("property", "og:type", options.type || "website");
+  setMetaTag("property", "og:type", options.type === "article" ? "article" : "website");
 
   // Twitter
   setMetaTag("name", "twitter:card", "summary_large_image");
+  setMetaTag("name", "twitter:site", "@sprocoder");
+  setMetaTag("name", "twitter:creator", "@sprocoder");
   setMetaTag("name", "twitter:title", title);
   setMetaTag("name", "twitter:description", description);
   setMetaTag("name", "twitter:image", image);
@@ -76,40 +85,119 @@ export function updateDocumentSeo(options: SeoOptions) {
     document.head.appendChild(jsonLdTag);
   }
 
+  const logoObject = {
+    "@type": "ImageObject",
+    "url": "https://www.sprocoder.online/logo.svg"
+  };
+
+  const publisherObject = {
+    "@type": "Organization",
+    "name": "S Pro Coder",
+    "url": "https://www.sprocoder.online",
+    "logo": logoObject,
+    "founder": {
+      "@type": "Person",
+      "name": "Shanawar Ali",
+      "url": "https://www.sprocoder.online/author/shanawar-ali"
+    }
+  };
+
   if (options.type === "article") {
-    const articleSchema = {
-      "@context": "https://schema.org",
-      "@type": "BlogPosting",
-      "headline": options.title || "",
-      "description": description,
-      "image": [image],
-      "url": canonicalUrl,
-      "datePublished": options.date || new Date().toISOString(),
-      "articleSection": options.category || "Technology",
-      "keywords": (options.tags || []).join(", "),
-      "author": {
-        "@type": "Person",
-        "name": options.author || "Shanawar Ali"
+    const schemas: any[] = [
+      {
+        "@context": "https://schema.org",
+        "@type": "Article",
+        "headline": options.title || "",
+        "description": description,
+        "image": [image],
+        "url": canonicalUrl,
+        "mainEntityOfPage": {
+          "@type": "WebPage",
+          "@id": canonicalUrl
+        },
+        "datePublished": options.date || new Date().toISOString(),
+        "dateModified": options.modifiedDate || options.date || new Date().toISOString(),
+        "articleSection": options.category || "Technology",
+        "keywords": (options.tags || []).join(", "),
+        "author": {
+          "@type": "Person",
+          "name": authorName,
+          "url": "https://www.sprocoder.online/author/shanawar-ali"
+        },
+        "publisher": publisherObject
       },
-      "publisher": {
-        "@type": "Organization",
-        "name": "S pro coder",
-        "url": "https://www.sprocoder.online"
+      {
+        "@context": "https://schema.org",
+        "@type": "BreadcrumbList",
+        "itemListElement": [
+          {
+            "@type": "ListItem",
+            "position": 1,
+            "name": "Home",
+            "item": "https://www.sprocoder.online/"
+          },
+          {
+            "@type": "ListItem",
+            "position": 2,
+            "name": options.category || "Articles",
+            "item": `https://www.sprocoder.online/category/${slugify(options.category || "articles")}`
+          },
+          {
+            "@type": "ListItem",
+            "position": 3,
+            "name": options.title || "Article",
+            "item": canonicalUrl
+          }
+        ]
       }
+    ];
+
+    if (options.faqs && options.faqs.length > 0) {
+      schemas.push({
+        "@context": "https://schema.org",
+        "@type": "FAQPage",
+        "mainEntity": options.faqs.map(faq => ({
+          "@type": "Question",
+          "name": faq.question,
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": faq.answer
+          }
+        }))
+      });
+    }
+
+    jsonLdTag.textContent = JSON.stringify(schemas);
+  } else if (options.type === "profile") {
+    const personSchema = {
+      "@context": "https://schema.org",
+      "@type": "Person",
+      "name": "Shanawar Ali",
+      "url": "https://www.sprocoder.online/author/shanawar-ali",
+      "jobTitle": "Founder & Lead Developer",
+      "worksFor": publisherObject,
+      "description": description,
+      "sameAs": [
+        "https://www.sprocoder.online",
+        "https://github.com"
+      ]
     };
-    jsonLdTag.textContent = JSON.stringify(articleSchema);
+    jsonLdTag.textContent = JSON.stringify(personSchema);
   } else {
     const websiteSchema = {
       "@context": "https://schema.org",
       "@type": "WebSite",
-      "name": "S pro coder",
+      "name": "S Pro Coder",
       "url": "https://www.sprocoder.online/",
       "description": description,
-      "publisher": {
-        "@type": "Organization",
-        "name": "S pro coder"
+      "publisher": publisherObject,
+      "potentialAction": {
+        "@type": "SearchAction",
+        "target": "https://www.sprocoder.online/?q={search_term_string}",
+        "query-input": "required name=search_term_string"
       }
     };
     jsonLdTag.textContent = JSON.stringify(websiteSchema);
   }
 }
+

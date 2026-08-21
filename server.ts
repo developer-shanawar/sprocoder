@@ -1821,9 +1821,43 @@ function escapeHtml(str: string): string {
     .replace(/'/g, "&#039;");
 }
 
-// Helper to inject bespoke SEO meta tags & structured data per article
+// Helper to inject bespoke SEO meta tags & structured data per article & core pages
 async function injectArticleSeo(template: string, urlPath: string): Promise<string> {
-  const isPostRoute = urlPath.startsWith("/blog/") || urlPath.startsWith("/articles/");
+  if (urlPath === "/author" || urlPath.startsWith("/author/")) {
+    let modified = template;
+    const authorTitle = "Shanawar Ali - Founder & Lead Developer | S Pro Coder";
+    const authorDesc = "Shanawar Ali is the Founder & Lead Developer at S Pro Coder, specializing in full-stack web development, AI engineering, cloud computing, and developer education.";
+    const authorUrl = "https://www.sprocoder.online/author/shanawar-ali";
+    
+    modified = modified.replace(/<title>.*?<\/title>/gi, `<title>${escapeHtml(authorTitle)}</title>`);
+    modified = modified.replace(/<meta\s+name="description"\s+content=".*?"\s*\/?>/gi, `<meta name="description" content="${escapeHtml(authorDesc)}" />`);
+    modified = modified.replace(/<meta\s+property="og:title"\s+content=".*?"\s*\/?>/gi, `<meta property="og:title" content="${escapeHtml(authorTitle)}" />`);
+    modified = modified.replace(/<meta\s+property="og:description"\s+content=".*?"\s*\/?>/gi, `<meta property="og:description" content="${escapeHtml(authorDesc)}" />`);
+    modified = modified.replace(/<meta\s+property="og:url"\s+content=".*?"\s*\/?>/gi, `<meta property="og:url" content="${authorUrl}" />`);
+    modified = modified.replace(/<meta\s+name="twitter:title"\s+content=".*?"\s*\/?>/gi, `<meta name="twitter:title" content="${escapeHtml(authorTitle)}" />`);
+    modified = modified.replace(/<meta\s+name="twitter:description"\s+content=".*?"\s*\/?>/gi, `<meta name="twitter:description" content="${escapeHtml(authorDesc)}" />`);
+    modified = modified.replace(/<link\s+rel="canonical"\s+href=".*?"\s*\/?>/gi, `<link rel="canonical" href="${authorUrl}" />`);
+    return modified;
+  }
+
+  if (urlPath === "/editorial-policy" || urlPath === "/editorial") {
+    let modified = template;
+    const editTitle = "Editorial Guidelines & Fact-Checking Policy | S Pro Coder";
+    const editDesc = "Learn about S Pro Coder's editorial principles, rigorous code verification workflows, AI content standards, fact-checking processes, and affiliate transparency.";
+    const editUrl = "https://www.sprocoder.online/editorial-policy";
+
+    modified = modified.replace(/<title>.*?<\/title>/gi, `<title>${escapeHtml(editTitle)}</title>`);
+    modified = modified.replace(/<meta\s+name="description"\s+content=".*?"\s*\/?>/gi, `<meta name="description" content="${escapeHtml(editDesc)}" />`);
+    modified = modified.replace(/<meta\s+property="og:title"\s+content=".*?"\s*\/?>/gi, `<meta property="og:title" content="${escapeHtml(editTitle)}" />`);
+    modified = modified.replace(/<meta\s+property="og:description"\s+content=".*?"\s*\/?>/gi, `<meta property="og:description" content="${escapeHtml(editDesc)}" />`);
+    modified = modified.replace(/<meta\s+property="og:url"\s+content=".*?"\s*\/?>/gi, `<meta property="og:url" content="${editUrl}" />`);
+    modified = modified.replace(/<meta\s+name="twitter:title"\s+content=".*?"\s*\/?>/gi, `<meta name="twitter:title" content="${escapeHtml(editTitle)}" />`);
+    modified = modified.replace(/<meta\s+name="twitter:description"\s+content=".*?"\s*\/?>/gi, `<meta name="twitter:description" content="${escapeHtml(editDesc)}" />`);
+    modified = modified.replace(/<link\s+rel="canonical"\s+href=".*?"\s*\/?>/gi, `<link rel="canonical" href="${editUrl}" />`);
+    return modified;
+  }
+
+  const isPostRoute = urlPath.startsWith("/blog/") || urlPath.startsWith("/articles/") || urlPath.startsWith("/post/") || urlPath.startsWith("/p/");
   if (!isPostRoute) return template;
 
   const rawSlug = urlPath.split("/").pop() || "";
@@ -2089,8 +2123,10 @@ async function generateSitemapXml(): Promise<string> {
   const staticPages = [
     { path: "", priority: "1.0", changefreq: "daily" },
     { path: "courses", priority: "0.9", changefreq: "daily" },
-    { path: "about", priority: "0.8", changefreq: "monthly" },
+    { path: "about-us", priority: "0.8", changefreq: "monthly" },
     { path: "contact", priority: "0.8", changefreq: "monthly" },
+    { path: "author/shanawar-ali", priority: "0.8", changefreq: "weekly" },
+    { path: "editorial-policy", priority: "0.7", changefreq: "monthly" },
     { path: "privacy-policy", priority: "0.5", changefreq: "monthly" },
     { path: "disclaimer", priority: "0.5", changefreq: "monthly" },
     { path: "terms-and-conditions", priority: "0.5", changefreq: "monthly" },

@@ -12,8 +12,8 @@ import { motion, AnimatePresence } from "motion/react";
 import { initUserSectionSession, clearSectionSession } from "../utils/sessionManager";
 
 interface HeaderProps {
-  currentTab: "home" | "articles" | "courses" | "about" | "privacy" | "terms" | "contact" | "admin-auth" | "admin" | "profile" | "disclaimer" | "register" | "login";
-  setCurrentTab: (tab: "home" | "articles" | "courses" | "about" | "privacy" | "terms" | "contact" | "admin-auth" | "admin" | "profile" | "disclaimer" | "register" | "login") => void;
+  currentTab: string;
+  setCurrentTab: (tab: any) => void;
   currentUser: UserAccount | null;
   setCurrentUser: (user: UserAccount | null) => void;
   onOpenAdmin: () => void;

@@ -4,8 +4,8 @@ import { db } from "../firebase";
 import { ref, onValue } from "firebase/database";
 
 interface FooterProps {
-  currentTab: "home" | "articles" | "courses" | "about" | "privacy" | "terms" | "contact" | "admin-auth" | "admin" | "profile" | "disclaimer" | "register" | "login";
-  setCurrentTab: (tab: "home" | "articles" | "courses" | "about" | "privacy" | "terms" | "contact" | "admin-auth" | "admin" | "profile" | "disclaimer" | "register" | "login") => void;
+  currentTab: string;
+  setCurrentTab: (tab: any) => void;
   isAdminAuthenticated: boolean;
   websiteIconUrl?: string;
   showWebsiteIcon?: boolean;
@@ -143,6 +143,7 @@ export default function Footer({
                     onClick={(e) => {
                       e.preventDefault();
                       setCurrentTab(tab);
+                      window.history.pushState(null, "", tab === "home" ? "/" : tab === "articles" ? "/blog" : tab === "about" ? "/about-us" : "/contact-us");
                       window.scrollTo({ top: 0, behavior: "smooth" });
                     }}
                     className={`text-slate-300 hover:text-white capitalize transition-all cursor-pointer inline-block ${
@@ -153,6 +154,22 @@ export default function Footer({
                   </a>
                 </li>
               ))}
+              <li>
+                <a
+                  href="/author/shanawar-ali"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    setCurrentTab("author");
+                    window.history.pushState(null, "", "/author/shanawar-ali");
+                    window.scrollTo({ top: 0, behavior: "smooth" });
+                  }}
+                  className={`text-slate-300 hover:text-white transition-all cursor-pointer inline-block ${
+                    currentTab === "author" ? "text-purple-400 font-bold" : ""
+                  }`}
+                >
+                  Founder: Shanawar Ali
+                </a>
+              </li>
             </ul>
           </div>
 
@@ -198,6 +215,7 @@ export default function Footer({
                   onClick={(e) => {
                     e.preventDefault();
                     setCurrentTab("disclaimer");
+                    window.history.pushState(null, "", "/disclaimer");
                     window.scrollTo({ top: 0, behavior: "smooth" });
                   }} 
                   className={`text-slate-300 hover:text-white transition-all text-left block cursor-pointer ${
@@ -205,6 +223,22 @@ export default function Footer({
                   }`}
                 >
                   Legal Disclaimer
+                </a>
+              </li>
+              <li>
+                <a 
+                  href="/editorial-policy"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    setCurrentTab("editorial-policy");
+                    window.history.pushState(null, "", "/editorial-policy");
+                    window.scrollTo({ top: 0, behavior: "smooth" });
+                  }} 
+                  className={`text-slate-300 hover:text-white transition-all text-left block cursor-pointer ${
+                    currentTab === "editorial-policy" ? "text-purple-400 font-bold font-mono" : ""
+                  }`}
+                >
+                  Editorial & Review Policy
                 </a>
               </li>
             </ul>

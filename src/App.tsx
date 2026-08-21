@@ -26,6 +26,9 @@ import UserProfile from "./components/UserProfile";
 import CoursesView from "./components/CoursesView";
 import RegistrationPage from "./components/RegistrationPage";
 import AdRenderer from "./components/AdRenderer";
+import AuthorProfilePage from "./components/AuthorProfilePage";
+import EditorialPolicyPage from "./components/EditorialPolicyPage";
+import NotFoundPage from "./components/NotFoundPage";
 
 const LoadingSpinner = () => (
   <div className="flex justify-center items-center py-16">
@@ -107,7 +110,7 @@ export const slugify = (text: any): string => {
 
 export default function App() {
   // Navigation tabs initialized from window.location.pathname dynamically
-  const [currentTab, setCurrentTab] = useState<"home" | "articles" | "about" | "privacy" | "terms" | "contact" | "admin-auth" | "admin" | "profile" | "disclaimer" | "courses" | "register" | "login">(() => {
+  const [currentTab, setCurrentTab] = useState<"home" | "articles" | "about" | "privacy" | "terms" | "contact" | "admin-auth" | "admin" | "profile" | "disclaimer" | "courses" | "register" | "login" | "author" | "author-profile" | "editorial-policy" | "editorial" | "404" | "not-found">(() => {
     if (typeof window === "undefined") return "home";
     const rawPath = window.location.pathname;
     const path = rawPath.replace(/\.html$/, "");
@@ -536,6 +539,23 @@ export default function App() {
     } else if (path === "/admin") {
       setCurrentTab("admin");
       setSelectedPost(null);
+    } else if (path === "/author/shanawar-ali" || path === "/author" || path.startsWith("/author/")) {
+      setCurrentTab("author");
+      setSelectedPost(null);
+    } else if (path === "/editorial-policy" || path === "/editorial" || path === "/editorial-standards") {
+      setCurrentTab("editorial-policy");
+      setSelectedPost(null);
+    } else if (path.startsWith("/category/")) {
+      const catSlug = path.replace("/category/", "").trim().toLowerCase();
+      const matchedCat = categories.find(c => slugify(c) === catSlug || c.toLowerCase() === catSlug);
+      if (matchedCat) {
+        setSelectedCategory(matchedCat);
+      }
+      setCurrentTab("articles");
+      setSelectedPost(null);
+    } else if (path === "/not-found" || path === "/404") {
+      setCurrentTab("404");
+      setSelectedPost(null);
     } else if (
       path.startsWith("/blog/") || 
       path.startsWith("/articles/") || 
@@ -558,9 +578,14 @@ export default function App() {
           incrementArticleView(matched.id, matched.views || 0, matched.articleViews || 0);
         }
       } else {
-        setCurrentTab("articles");
+        // If post not found, show 404
+        setCurrentTab("404");
         setSelectedPost(null);
       }
+    } else if (path !== "/") {
+      // Unrecognized route -> 404
+      setCurrentTab("404");
+      setSelectedPost(null);
     }
   };
 
@@ -2098,6 +2123,20 @@ export default function App() {
               setCurrentTab("home");
               window.history.pushState(null, "", "/");
             }}
+            onNavigateAuthor={() => {
+              setSelectedPost(null);
+              setActiveCourseContext(null);
+              setCurrentTab("author");
+              window.history.pushState(null, "", "/author/shanawar-ali");
+              window.scrollTo({ top: 0, behavior: "smooth" });
+            }}
+            onNavigateEditorial={() => {
+              setSelectedPost(null);
+              setActiveCourseContext(null);
+              setCurrentTab("editorial-policy");
+              window.history.pushState(null, "", "/editorial-policy");
+              window.scrollTo({ top: 0, behavior: "smooth" });
+            }}
           />
         ) : (
           <>
@@ -2808,6 +2847,58 @@ export default function App() {
               </button>
             </div>
           )
+        )}
+
+        {/* VIEW 7: AUTHOR PROFILE PAGE (E-E-A-T) */}
+        {(currentTab === "author" || currentTab === "author-profile") && (
+          <AuthorProfilePage 
+            allPosts={allPosts}
+            onSelectPost={(post) => handleSelectPost(post)}
+            onNavigateHome={() => {
+              setCurrentTab("home");
+              window.history.pushState(null, "", "/");
+              window.scrollTo({ top: 0, behavior: "smooth" });
+            }}
+          />
+        )}
+
+        {/* VIEW 8: EDITORIAL & PEER REVIEW POLICY (AdSense Compliance) */}
+        {(currentTab === "editorial-policy" || currentTab === "editorial") && (
+          <EditorialPolicyPage 
+            onNavigateHome={() => {
+              setCurrentTab("home");
+              window.history.pushState(null, "", "/");
+              window.scrollTo({ top: 0, behavior: "smooth" });
+            }}
+            onNavigateContact={() => {
+              setCurrentTab("contact");
+              window.history.pushState(null, "", "/contact");
+              window.scrollTo({ top: 0, behavior: "smooth" });
+            }}
+          />
+        )}
+
+        {/* VIEW 9: 404 NOT FOUND PAGE */}
+        {(currentTab === "404" || currentTab === "not-found") && (
+          <NotFoundPage 
+            allPosts={allPosts}
+            onSelectPost={(post) => handleSelectPost(post)}
+            onNavigateHome={() => {
+              setCurrentTab("home");
+              window.history.pushState(null, "", "/");
+              window.scrollTo({ top: 0, behavior: "smooth" });
+            }}
+            onNavigateArticles={() => {
+              setCurrentTab("articles");
+              window.history.pushState(null, "", "/articles");
+              window.scrollTo({ top: 0, behavior: "smooth" });
+            }}
+            onNavigateCourses={() => {
+              setCurrentTab("courses");
+              window.history.pushState(null, "", "/courses");
+              window.scrollTo({ top: 0, behavior: "smooth" });
+            }}
+          />
         )}
 
           </>
