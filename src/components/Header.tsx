@@ -8,7 +8,6 @@ import { ref, set, get, update, push, onValue } from "firebase/database";
 import { signInWithEmailAndPassword, createUserWithEmailAndPassword, signInWithPopup, GoogleAuthProvider } from "firebase/auth";
 import { BlogPost, UserAccount, NotificationItem } from "../types";
 import AuthModal from "./AuthModal";
-import TomatoIcon from "./TomatoIcon";
 import { motion, AnimatePresence } from "motion/react";
 import { initUserSectionSession, clearSectionSession } from "../utils/sessionManager";
 
@@ -319,11 +318,10 @@ export default function Header({
           ) : (
             <InstantLogoMini size={36} />
           ))}
-          <div className="text-left flex items-center gap-1.5">
+          <div className="text-left">
             <h1 className="font-sans font-black text-purple-950 text-sm md:text-base tracking-tight leading-none">
               S pro coder
             </h1>
-            <TomatoIcon className="w-4 h-4 text-rose-500" size={16} />
           </div>
         </div>
 
@@ -608,7 +606,7 @@ export default function Header({
                 id="auth-register-btn"
                 title="Create an Account"
               >
-                <TomatoIcon className="w-3.5 h-3.5" size={14} />
+                <UserPlus className="w-3.5 h-3.5" />
                 <span>Register</span>
               </button>
             </div>
@@ -649,7 +647,7 @@ export default function Header({
               <div className="space-y-5">
                 <div className="flex items-center justify-between border-b border-purple-100 pb-3">
                   <div className="flex items-center gap-2">
-                    <TomatoIcon className="w-4 h-4" size={16} />
+                    <User className="w-4 h-4 text-purple-600" />
                     <h3 className="font-sans font-black text-purple-950 text-xs uppercase tracking-wider">Navigation</h3>
                   </div>
                   <button onClick={() => setIsMobileMenuOpen(false)} className="p-1 rounded-full hover:bg-purple-100 text-purple-950">
@@ -682,7 +680,7 @@ export default function Header({
                         className="w-full py-2 px-2 rounded-xl bg-purple-600 hover:bg-purple-700 text-white text-xs font-bold flex items-center justify-center gap-1.5 cursor-pointer transition-all shadow-sm"
                         id="mobile-drawer-register-btn"
                       >
-                        <TomatoIcon className="w-3.5 h-3.5" size={14} />
+                        <UserPlus className="w-3.5 h-3.5" />
                         <span>Register</span>
                       </button>
                     </div>

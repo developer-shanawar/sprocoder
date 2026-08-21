@@ -2388,10 +2388,6 @@ export default function App() {
                               <Heart className="w-3.5 h-3.5 text-rose-500 fill-rose-500/10" />
                               <span>{Math.round(Number(post.likes) || 0)}</span>
                             </span>
-                            <span className="flex items-center gap-0.5 text-[10px] font-bold text-gray-500">
-                              <Bookmark className="w-3.5 h-3.5 text-purple-600 fill-purple-600/10" />
-                              <span>{Math.round(Number(post.savesCount) || 0)}</span>
-                            </span>
                             <span className="flex items-center gap-0.5 text-[10px] font-bold text-gray-500" title="Views">
                               <Eye className="w-3.5 h-3.5 text-purple-500" />
                               <span>{Math.round(Number(post.views) || 0)}</span>
@@ -2561,10 +2557,6 @@ export default function App() {
                         <span className="flex items-center gap-0.5">
                           <Heart className="w-3.5 h-3.5 text-rose-500 fill-rose-500/10" />
                           <span>{Math.round(Number(post.likes) || 0)}</span>
-                        </span>
-                        <span className="flex items-center gap-0.5">
-                          <Bookmark className="w-3.5 h-3.5 text-purple-600 fill-purple-600/10" />
-                          <span>{Math.round(Number(post.savesCount) || 0)}</span>
                         </span>
                       </div>
                     </div>
